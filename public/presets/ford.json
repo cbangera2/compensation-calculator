@@ -1,0 +1,12 @@
+{
+  "name": "Ford",
+  "currency": "USD",
+  "startDate": "2025-01-01",
+  "base": { "startAnnual": 94008 },
+  "raises": [],
+  "performanceBonus": { "kind": "fixed", "value": 3048, "expectedPayout": 1 },
+  "signingBonuses": [ { "amount": 10000, "payDate": "2025-01-01" } ],
+  "equityGrants": [],
+  "growth": { "startingPrice": 30, "yoy": [0, 0, 0, 0] },
+  "assumptions": { "horizonYears": 4 }
+}

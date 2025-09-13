@@ -1,0 +1,21 @@
+{
+  "name": "StartupCo",
+  "currency": "USD",
+  "startDate": "2025-01-01",
+  "base": { "startAnnual": 130000 },
+  "raises": [],
+  "performanceBonus": { "kind": "percent", "value": 0.07, "expectedPayout": 1 },
+  "signingBonuses": [],
+  "equityGrants": [
+    {
+      "type": "RSU",
+      "shares": 0,
+      "fmv": 10,
+      "targetValue": 120000,
+      "targetMode": "total",
+      "vesting": { "model": "standard", "years": 4, "cliffMonths": 12, "frequency": "monthly" }
+    }
+  ],
+  "growth": { "startingPrice": 10, "yoy": [0, 0, 0, 0] },
+  "assumptions": { "horizonYears": 4 }
+}

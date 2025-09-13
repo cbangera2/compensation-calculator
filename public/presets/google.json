@@ -1,0 +1,45 @@
+{
+  "name": "Google",
+  "currency": "USD",
+  "startDate": "2025-01-01",
+  "base": { "startAnnual": 158000 },
+  "raises": [],
+  "performanceBonus": { "kind": "fixed", "value": 33750, "expectedPayout": 1 },
+  "signingBonuses": [ { "amount": 15000, "payDate": "2025-01-01" } ],
+  "equityGrants": [
+    {
+      "type": "RSU",
+      "shares": 0,
+      "fmv": 100,
+      "targetValue": 38000,
+      "targetMode": "year1",
+      "vesting": { "model": "standard", "years": 4, "cliffMonths": 12, "frequency": "monthly", "distribution": "frontloaded" }
+    },
+    {
+      "type": "RSU",
+      "shares": 0,
+      "fmv": 100,
+      "targetValue": 32000,
+      "targetMode": "year1",
+      "vesting": { "model": "standard", "years": 4, "cliffMonths": 12, "frequency": "monthly", "distribution": "frontloaded", "grantStartDate": "2026-01-01" }
+    },
+    {
+      "type": "RSU",
+      "shares": 0,
+      "fmv": 100,
+      "targetValue": 20000,
+      "targetMode": "year1",
+      "vesting": { "model": "standard", "years": 4, "cliffMonths": 12, "frequency": "monthly", "distribution": "frontloaded", "grantStartDate": "2027-01-01" }
+    },
+    {
+      "type": "RSU",
+      "shares": 0,
+      "fmv": 100,
+      "targetValue": 10000,
+      "targetMode": "year1",
+      "vesting": { "model": "standard", "years": 4, "cliffMonths": 12, "frequency": "monthly", "distribution": "frontloaded", "grantStartDate": "2028-01-01" }
+    }
+  ],
+  "growth": { "startingPrice": 100, "yoy": [0, 0, 0, 0] },
+  "assumptions": { "horizonYears": 4 }
+}
