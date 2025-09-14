@@ -44,9 +44,9 @@ export default function MultiOfferBar() {
   async function importAllPresets() {
     try {
       const [g, f, s] = await Promise.all([
-        fetch('/presets/google.json').then(r => r.json()),
-        fetch('/presets/ford.json').then(r => r.json()),
-        fetch('/presets/startup.json').then(r => r.json()),
+        fetch('./presets/google.json').then(r => r.json()),
+        fetch('./presets/ford.json').then(r => r.json()),
+        fetch('./presets/startup.json').then(r => r.json()),
       ]);
       addOffer(g); addOffer(f); addOffer(s);
       // Optionally, add a blank too

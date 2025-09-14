@@ -1,6 +1,6 @@
 ## CompCalc Web
 
-Model and compare compensation packages over time. Enter offers and assumptions (base, bonus, equity grants/vesting, raises, cost of living) to project total compensation, visualize equity value, and compare scenarios side‑by‑side. Data is stored locally in your browser.
+Model and compare compensation packages over time. Enter offers and assumptions (base, bonus, equity grants/vesting, raises, cost of living) to project total compensation, visualize equity value, and compare scenarios side‑by‑side. Data is stored locally in your browser. https://cbangera2.github.io/compensation-calculator/
 
 Next.js app (App Router) with React 19, Tailwind CSS 4, and Vitest.
 <img width="1496" height="857" alt="image" src="https://github.com/user-attachments/assets/bac86236-1886-40ba-ba79-881e02637a36" />
