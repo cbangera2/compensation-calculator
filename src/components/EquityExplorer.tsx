@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useStore } from '@/state/store';
@@ -28,14 +28,14 @@ export default function EquityExplorer() {
   const growthPct = currentPrice > 0 ? ((targetPrice / currentPrice) - 1) * 100 : 0;
   const sliderValue = isFinite(growthPct) ? Math.max(-90, Math.min(500, Math.round(growthPct))) : 0;
 
-  const rowsAt = (p: number) => {
+  const rowsAt = useCallback((p: number) => {
     const clone = JSON.parse(JSON.stringify(offer));
     clone.growth = { ...(offer.growth ?? { yoy: [0,0,0,0] }), startingPrice: Math.max(0.01, p) };
     return computeOffer(clone);
-  };
+  }, [offer]);
 
-  const rowsCurrent = useMemo(() => rowsAt(currentPrice), [offer, currentPrice]);
-  const rowsTarget = useMemo(() => rowsAt(targetPrice), [offer, targetPrice]);
+  const rowsCurrent = useMemo(() => rowsAt(currentPrice), [rowsAt, currentPrice]);
+  const rowsTarget = useMemo(() => rowsAt(targetPrice), [rowsAt, targetPrice]);
   const growthRatio = currentPrice > 0 ? (targetPrice / currentPrice) : 1;
   const rowsTargetDisplay = useMemo(() => {
     if (mode === 'multiplier') {

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectSeparator } from '@/components/ui/select';
 
 export default function MultiOfferBar() {
-  const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer, setOffers } = useStore();
+  const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer } = useStore();
   const [presetKey, setPresetKey] = useState<string | undefined>(undefined);
   const [levelsUrl, setLevelsUrl] = useState('');
 

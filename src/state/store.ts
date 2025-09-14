@@ -34,23 +34,49 @@ const initialOffer: TOffer = {
   name: 'DemoCo',
   currency: 'USD',
   startDate: '2025-01-01',
-  base: { startAnnual: 120000 },
+  base: { startAnnual: 110000 },
   raises: [
-    { effectiveDate: '2026-06-01', type: 'percent', value: 0.05 },
+    { effectiveDate: '2026-06-01', type: 'percent', value: 0.05 }
   ],
-  equityGrants: [],
-  performanceBonus: { kind: 'percent', value: 0.1, expectedPayout: 1 },
+  equityGrants: [
+    {
+      type: 'RSU',
+      shares: 40000,
+      vesting: {
+        model: 'standard',
+        years: 4,
+        cliffMonths: 12,
+        frequency: 'monthly',
+        distribution: 'even',
+        cliffPercent: 0.25
+      },
+      grantStartDate: '2025-01-01',
+      targetValue: 15000
+    }
+  ],
+  performanceBonus: { kind: 'percent', value: 0.08, expectedPayout: 1 },
   growth: { startingPrice: 100, yoy: [0, 0, 0, 0] },
-  signingBonuses: [],
-  relocationBonuses: [],
-  benefits: [],
+  signingBonuses: [
+    { amount: 5000, payDate: '2025-01-01' }
+  ],
+  relocationBonuses: [
+    { amount: 7500, payDate: '2025-01-01' }
+  ],
+  benefits: [
+    { name: 'Free dinner', annualValue: 2600, enabled: false },
+    { name: 'Free lunch', annualValue: 2600, enabled: false },
+    { name: 'Free breakfast', annualValue: 2600, enabled: false },
+    { name: 'HSA', annualValue: 1000, enabled: true },
+    { name: 'Learning stipend', annualValue: 1500, enabled: true },
+    { name: 'Gym stipend', annualValue: 1200, enabled: true }
+  ],
   miscRecurring: [],
   assumptions: { horizonYears: 4, colAdjust: 1 },
 };
 
 export const useStore = create<State>()(
   persist(
-    (set, get) => ({
+  (set) => ({
       offer: initialOffer,
       offers: [initialOffer],
       activeIndex: 0,
@@ -153,7 +179,7 @@ export const useStore = create<State>()(
         return { offer: nextOffer, offers, past: [...state.past, state.offer], future: [] };
       }),
       undo: () => set((state) => {
-        if (state.past.length === 0) return {} as any;
+        if (state.past.length === 0) return state;
         const prev = state.past[state.past.length - 1];
         const past = state.past.slice(0, -1);
         const future = [state.offer, ...state.future];
@@ -161,7 +187,7 @@ export const useStore = create<State>()(
         return { offer: prev, offers, past, future };
       }),
       redo: () => set((state) => {
-        if (state.future.length === 0) return {} as any;
+        if (state.future.length === 0) return state;
         const next = state.future[0];
         const future = state.future.slice(1);
         const past = [...state.past, state.offer];

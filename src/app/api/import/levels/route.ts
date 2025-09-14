@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import type { TEquityGrant } from '@/models/types';
 
 // Minimal offer shape used here; rely on client to reconcile fields
 export async function POST(req: NextRequest) {
@@ -141,7 +142,7 @@ export async function POST(req: NextRequest) {
 
     // Construct a minimal offer using our schema defaults
     const today = new Date().toISOString().slice(0,10);
-    const buildMilestoneVesting = () => {
+  const buildMilestoneVesting = () => {
       if (!vestingFractions || vestingFractions.length === 0) return undefined;
       // Map Y1..Y4 to months 12,24,36,48 as fractions; engine will scale to total shares
       const steps = vestingFractions.map((f, idx) => ({ monthsFromStart: (idx + 1) * 12, fraction: f }));
@@ -154,7 +155,7 @@ export async function POST(req: NextRequest) {
       base: { startAnnual: base || 0 },
       raises: [],
       equityGrants: (() => {
-        const grants: any[] = [];
+        const grants: TEquityGrant[] = [];
         // If we have options info, create an Option grant (default NSO), otherwise if we have equityTotal, create an RSU target grant
     if (optionsGranted > 0) {
           grants.push({
@@ -162,7 +163,7 @@ export async function POST(req: NextRequest) {
             shares: optionsGranted,
             strike: strikePrice || undefined,
             fmv: preferredPrice || 10,
-            vesting: buildMilestoneVesting() ?? { model: 'standard', years: 4, cliffMonths: 12, frequency: 'monthly', distribution: 'frontloaded' },
+            vesting: buildMilestoneVesting() ?? { model: 'standard', years: 4, cliffMonths: 12, frequency: 'monthly', distribution: 'frontloaded', cliffPercent: 0.25 },
           });
         } else if (equityTotal > 0) {
           grants.push({
@@ -171,7 +172,7 @@ export async function POST(req: NextRequest) {
             fmv: preferredPrice || 10,
             targetValue: equityTotal,
             targetMode: 'total',
-            vesting: buildMilestoneVesting() ?? { model: 'standard', years: 4, cliffMonths: 12, frequency: 'monthly', distribution: 'frontloaded' },
+            vesting: buildMilestoneVesting() ?? { model: 'standard', years: 4, cliffMonths: 12, frequency: 'monthly', distribution: 'frontloaded', cliffPercent: 0.25 },
           });
         }
         return grants;
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest) {
     };
 
     return new Response(JSON.stringify({ offer }), { status: 200, headers: { 'content-type': 'application/json' } });
-  } catch (e) {
+  } catch {
     return new Response(JSON.stringify({ error: 'Import failed' }), { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useStore } from '@/state/store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -159,7 +159,7 @@ export default function OfferForm() {
                     const years = 4;
                     const ensureGrant = (patch: { targetValue?: number; targetMode?: 'year1'|'total' }) => {
                       if (idx >= 0) {
-                        updateGrant(idx, patch as any);
+                        updateGrant(idx, patch);
                       } else {
                         addGrant({
                           type: 'RSU',
@@ -167,8 +167,8 @@ export default function OfferForm() {
                           fmv: startingPrice,
                           targetValue: (patch.targetValue as number) ?? 40000,
                           targetMode: (patch.targetMode as 'year1'|'total') ?? 'year1',
-                          vesting: { model: 'standard', years, cliffMonths: 12, frequency: 'monthly' },
-                        } as any);
+                          vesting: { model: 'standard', years, cliffMonths: 12, frequency: 'monthly', distribution: 'even', cliffPercent: 0 },
+                        });
                       }
                     };
                     return (
@@ -184,7 +184,7 @@ export default function OfferForm() {
                         <select
                           className="border rounded px-2 py-2"
                           value={rsu?.targetMode ?? 'year1'}
-                          onChange={(e) => ensureGrant({ targetMode: e.target.value as any })}
+                          onChange={(e) => ensureGrant({ targetMode: e.target.value as 'year1' | 'total' })}
                         >
                           <option value="year1">1st year value</option>
                           <option value="total">4-year total</option>
@@ -283,6 +283,8 @@ export default function OfferForm() {
                   { name: 'Free dinner', annualValue: 2600 },
                   { name: 'Gym stipend', annualValue: 1200 },
                   { name: 'Learning stipend', annualValue: 1500 },
+                  { name: 'Tuition', annualValue: 1500 },
+                  { name: 'HSA', annualValue: 1000 },
                   { name: 'Other stipend', annualValue: 1500 },
                 ].map((p) => {
                   const benefits = offer.benefits ?? [];

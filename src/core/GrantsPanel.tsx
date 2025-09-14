@@ -39,8 +39,8 @@ export default function GrantsPanel() {
       vesting: { model: 'standard', years: refYears, cliffMonths: Math.min(6, refYears * 12), frequency: 'monthly', distribution: 'even', cliffPercent: 0 } as TVestingSchedule,
       grantStartDate: startDate,
     } as const;
-    const grant = type === 'NSO' ? { ...baseGrant, strike: price } : baseGrant;
-    addGrant(grant as any);
+  const grant = type === 'NSO' ? { ...baseGrant, strike: price } : baseGrant;
+  addGrant(grant);
   }
 
   function impliedSharesForGrant(offer: TOffer, grant: TEquityGrant): number {
@@ -138,7 +138,8 @@ export default function GrantsPanel() {
             </div>
           )}
           {grants.map((g, i) => {
-            const impliedShares = useMemo(() => Math.round(impliedSharesForGrant(offer, g)), [offer, g]);
+            // Hooks cannot be called inside map callbacks conditionally; compute directly.
+            const impliedShares = Math.round(impliedSharesForGrant(offer, g));
             const isOpen = !!openAdvanced[i];
             return (
               <div key={i} className="border rounded p-3 space-y-3">

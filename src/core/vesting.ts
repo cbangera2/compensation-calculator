@@ -8,6 +8,9 @@ export function expandVesting(
   grantStartDate: string,
   totalShares: number
 ): Tranche[] {
+  if (!schedule || typeof schedule !== 'object' || !('model' in schedule)) {
+    throw new TypeError('Invalid vesting schedule: expected an object with a model property');
+  }
   if (schedule.model === 'explicit') {
   // If the provided tranches represent fractions (e.g., 0.38, 0.32, ...),
   // scale them to sum to totalShares. If they already look like shares,

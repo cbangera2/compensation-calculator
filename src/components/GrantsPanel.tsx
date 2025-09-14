@@ -39,8 +39,8 @@ export default function GrantsPanel() {
       vesting: { model: 'standard', years: refYears, cliffMonths: Math.min(6, refYears * 12), frequency: 'monthly', distribution: 'even', cliffPercent: 0 } as TVestingSchedule,
       grantStartDate: startDate,
     } as const;
-    const grant = type === 'NSO' ? { ...baseGrant, strike: price } : baseGrant;
-    addGrant(grant as any);
+  const grant = type === 'NSO' ? { ...baseGrant, strike: price } : baseGrant;
+  addGrant(grant);
   }
 
   function defaultStandardSchedule(): TVestingSchedule {
