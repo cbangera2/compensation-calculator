@@ -3,6 +3,10 @@
 Model and compare compensation packages over time. Enter offers and assumptions (base, bonus, equity grants/vesting, raises, cost of living) to project total compensation, visualize equity value, and compare scenarios side‑by‑side. Data is stored locally in your browser.
 
 Next.js app (App Router) with React 19, Tailwind CSS 4, and Vitest.
+<img width="1496" height="857" alt="image" src="https://github.com/user-attachments/assets/bac86236-1886-40ba-ba79-881e02637a36" />
+<img width="1497" height="540" alt="image" src="https://github.com/user-attachments/assets/af6eb278-fa27-4aa2-ba5e-21cfa9595467" />
+
+<img width="1510" height="833" alt="image" src="https://github.com/user-attachments/assets/e7d0bbe9-df74-4b0e-9812-560b2a94c0a2" />
 
 ### Requirements
 - Node.js 18+ (recommended LTS)
