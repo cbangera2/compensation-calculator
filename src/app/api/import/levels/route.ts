@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
             shares: optionsGranted,
             strike: strikePrice || undefined,
             fmv: preferredPrice || 10,
-            vesting: buildMilestoneVesting() ?? { model: 'standard', years: 4, cliffMonths: 12, frequency: 'monthly', distribution: 'frontloaded', cliffPercent: 0.25 },
+            vesting: buildMilestoneVesting() ?? { model: 'standard', years: 4, cliffMonths: 12, frequency: 'monthly', distribution: 'frontloaded', cliffPercent: 0 },
           });
         } else if (equityTotal > 0) {
           grants.push({
@@ -172,7 +172,7 @@ export async function POST(req: NextRequest) {
             fmv: preferredPrice || 10,
             targetValue: equityTotal,
             targetMode: 'total',
-            vesting: buildMilestoneVesting() ?? { model: 'standard', years: 4, cliffMonths: 12, frequency: 'monthly', distribution: 'frontloaded', cliffPercent: 0.25 },
+            vesting: buildMilestoneVesting() ?? { model: 'standard', years: 4, cliffMonths: 12, frequency: 'monthly', distribution: 'frontloaded', cliffPercent: 0 },
           });
         }
         return grants;

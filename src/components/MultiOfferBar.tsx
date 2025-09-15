@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectSeparator } from '@/components/ui/select';
 
 export default function MultiOfferBar() {
-  const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer } = useStore();
+  const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer, resetAll } = useStore();
   const [presetKey, setPresetKey] = useState<string | undefined>(undefined);
   const [levelsUrl, setLevelsUrl] = useState('');
 
@@ -44,9 +44,9 @@ export default function MultiOfferBar() {
   async function importAllPresets() {
     try {
       const [g, f, s] = await Promise.all([
-        fetch('./presets/google.json').then(r => r.json()),
-        fetch('./presets/ford.json').then(r => r.json()),
-        fetch('./presets/startup.json').then(r => r.json()),
+  fetch('presets/google.json').then(r => r.json()),
+  fetch('presets/ford.json').then(r => r.json()),
+  fetch('presets/startup.json').then(r => r.json()),
       ]);
       addOffer(g); addOffer(f); addOffer(s);
       // Optionally, add a blank too
@@ -77,6 +77,7 @@ export default function MultiOfferBar() {
         <Button type="button" size="sm" variant="destructive" onClick={() => removeOffer(activeIndex)} disabled={offers.length <= 1}>Remove</Button>
         <div className="h-5 w-px bg-gray-300 mx-1" />
         <Button type="button" size="sm" variant="outline" onClick={exportJSON}>Export</Button>
+  <Button type="button" size="sm" variant="destructive" onClick={() => { resetAll(); location.reload(); }}>Reset all</Button>
         <label className="inline-flex items-center gap-1">
           <span className="text-xs text-muted-foreground">Import JSON</span>
           <input type="file" accept="application/json" className="hidden" onChange={importJSON} />
@@ -85,7 +86,7 @@ export default function MultiOfferBar() {
         <Select value={presetKey} onValueChange={async (v) => {
           setPresetKey(v);
           if (v === 'all') await importAllPresets();
-          else if (v) await importPreset(`/presets/${v}.json`);
+          else if (v) await importPreset(`presets/${v}.json`);
           setPresetKey(undefined);
         }}>
           <SelectTrigger size="sm">

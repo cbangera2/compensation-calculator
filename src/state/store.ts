@@ -28,6 +28,7 @@ type State = {
   setBonusValue: (value: number) => void;
   undo: () => void;
   redo: () => void;
+  resetAll: () => void;
 };
 
 const initialOffer: TOffer = {
@@ -83,6 +84,19 @@ export const useStore = create<State>()(
       past: [],
       future: [],
       uiMode: 'simple',
+      resetAll: () => set(() => {
+        try { localStorage.removeItem('compcalc-store'); } catch {}
+        // Reset to initial defaults
+        const freshOffer = JSON.parse(JSON.stringify(initialOffer)) as TOffer;
+        return {
+          offer: freshOffer,
+          offers: [freshOffer],
+          activeIndex: 0,
+          past: [],
+          future: [],
+          uiMode: 'simple',
+        };
+      }),
       setOffer: (offer) => set((state) => {
         const offers = state.offers.slice();
         offers[state.activeIndex] = offer;

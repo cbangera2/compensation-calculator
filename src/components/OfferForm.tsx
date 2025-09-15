@@ -184,7 +184,10 @@ export default function OfferForm() {
                         <select
                           className="border rounded px-2 py-2"
                           value={rsu?.targetMode ?? 'year1'}
-                          onChange={(e) => ensureGrant({ targetMode: e.target.value as 'year1' | 'total' })}
+                          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                            const v = (e.target.value === 'total' ? 'total' : 'year1') as 'year1' | 'total';
+                            ensureGrant({ targetMode: v });
+                          }}
                         >
                           <option value="year1">1st year value</option>
                           <option value="total">4-year total</option>
