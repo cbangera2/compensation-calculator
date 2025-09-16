@@ -29,7 +29,7 @@ export default function GrowthYoyEditor() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>Stock Growth (YoY) and starting price</CardTitle>
           <Button type="button" variant="secondary" onClick={() => setAdvancedOpen((v) => !v)}>
             {advancedOpen ? 'Hide options' : 'More options'}
@@ -37,7 +37,7 @@ export default function GrowthYoyEditor() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <Label htmlFor={`starting-price`}>Starting price ($)</Label>
             <Input
@@ -64,7 +64,7 @@ export default function GrowthYoyEditor() {
             </div>
           ))}
         </div>
-        <div className="mt-3 flex flex-wrap gap-2">
+  <div className="mt-3 flex flex-wrap gap-2">
           <Button type="button" onClick={() => setAllYoY(0.1)}>Base +10%</Button>
           <Button type="button" onClick={() => setAllYoY(-0.1)} variant="secondary">Bear −10%</Button>
           <Button type="button" onClick={() => setAllYoY(0)} variant="secondary">Flat 0%</Button>

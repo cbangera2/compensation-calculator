@@ -47,7 +47,7 @@ export function CurrencyInput({ value, onValueChange, className, decimals = 0, o
     <Input
       {...rest}
       type="text"
-      className={cn(className)}
+  className={cn("min-w-0", className)}
       value={text}
       onChange={handleChange}
       onFocus={handleFocus}

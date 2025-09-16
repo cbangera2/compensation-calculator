@@ -205,14 +205,16 @@ export default function OfferForm() {
             <div className="grid grid-cols-3 gap-4">
               <div className="col-span-3">
                 <Label>One-time bonuses</Label>
-                <div className="mt-2 grid grid-cols-2 gap-3">
+                {/* Mobile-first: single column; split to 2 cols on >= sm */}
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {(() => {
                     const signing = offer.signingBonuses ?? [];
                     const enabled = signing.length > 0;
                     const amount = signing[0]?.amount ?? 5000;
                     const payDate = signing[0]?.payDate ?? offer.startDate;
                     return (
-                      <div className="flex items-end gap-2">
+                      // Stack label and input on mobile to avoid cramped layout
+                      <div className="flex flex-col sm:flex-row items-start sm:items-end gap-2">
                         <div className="flex items-center gap-2 flex-1">
                           <input id="signing-enabled" type="checkbox" checked={enabled}
                             onChange={(e) => {
@@ -224,9 +226,9 @@ export default function OfferForm() {
                             }} />
                           <label htmlFor="signing-enabled" className="cursor-pointer">Signing bonus</label>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">$</span>
-                          <CurrencyInput className="w-28" value={amount} disabled={!enabled}
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <span className="text-muted-foreground hidden sm:inline">$</span>
+                          <CurrencyInput className="w-full sm:w-28" value={amount} disabled={!enabled}
                             onValueChange={(val) => {
                               if (!enabled) return;
                               const next = [...signing];
@@ -244,7 +246,7 @@ export default function OfferForm() {
                     const payDate = relocation[0]?.payDate ?? offer.startDate;
                     
                     return (
-                      <div className="flex items-end gap-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-end gap-2">
                         <div className="flex items-center gap-2 flex-1">
                           <input id="relocation-enabled" type="checkbox" checked={enabled}
                             onChange={(e) => {
@@ -256,9 +258,9 @@ export default function OfferForm() {
                             }} />
                           <label htmlFor="relocation-enabled" className="cursor-pointer">Relocation bonus</label>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">$</span>
-                          <CurrencyInput className="w-28" value={amount} disabled={!enabled}
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <span className="text-muted-foreground hidden sm:inline">$</span>
+                          <CurrencyInput className="w-full sm:w-28" value={amount} disabled={!enabled}
                             onValueChange={(val) => {
                               if (!enabled) return;
                               const next = [...relocation];
@@ -279,7 +281,8 @@ export default function OfferForm() {
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-3">
               <Label>Quick perks</Label>
-              <div className="mt-2 grid grid-cols-2 gap-3">
+              {/* Mobile-first: single column; split to 2 cols on >= sm */}
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[
                   { name: 'Free breakfast', annualValue: 2600 },
                   { name: 'Free lunch', annualValue: 2600 },
@@ -296,7 +299,8 @@ export default function OfferForm() {
                   const enabled = Boolean(current?.enabled);
                   const amount = current?.annualValue ?? p.annualValue;
                   return (
-                    <div key={p.name} className="flex items-center gap-2 text-sm">
+                    // Stack on mobile; align horizontally from sm
+                    <div key={p.name} className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-sm">
                       <input
                         id={`perk-${p.name}`}
                         type="checkbox"
@@ -312,12 +316,12 @@ export default function OfferForm() {
                           setOffer({ ...offer, benefits: next });
                         }}
                       />
-                      <label htmlFor={`perk-${p.name}`} className="flex-1 cursor-pointer">{p.name}</label>
-                      <div className="flex items-center gap-1">
-                        <span className="text-muted-foreground">$</span>
+                      <label htmlFor={`perk-${p.name}`} className="sm:flex-1 cursor-pointer">{p.name}</label>
+                      <div className="flex items-center gap-1 w-full sm:w-auto">
+                        <span className="text-muted-foreground hidden sm:inline">$</span>
                         <CurrencyInput
                           aria-label={`${p.name} annual value`}
-                          className="w-28"
+                          className="w-full sm:w-28"
                           value={amount}
                           disabled={!enabled}
                           onValueChange={(val) => {
@@ -327,7 +331,7 @@ export default function OfferForm() {
                             setOffer({ ...offer, benefits: next });
                           }}
                         />
-                        <span className="text-muted-foreground">/yr</span>
+                        <span className="text-muted-foreground hidden sm:inline">/yr</span>
                       </div>
                     </div>
                   );

@@ -27,7 +27,7 @@ export default function CashPerksPanel() {
         {/* Signing and relocation are managed in the main form; omitted here to avoid duplication. */}
 
         <section className="space-y-2 mb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-medium">Retirement</h3>
             {!retirement ? (
               <Button type="button" size="sm" onClick={() => setOffer({
@@ -47,7 +47,7 @@ export default function CashPerksPanel() {
           </div>
           {retirement ? (
             <div className="space-y-2">
-              <div className="grid grid-cols-6 gap-2 items-end">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2 items-end">
                 <div>
                   <Label>Your contribution %</Label>
                   <Input type="number" step={0.5} value={Math.round((retirement.employeeContributionPercent ?? 0) * 10000) / 100}
@@ -101,8 +101,8 @@ export default function CashPerksPanel() {
           </div>
           <div className="grid gap-2">
             {benefits.map((b, i) => (
-              <div key={i} className="grid grid-cols-6 gap-2 items-end">
-                <div className="col-span-2">
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-6 gap-2 items-end">
+                <div className="sm:col-span-2">
                   <Label>Name</Label>
                   <Input value={b.name}
                     onChange={(e) => update('benefits', benefits.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} />
@@ -120,8 +120,8 @@ export default function CashPerksPanel() {
                     <option value="false">No</option>
                   </select>
                 </div>
-                <div className="col-span-2" />
-                <div>
+                <div className="sm:col-span-2" />
+                <div className="sm:col-span-1">
                   <Button type="button" variant="destructive" onClick={() => update('benefits', benefits.filter((_, idx) => idx !== i))}>Remove</Button>
                 </div>
               </div>
@@ -137,8 +137,8 @@ export default function CashPerksPanel() {
           </div>
           <div className="grid gap-2">
             {misc.map((m, i) => (
-              <div key={i} className="grid grid-cols-5 gap-2 items-end">
-                <div className="col-span-2">
+              <div key={i} className="grid grid-cols-1 sm:grid-cols-5 gap-2 items-end">
+                <div className="sm:col-span-2">
                   <Label>Name</Label>
                   <Input value={m.name}
                     onChange={(e) => update('miscRecurring', misc.map((x, idx) => idx === i ? { ...x, name: e.target.value } : x))} />
@@ -148,8 +148,8 @@ export default function CashPerksPanel() {
                   <CurrencyInput value={m.annualValue}
                     onValueChange={(v) => update('miscRecurring', misc.map((x, idx) => idx === i ? { ...x, annualValue: v } : x))} />
                 </div>
-                <div className="col-span-1" />
-                <div>
+                <div className="sm:col-span-1" />
+                <div className="sm:col-span-1">
                   <Button type="button" variant="destructive" onClick={() => update('miscRecurring', misc.filter((_, idx) => idx !== i))}>Remove</Button>
                 </div>
               </div>

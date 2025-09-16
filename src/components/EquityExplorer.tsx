@@ -68,7 +68,7 @@ export default function EquityExplorer() {
         <CardTitle>Equity Explorer</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-3 gap-4 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
           <div>
             <Label>Price today ($/share)</Label>
             <CurrencyInput value={currentPrice} onValueChange={setCurrentPrice} />
@@ -84,7 +84,7 @@ export default function EquityExplorer() {
             }} />
             <div className="text-xs text-muted-foreground mt-1">Change to see new comp at this price</div>
           </div>
-          <div className="flex items-end gap-2">
+          <div className="flex flex-wrap items-end gap-2">
             <Button variant="secondary" onClick={() => setTargetPrice(Math.round(currentPrice * 1.1 * 100) / 100)}>+10%</Button>
             <Button variant="secondary" onClick={() => setTargetPrice(Math.round(currentPrice * 1.25 * 100) / 100)}>+25%</Button>
             <Button variant="secondary" onClick={() => setTargetPrice(Math.round(currentPrice * 1.5 * 100) / 100)}>+50%</Button>
@@ -93,7 +93,7 @@ export default function EquityExplorer() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
           <div>
             <Label>Computation method</Label>
             <select
@@ -108,7 +108,7 @@ export default function EquityExplorer() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
           <div>
             <Label>Company value today</Label>
             <CurrencyInput value={valuationToday} onValueChange={(v) => {
@@ -150,31 +150,31 @@ export default function EquityExplorer() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-4 rounded border">
             <div className="text-xs text-muted-foreground">Year 1 equity</div>
-            <div className="text-2xl font-semibold">{formatCurrency(Math.round(y1Target?.stock ?? 0))}</div>
+      <div className="text-xl sm:text-2xl font-semibold">{formatCurrency(Math.round(y1Target?.stock ?? 0))}</div>
             <div className="text-xs text-muted-foreground mt-1">Baseline: {formatCurrency(Math.round(y1?.stock ?? 0))} ({y1?.stock ? Math.round((y1StockDelta / y1.stock) * 100) : 0}%)</div>
           </div>
           <div className="p-4 rounded border">
             <div className="text-xs text-muted-foreground">Year 1 total comp</div>
-            <div className="text-2xl font-semibold">{formatCurrency(Math.round(y1Target?.total ?? 0))}</div>
+      <div className="text-xl sm:text-2xl font-semibold">{formatCurrency(Math.round(y1Target?.total ?? 0))}</div>
             <div className="text-xs text-muted-foreground mt-1">Baseline: {formatCurrency(Math.round(y1?.total ?? 0))} ({y1?.total ? Math.round((y1TotalDelta / y1.total) * 100) : 0}%)</div>
           </div>
           <div className="p-4 rounded border">
             <div className="text-xs text-muted-foreground">4-year equity total</div>
-            <div className="text-2xl font-semibold">{formatCurrency(Math.round(totalStockTarget))}</div>
+      <div className="text-xl sm:text-2xl font-semibold">{formatCurrency(Math.round(totalStockTarget))}</div>
             <div className="text-xs text-muted-foreground mt-1">Baseline: {formatCurrency(Math.round(totalStockCurrent))} ({totalStockCurrent ? Math.round(((totalStockTarget - totalStockCurrent) / totalStockCurrent) * 100) : 0}%)</div>
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="p-4 rounded border">
             <div className="text-xs text-muted-foreground">4-year total comp</div>
-            <div className="text-2xl font-semibold">{formatCurrency(Math.round(totalCompTarget))}</div>
+      <div className="text-xl sm:text-2xl font-semibold">{formatCurrency(Math.round(totalCompTarget))}</div>
             <div className="text-xs text-muted-foreground mt-1">Baseline: {formatCurrency(Math.round(totalCompCurrent))} ({totalCompCurrent ? Math.round(((totalCompTarget - totalCompCurrent) / totalCompCurrent) * 100) : 0}%)</div>
           </div>
-          <div className="p-4 rounded border col-span-2 flex items-center justify-between">
+      <div className="p-4 rounded border sm:col-span-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <div>
               <div className="text-xs text-muted-foreground">Apply modeled price to offer</div>
               <div className="text-sm text-muted-foreground">Sets Growth → Starting price to {formatCurrency(targetPrice, { decimals: 2 })}</div>
@@ -216,14 +216,14 @@ export default function EquityExplorer() {
             ],
           } as const;
           return (
-            <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-4">
               <div>
                 <div className="text-sm font-medium mb-2">Total compensation: baseline vs target</div>
-                <ReactEChartsCore option={optionTotals} style={{ height: 260 }} />
+        <ReactEChartsCore option={optionTotals} style={{ height: 260, width: '100%' }} />
               </div>
               <div>
                 <div className="text-sm font-medium mb-2">Equity value: baseline vs target</div>
-                <ReactEChartsCore option={optionStock} style={{ height: 260 }} />
+        <ReactEChartsCore option={optionStock} style={{ height: 260, width: '100%' }} />
               </div>
             </div>
           );

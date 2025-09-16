@@ -157,12 +157,12 @@ export default function GrantsPanel() {
               ))}
             </div>
           )}
-          {grants.map((g, i) => {
+      {grants.map((g, i) => {
             const impliedShares = Math.round(impliedSharesForGrant(offer, g));
             const isOpen = !!openAdvanced[i];
             return (
               <div key={i} className="border rounded p-3 space-y-3">
-                <div className="grid grid-cols-7 gap-3 items-end">
+        <div className="grid grid-cols-1 sm:grid-cols-7 gap-3 items-end">
                   <div>
                     <Label>Type</Label>
                     <Input value={g.type} readOnly />
@@ -186,14 +186,14 @@ export default function GrantsPanel() {
                       <option value="total">4-year total</option>
                     </select>
                   </div>
-                  <div className="col-span-2 text-xs text-muted-foreground self-center">
+                  <div className="sm:col-span-2 text-xs text-muted-foreground self-center">
                     {(!g.shares || g.shares === 0) && (g.targetValue ?? 0) > 0 ? (
                       <span>Implied shares: {isFinite(impliedShares) ? impliedShares : 0}</span>
                     ) : (
                       <span>&nbsp;</span>
                     )}
                   </div>
-                  <div className="flex gap-2 justify-end">
+                  <div className="flex gap-2 justify-end sm:col-span-2">
                     <Button type="button" variant="secondary" onClick={() => setOpenAdvanced(o => ({ ...o, [i]: !o[i] }))}>
                       {isOpen ? 'Hide advanced' : 'Advanced'}
                     </Button>
@@ -202,7 +202,7 @@ export default function GrantsPanel() {
                 </div>
 
                 {isOpen && (
-                  <div className="grid grid-cols-7 gap-3 items-end">
+                  <div className="grid grid-cols-1 sm:grid-cols-7 gap-3 items-end">
                     <div>
                       <Label>Vesting model</Label>
                       <select
@@ -313,11 +313,11 @@ export default function GrantsPanel() {
                         </div>
                       </>
                     ) : g.vesting.model === 'milestone' ? (
-                      <div className="col-span-6">
+                      <div className="sm:col-span-6">
                         <Label>Milestone steps</Label>
                         <div className="space-y-2 mt-1">
                           {(g.vesting as Extract<TVestingSchedule, { model: 'milestone' }>).steps.map((s, idx) => (
-                            <div key={idx} className="flex items-end gap-2">
+                            <div key={idx} className="flex flex-col sm:flex-row items-end gap-2">
                               <div>
                                 <Label>Months from start</Label>
                                 <Input
@@ -347,7 +347,7 @@ export default function GrantsPanel() {
                                   }}
                                 />
                               </div>
-                              <Button type="button" variant="destructive"
+          <Button type="button" variant="destructive"
                                 onClick={() => {
                                   const vest = g.vesting as Extract<TVestingSchedule, { model: 'milestone' }>;
                                   const steps: { monthsFromStart: number; fraction: number }[] = vest.steps.slice();
@@ -367,11 +367,11 @@ export default function GrantsPanel() {
                         </div>
                       </div>
                     ) : (
-                      <div className="col-span-6">
+          <div className="sm:col-span-6">
                         <Label>Explicit tranches</Label>
                         <div className="space-y-2 mt-1">
                           {(g.vesting as Extract<TVestingSchedule, { model: 'explicit' }>).tranches.map((t, idx) => (
-                            <div key={idx} className="flex items-end gap-2">
+            <div key={idx} className="flex flex-col sm:flex-row items-end gap-2">
                               <div>
                                 <Label>Date</Label>
                                 <Input
