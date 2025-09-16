@@ -1,0 +1,41 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "lint",
+			"type": "shell",
+			"command": "pnpm lint",
+			"args": []
+		},
+		{
+			"label": "lint",
+			"type": "shell",
+			"command": "pnpm lint",
+			"args": []
+		},
+		{
+			"label": "lint",
+			"type": "shell",
+			"command": "pnpm lint",
+			"args": []
+		},
+		{
+			"label": "build",
+			"type": "shell",
+			"command": "pnpm build",
+			"args": []
+		},
+		{
+			"label": "build",
+			"type": "shell",
+			"command": "pnpm build",
+			"args": []
+		},
+		{
+			"label": "lint",
+			"type": "shell",
+			"command": "pnpm lint",
+			"args": []
+		}
+	]
+}

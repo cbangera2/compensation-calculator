@@ -4,6 +4,7 @@ import { useStore } from '@/state/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectSeparator } from '@/components/ui/select';
+import { parseLevelsOfferFromHtml } from '@/lib/levelsImport';
 
 export default function MultiOfferBar() {
   const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer, resetAll } = useStore();
@@ -56,11 +57,42 @@ export default function MultiOfferBar() {
   async function importFromLevels() {
     if (!levelsUrl) return;
     try {
+      // Try server route first (works in dev/Vercel). On GitHub Pages this 405s.
       const resp = await fetch('/api/import/levels', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: levelsUrl }) });
-      const data = await resp.json();
-      if (data?.offer) addOffer(data.offer);
-      else alert('Could not import this URL');
-    } catch { alert('Import failed'); }
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data?.offer) { addOffer(data.offer); return; }
+      }
+      // Fallback 1: Fetch via a public CORS proxy (best-effort). If this fails, ask for HTML upload.
+      try {
+        const proxied = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(levelsUrl)}`);
+        if (proxied.ok) {
+          const html = await proxied.text();
+          const offer = parseLevelsOfferFromHtml(html);
+          addOffer(offer);
+          return;
+        }
+      } catch { /* ignore and fallthrough to upload guidance */ }
+      alert('On GitHub Pages, server import is unavailable. Please use "Upload Levels HTML" (save the page as HTML and upload).');
+    } catch {
+      alert('Import failed');
+    }
+  }
+  function importLevelsHtmlFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const html = String(reader.result);
+        const offer = parseLevelsOfferFromHtml(html);
+        addOffer(offer);
+      } catch {
+        alert('Could not parse this HTML file');
+      }
+    };
+    reader.readAsText(file);
+    event.currentTarget.value = '';
   }
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -100,9 +132,16 @@ export default function MultiOfferBar() {
             <SelectItem value="all">Import all</SelectItem>
           </SelectContent>
         </Select>
-        <div className="flex items-center gap-1">
-          <Input placeholder="levels.fyi URL" value={levelsUrl} onChange={(e) => setLevelsUrl(e.target.value)} className="w-56" />
-          <Button type="button" size="sm" onClick={importFromLevels}>Import</Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1">
+            <Input placeholder="levels.fyi URL" value={levelsUrl} onChange={(e) => setLevelsUrl(e.target.value)} className="w-56" />
+            <Button type="button" size="sm" onClick={importFromLevels}>Import</Button>
+          </div>
+          <label className="inline-flex items-center gap-1">
+            <span className="text-xs text-muted-foreground">Upload Levels HTML</span>
+            <input type="file" accept="text/html,.html" className="hidden" onChange={importLevelsHtmlFile} />
+            <span className="px-2 py-1 border rounded cursor-pointer">Choose</span>
+          </label>
         </div>
       </div>
     </div>
