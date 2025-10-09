@@ -75,32 +75,33 @@ export default function ComparisonChart() {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
-      formatter: (params: Array<{ seriesName: 'Base' | 'Bonus' | 'Stock' | 'Other'; value: number; axisValueLabel: string; seriesId?: string; series?: { stack?: string } }>) => {
-        // Group params by offer stack name (offer-idx)
-        const groups: Record<string, typeof params> = {};
-        // Better grouping via stack field if available
-        params.forEach((p) => {
-          const stack = p.series?.stack ?? p.seriesName;
-          groups[stack] ||= [];
-          groups[stack].push(p);
-        });
+      formatter: (params: Array<{ seriesName: 'Base' | 'Bonus' | 'Stock' | 'Other'; value: number; axisValueLabel: string; seriesId?: string; dataIndex: number }>) => {
         const year = params[0]?.axisValueLabel ?? '';
+        const dataIndex = params[0]?.dataIndex ?? 0;
+        const grouped: Record<number, { base: number; bonus: number; stock: number; other: number }> = {};
+
+        params.forEach((p) => {
+          const match = /offer-(\d+)-/.exec(p.seriesId ?? '');
+          const offerIdx = match ? Number(match[1]) : 0;
+          const entry = grouped[offerIdx] || { base: 0, bonus: 0, stock: 0, other: 0 };
+          if (p.seriesName === 'Base') entry.base = p.value ?? 0;
+          if (p.seriesName === 'Bonus') entry.bonus = p.value ?? 0;
+          if (p.seriesName === 'Stock') entry.stock = p.value ?? 0;
+          if (p.seriesName === 'Other') entry.other = p.value ?? 0;
+          grouped[offerIdx] = entry;
+        });
+
         const lines: string[] = [`<div><strong>${year}</strong></div>`];
-        Object.entries(groups).forEach(([stack, arr], idx) => {
-          // Extract offer index from stack name
-          const match = /offer-(\d+)/.exec(stack);
-          const offerIdx = match ? Number(match[1]) : idx;
+        Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach((key) => {
+          const offerIdx = Number(key);
+          const { base, bonus, stock, other } = grouped[offerIdx];
           const name = offers[offerIdx]?.name || `Offer ${offerIdx + 1}`;
-          const base = arr.find(a => a.seriesName === 'Base')?.value ?? 0;
-          const bonus = arr.find(a => a.seriesName === 'Bonus')?.value ?? 0;
-          const stock = arr.find(a => a.seriesName === 'Stock')?.value ?? 0;
-          const other = arr.find(a => a.seriesName === 'Other')?.value ?? 0;
-          const total = (base || 0) + (bonus || 0) + (stock || 0) + (other || 0);
+          const total = byOffer[offerIdx]?.total[dataIndex] ?? base + bonus + stock + other;
           lines.push(`<div style="margin-top:4px;"><strong>${name}</strong> — Total ${fmt(total)}</div>`);
-          lines.push(`<div style="padding-left:8px;">• Base ${fmt(base || 0)}</div>`);
-          lines.push(`<div style="padding-left:8px;">• Bonus ${fmt(bonus || 0)}</div>`);
-          lines.push(`<div style="padding-left:8px;">• Stock ${fmt(stock || 0)}</div>`);
-          lines.push(`<div style="padding-left:8px;">• Other ${fmt(other || 0)}</div>`);
+          lines.push(`<div style="padding-left:8px;">• Base ${fmt(base)}</div>`);
+          lines.push(`<div style="padding-left:8px;">• Bonus ${fmt(bonus)}</div>`);
+          lines.push(`<div style="padding-left:8px;">• Stock ${fmt(stock)}</div>`);
+          lines.push(`<div style="padding-left:8px;">• Other ${fmt(other)}</div>`);
         });
         return lines.join('');
       },
