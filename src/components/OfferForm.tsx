@@ -1,6 +1,6 @@
 "use client";
 import type { ChangeEvent, ReactNode } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useStore } from '@/state/store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -12,13 +12,15 @@ import GrantsPanel from '@/components/GrantsPanel';
 import RaisesEditor from '@/components/RaisesEditor';
 import CashPerksPanel from '@/components/CashPerksPanel';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Undo2, Redo2 } from 'lucide-react';
+import { Undo2, Redo2, ChevronDown } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 
 // PresetLoader removed; defaults can now be imported on demand from Import/Export.
 
 export default function OfferForm() {
   const { offer, setOffer, setBonusValue, undo, redo, addGrant, updateGrant } = useStore();
+  const [collapsed, setCollapsed] = useState(false);
+  const contentId = useId();
 
   // Keyboard shortcuts: Cmd+Z / Shift+Cmd+Z
   useEffect(() => {
@@ -66,7 +68,19 @@ export default function OfferForm() {
               <CardTitle className="text-2xl font-semibold">Offer details</CardTitle>
               <CardDescription>Fine-tune cash, equity, and perks for the active offer.</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setCollapsed((prev) => !prev)}
+                aria-expanded={!collapsed}
+                aria-controls={contentId}
+                className="flex items-center gap-1"
+              >
+                <ChevronDown className={`size-4 transition-transform ${collapsed ? '-rotate-90' : 'rotate-0'}`} />
+                {collapsed ? 'Expand' : 'Collapse'}
+              </Button>
               <Button type="button" variant="secondary" size="sm" onClick={undo} aria-label="Undo">
                 <Undo2 className="size-4" />
                 Undo
@@ -79,7 +93,11 @@ export default function OfferForm() {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6 pb-8 pt-6">
+      <CardContent
+        id={contentId}
+        className={`space-y-6 pb-8 pt-6 ${collapsed ? 'hidden' : ''}`}
+        aria-hidden={collapsed}
+      >
         <Section title="Basics" description="Company context and start timeline.">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">

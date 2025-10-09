@@ -30,8 +30,10 @@ export default function Home() {
             </TabsList>
             <TabsContent value="calc" className="mt-6 space-y-8">
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] xl:items-start">
-                <OfferForm />
-                <div className="flex flex-col gap-6">
+                <div className="order-2 xl:order-1">
+                  <OfferForm />
+                </div>
+                <div className="order-1 flex flex-col gap-6 xl:order-2">
                   <YearChart />
                   <YearExtras />
                 </div>
