@@ -1,6 +1,7 @@
 export default function Home() {
   return (
     <main className="min-h-screen p-8">
+      <ShareHydrator />
       <h1 className="text-3xl font-semibold mb-6">Compensation</h1>
       <MultiOfferBar />
       <Tabs defaultValue="calc">
@@ -53,5 +54,6 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import COLPanel from '@/components/COLPanel';
 import EquityExplorer from '@/components/EquityExplorer';
 import YearExtras from '@/components/YearExtras';
+import ShareHydrator from '@/components/ShareHydrator';
 
 // (Removed demo table to keep page server-safe and avoid client hooks here)

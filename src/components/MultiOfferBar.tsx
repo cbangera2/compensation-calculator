@@ -1,15 +1,23 @@
 "use client";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '@/state/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectSeparator } from '@/components/ui/select';
 import { parseLevelsOfferFromHtml } from '@/lib/levelsImport';
+import { buildShareToken } from '@/lib/share';
 
 export default function MultiOfferBar() {
-  const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer, resetAll } = useStore();
+  const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer, resetAll, uiMode } = useStore();
   const [presetKey, setPresetKey] = useState<string | undefined>(undefined);
   const [levelsUrl, setLevelsUrl] = useState('');
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
+
+  useEffect(() => {
+    if (copyState === 'idle') return;
+    const timer = window.setTimeout(() => setCopyState('idle'), 2500);
+    return () => window.clearTimeout(timer);
+  }, [copyState]);
 
   function exportJSON() {
     const offer = offers[activeIndex];
@@ -90,6 +98,24 @@ export default function MultiOfferBar() {
       alert('Import failed');
     }
   }
+  async function copyShareUrl() {
+    try {
+      const token = buildShareToken({ offers, activeIndex, uiMode });
+      const url = new URL(window.location.href);
+      url.searchParams.set('share', token);
+      const shareUrl = url.toString();
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setCopyState('copied');
+      } catch {
+        setCopyState('error');
+        window.prompt('Copy this link', shareUrl);
+      }
+    } catch (err) {
+      console.error('Failed to build share URL', err);
+      setCopyState('error');
+    }
+  }
   function importLevelsHtmlFile(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -121,6 +147,9 @@ export default function MultiOfferBar() {
         <Button type="button" size="sm" variant="destructive" onClick={() => removeOffer(activeIndex)} disabled={offers.length <= 1}>Remove</Button>
         <div className="h-5 w-px bg-gray-300 mx-1" />
         <Button type="button" size="sm" variant="outline" onClick={exportJSON}>Export</Button>
+        <Button type="button" size="sm" variant="outline" onClick={copyShareUrl}>
+          {copyState === 'copied' ? 'Link copied!' : copyState === 'error' ? 'Copy failed' : 'Copy share link'}
+        </Button>
   <Button type="button" size="sm" variant="destructive" onClick={() => { resetAll(); location.reload(); }}>Reset all</Button>
         <label className="inline-flex items-center gap-1">
           <span className="text-xs text-muted-foreground">Import JSON files</span>

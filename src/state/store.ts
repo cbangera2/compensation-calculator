@@ -29,6 +29,7 @@ type State = {
   undo: () => void;
   redo: () => void;
   resetAll: () => void;
+  loadSnapshot: (snapshot: { offers: TOffer[]; activeIndex?: number; uiMode?: 'simple' | 'advanced' }) => void;
 };
 
 const initialOffer: TOffer = {
@@ -103,9 +104,10 @@ export const useStore = create<State>()(
         return { offer, offers, past: [...state.past, state.offer], future: [] };
       }),
       setOffers: (offers) => set(() => {
-        const activeIndex = Math.min(0, offers.length - 1);
-        const offer = offers[activeIndex] ?? initialOffer;
-        return { offers: offers.length ? offers : [initialOffer], activeIndex: offers.length ? activeIndex : 0, offer };
+        const safeOffers = (offers.length ? offers : [initialOffer]).map((offer) => JSON.parse(JSON.stringify(offer)) as TOffer);
+        const activeIndex = safeOffers.length ? Math.min(0, safeOffers.length - 1) : 0;
+        const offer = safeOffers[activeIndex] ?? initialOffer;
+        return { offers: safeOffers, activeIndex, offer };
       }),
       addOffer: (o) => set((state) => {
         const clone = (x: TOffer) => JSON.parse(JSON.stringify(x)) as TOffer;
@@ -207,6 +209,19 @@ export const useStore = create<State>()(
         const past = [...state.past, state.offer];
         const offers = state.offers.map((o, i) => i === state.activeIndex ? next : o);
         return { offer: next, offers, past, future };
+      }),
+      loadSnapshot: ({ offers: incomingOffers, activeIndex: incomingActiveIndex, uiMode }) => set(() => {
+        const offers = (incomingOffers?.length ? incomingOffers : [initialOffer]).map((offer) => JSON.parse(JSON.stringify(offer)) as TOffer);
+        const activeIndex = Math.max(0, Math.min(incomingActiveIndex ?? 0, offers.length - 1));
+        const offer = offers[activeIndex] ?? initialOffer;
+        return {
+          offers,
+          activeIndex,
+          offer,
+          past: [],
+          future: [],
+          ...(uiMode ? { uiMode } : {}),
+        };
       }),
     }),
     {
