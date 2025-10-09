@@ -1,15 +1,23 @@
 "use client";
-import { useEffect, useState } from 'react';
+
+import { useEffect, useMemo, useState } from 'react';
+import { Plus, Copy, Trash2, Download, Share2, RotateCcw, Upload, Globe, FileText, Check, AlertCircle } from 'lucide-react';
 import { useStore } from '@/state/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue, SelectSeparator } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parseLevelsOfferFromHtml } from '@/lib/levelsImport';
 import { buildShareToken } from '@/lib/share';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+
+const scrollGradient = "pointer-events-none absolute inset-y-0 w-6 bg-gradient-to-r from-background/95 to-transparent";
+const fileInputWrapper = "relative inline-flex";
+const hiddenInput = "absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0";
 
 export default function MultiOfferBar() {
   const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer, resetAll, uiMode } = useStore();
-  const [presetKey, setPresetKey] = useState<string | undefined>(undefined);
+  const [presetKey, setPresetKey] = useState<string | undefined>();
   const [levelsUrl, setLevelsUrl] = useState('');
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
 
@@ -19,14 +27,25 @@ export default function MultiOfferBar() {
     return () => window.clearTimeout(timer);
   }, [copyState]);
 
+  const shareIcon = useMemo(() => {
+    if (copyState === 'copied') return <Check className="size-4" />;
+    if (copyState === 'error') return <AlertCircle className="size-4" />;
+    return <Share2 className="size-4" />;
+  }, [copyState]);
+
+  const shareLabel = copyState === 'copied' ? 'Link copied' : copyState === 'error' ? 'Copy failed' : 'Share link';
+
   function exportJSON() {
     const offer = offers[activeIndex];
     const blob = new Blob([JSON.stringify(offer, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `${offer.name || 'offer'}.json`; a.click();
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${offer.name || 'offer'}.json`;
+    anchor.click();
     URL.revokeObjectURL(url);
   }
+
   function importJSON(event: React.ChangeEvent<HTMLInputElement>) {
     const files = event.target.files;
     if (!files?.length) return;
@@ -51,39 +70,50 @@ export default function MultiOfferBar() {
     }));
 
     void Promise.all(readers).finally(() => {
-      // reset input so same file can be selected again
       input.value = '';
     });
   }
+
   async function importPreset(path: string) {
     try {
       const resp = await fetch(path);
       const json = await resp.json();
       addOffer(json);
-    } catch { alert('Failed to import preset'); }
+    } catch {
+      alert('Failed to import preset');
+    }
   }
+
   async function importAllPresets() {
     try {
       const [g, f, s] = await Promise.all([
-  fetch('presets/google.json').then(r => r.json()),
-  fetch('presets/ford.json').then(r => r.json()),
-  fetch('presets/startup.json').then(r => r.json()),
+        fetch('presets/google.json').then((r) => r.json()),
+        fetch('presets/ford.json').then((r) => r.json()),
+        fetch('presets/startup.json').then((r) => r.json()),
       ]);
-      addOffer(g); addOffer(f); addOffer(s);
-      // Optionally, add a blank too
-      // addOffer();
-    } catch { alert('Failed to import presets'); }
+      addOffer(g);
+      addOffer(f);
+      addOffer(s);
+    } catch {
+      alert('Failed to import presets');
+    }
   }
+
   async function importFromLevels() {
     if (!levelsUrl) return;
     try {
-      // Try server route first (works in dev/Vercel). On GitHub Pages this 405s.
-      const resp = await fetch('/api/import/levels', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ url: levelsUrl }) });
+      const resp = await fetch('/api/import/levels', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url: levelsUrl }),
+      });
       if (resp.ok) {
         const data = await resp.json();
-        if (data?.offer) { addOffer(data.offer); return; }
+        if (data?.offer) {
+          addOffer(data.offer);
+          return;
+        }
       }
-      // Fallback 1: Fetch via a public CORS proxy (best-effort). If this fails, ask for HTML upload.
       try {
         const proxied = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(levelsUrl)}`);
         if (proxied.ok) {
@@ -92,12 +122,32 @@ export default function MultiOfferBar() {
           addOffer(offer);
           return;
         }
-      } catch { /* ignore and fallthrough to upload guidance */ }
+      } catch {
+        /* ignore proxy failure */
+      }
       alert('On GitHub Pages, server import is unavailable. Please use "Upload Levels HTML" (save the page as HTML and upload).');
     } catch {
       alert('Import failed');
     }
   }
+
+  function importLevelsHtmlFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const html = String(reader.result);
+        const offer = parseLevelsOfferFromHtml(html);
+        addOffer(offer);
+      } catch {
+        alert('Could not parse this HTML file');
+      }
+    };
+    reader.readAsText(file);
+    event.currentTarget.value = '';
+  }
+
   async function copyShareUrl() {
     try {
       const token = buildShareToken({ offers, activeIndex, uiMode });
@@ -116,72 +166,125 @@ export default function MultiOfferBar() {
       setCopyState('error');
     }
   }
-  function importLevelsHtmlFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const html = String(reader.result);
-        const offer = parseLevelsOfferFromHtml(html);
-        addOffer(offer);
-      } catch {
-        alert('Could not parse this HTML file');
-      }
-    };
-    reader.readAsText(file);
-    event.currentTarget.value = '';
-  }
+
   return (
-    <div className="flex flex-wrap items-center gap-2 mb-4">
-      {offers.map((o, i) => (
-        <button key={i}
-          className={`px-3 py-1 rounded border ${i === activeIndex ? 'bg-black text-white border-black' : 'bg-white'}`}
-          onClick={() => setActiveIndex(i)}>
-          {o.name || `Offer ${i + 1}`}
-        </button>
-      ))}
-      <div className="ml-auto flex gap-2 items-center flex-wrap">
-        <Button type="button" size="sm" onClick={() => addOffer()}>New Offer</Button>
-        <Button type="button" size="sm" variant="secondary" onClick={duplicateActiveOffer}>Duplicate</Button>
-        <Button type="button" size="sm" variant="destructive" onClick={() => removeOffer(activeIndex)} disabled={offers.length <= 1}>Remove</Button>
-        <div className="h-5 w-px bg-gray-300 mx-1" />
-        <Button type="button" size="sm" variant="outline" onClick={exportJSON}>Export</Button>
-        <Button type="button" size="sm" variant="outline" onClick={copyShareUrl}>
-          {copyState === 'copied' ? 'Link copied!' : copyState === 'error' ? 'Copy failed' : 'Copy share link'}
-        </Button>
-  <Button type="button" size="sm" variant="destructive" onClick={() => { resetAll(); location.reload(); }}>Reset all</Button>
-        <label className="inline-flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">Import JSON files</span>
-          <input type="file" accept="application/json" multiple className="hidden" onChange={importJSON} />
-          <span className="px-2 py-1 border rounded cursor-pointer">Choose</span>
-        </label>
-        <Select value={presetKey} onValueChange={async (v) => {
-          setPresetKey(v);
-          if (v === 'all') await importAllPresets();
-          else if (v) await importPreset(`presets/${v}.json`);
-          setPresetKey(undefined);
-        }}>
-          <SelectTrigger size="sm">
-            <SelectValue placeholder="Import preset" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="google">Google</SelectItem>
-            <SelectItem value="ford">Ford</SelectItem>
-            <SelectItem value="startup">Startup</SelectItem>
-            <SelectSeparator />
-            <SelectItem value="all">Import all</SelectItem>
-          </SelectContent>
-        </Select>
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1">
-            <Input placeholder="levels.fyi URL" value={levelsUrl} onChange={(e) => setLevelsUrl(e.target.value)} className="w-56" />
-            <Button type="button" size="sm" onClick={importFromLevels}>Import</Button>
+    <div className="mb-4 space-y-4 rounded-xl border bg-background/95 px-4 py-3 shadow-sm">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Offers</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" variant="outline" className="gap-2" onClick={exportJSON}>
+              <Download className="size-4" />
+              Export JSON
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="gap-2" onClick={copyShareUrl}>
+              {shareIcon}
+              <span>{shareLabel}</span>
+            </Button>
+            <Button type="button" size="sm" variant="destructive" className="gap-2" onClick={() => { resetAll(); location.reload(); }}>
+              <RotateCcw className="size-4" />
+              Reset all
+            </Button>
           </div>
-          <label className="inline-flex items-center gap-1">
-            <span className="text-xs text-muted-foreground">Upload Levels HTML</span>
-            <input type="file" accept="text/html,.html" className="hidden" onChange={importLevelsHtmlFile} />
-            <span className="px-2 py-1 border rounded cursor-pointer">Choose</span>
+        </div>
+
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="relative flex-1">
+            <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {offers.map((offer, index) => (
+                <Button
+                  key={index}
+                  type="button"
+                  variant="chip"
+                  size="pill"
+                  data-active={index === activeIndex}
+                  className={cn('snap-start font-medium', 'max-w-[180px] truncate')}
+                  onClick={() => setActiveIndex(index)}
+                >
+                  {offer.name || `Offer ${index + 1}`}
+                </Button>
+              ))}
+            </div>
+            <div className={cn(scrollGradient, 'left-0')} />
+            <div className={cn(scrollGradient, 'right-0 rotate-180')} />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" variant="secondary" className="gap-2" onClick={() => addOffer()}>
+              <Plus className="size-4" />
+              New offer
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="gap-2" onClick={duplicateActiveOffer}>
+              <Copy className="size-4" />
+              Duplicate
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost-destructive"
+              className="gap-2"
+              onClick={() => removeOffer(activeIndex)}
+              disabled={offers.length <= 1}
+            >
+              <Trash2 className="size-4" />
+              Remove
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <label className={fileInputWrapper}>
+            <input type="file" accept="application/json" multiple className={hiddenInput} onChange={importJSON} />
+            <Button type="button" variant="outline" size="sm" className="pointer-events-none gap-2">
+              <Upload className="size-4" />
+              Import JSON
+            </Button>
+          </label>
+          <Select
+            value={presetKey}
+            onValueChange={async (value) => {
+              setPresetKey(value);
+              if (value === 'all') await importAllPresets();
+              else if (value) await importPreset(`presets/${value}.json`);
+              setPresetKey(undefined);
+            }}
+          >
+            <SelectTrigger size="sm" className="w-[170px]">
+              <SelectValue placeholder="Import preset" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="google">Google</SelectItem>
+              <SelectItem value="ford">Ford</SelectItem>
+              <SelectItem value="startup">Startup</SelectItem>
+              <SelectSeparator />
+              <SelectItem value="all">Import all</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2">
+            <Input
+              placeholder="levels.fyi URL"
+              value={levelsUrl}
+              onChange={(e) => setLevelsUrl(e.target.value)}
+              className="w-52 sm:w-64"
+            />
+            <Button type="button" size="sm" variant="secondary" className="gap-2" onClick={importFromLevels}>
+              <Globe className="size-4" />
+              Import URL
+            </Button>
+          </div>
+          <label className={fileInputWrapper}>
+            <input type="file" accept="text/html,.html" className={hiddenInput} onChange={importLevelsHtmlFile} />
+            <Button type="button" variant="outline" size="sm" className="pointer-events-none gap-2">
+              <FileText className="size-4" />
+              Upload HTML
+            </Button>
           </label>
         </div>
       </div>
