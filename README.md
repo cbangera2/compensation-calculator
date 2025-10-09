@@ -5,10 +5,10 @@ Model and compare compensation packages over time. Enter offers and assumptions 
 You can now share anonymized scenarios by copying a URL that encodes your current offers and settings.
 
 Next.js app (App Router) with React 19, Tailwind CSS 4, and Vitest.
-<img width="1496" height="857" alt="image" src="https://github.com/user-attachments/assets/bac86236-1886-40ba-ba79-881e02637a36" />
-<img width="1497" height="540" alt="image" src="https://github.com/user-attachments/assets/af6eb278-fa27-4aa2-ba5e-21cfa9595467" />
+<img width="1512" height="633" alt="image" src="https://github.com/user-attachments/assets/f27a9816-68e8-4670-8030-713fff307bdb" />
+<img width="1147" height="809" alt="image" src="https://github.com/user-attachments/assets/62a14b14-a470-4d91-a101-b3a08d696a62" />
+<img width="995" height="827" alt="image" src="https://github.com/user-attachments/assets/a238d752-8b79-43c6-82d6-8c7c82a01212" />
 
-<img width="1510" height="833" alt="image" src="https://github.com/user-attachments/assets/e7d0bbe9-df74-4b0e-9812-560b2a94c0a2" />
 
 ### Requirements
 - Node.js 18+ (recommended LTS)
