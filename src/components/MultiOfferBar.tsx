@@ -20,20 +20,32 @@ export default function MultiOfferBar() {
     URL.revokeObjectURL(url);
   }
   function importJSON(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const obj = JSON.parse(String(reader.result));
-        addOffer(obj);
-      } catch {
-        alert('Invalid JSON');
-      }
-    };
-    reader.readAsText(file);
-    // reset input so same file can be selected again
-    event.currentTarget.value = '';
+    const files = event.target.files;
+    if (!files?.length) return;
+
+    const input = event.currentTarget;
+    const readers = Array.from(files).map((file) => new Promise<void>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const obj = JSON.parse(String(reader.result));
+          addOffer(obj);
+        } catch {
+          alert(`Invalid JSON in ${file.name}`);
+        }
+        resolve();
+      };
+      reader.onerror = () => {
+        alert(`Failed to read ${file.name}`);
+        resolve();
+      };
+      reader.readAsText(file);
+    }));
+
+    void Promise.all(readers).finally(() => {
+      // reset input so same file can be selected again
+      input.value = '';
+    });
   }
   async function importPreset(path: string) {
     try {
@@ -111,8 +123,8 @@ export default function MultiOfferBar() {
         <Button type="button" size="sm" variant="outline" onClick={exportJSON}>Export</Button>
   <Button type="button" size="sm" variant="destructive" onClick={() => { resetAll(); location.reload(); }}>Reset all</Button>
         <label className="inline-flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">Import JSON</span>
-          <input type="file" accept="application/json" className="hidden" onChange={importJSON} />
+          <span className="text-xs text-muted-foreground">Import JSON files</span>
+          <input type="file" accept="application/json" multiple className="hidden" onChange={importJSON} />
           <span className="px-2 py-1 border rounded cursor-pointer">Choose</span>
         </label>
         <Select value={presetKey} onValueChange={async (v) => {
