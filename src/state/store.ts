@@ -26,6 +26,8 @@ type State = {
   setUiMode: (m: 'simple' | 'advanced') => void;
   setBonusKind: (kind: 'percent' | 'fixed') => void;
   setBonusValue: (value: number) => void;
+  updateOfferAt: (index: number, updater: (offer: TOffer) => TOffer, options?: { recordHistory?: boolean }) => void;
+  applyToOffers: (updater: (offer: TOffer, index: number) => TOffer) => void;
   undo: () => void;
   redo: () => void;
   resetAll: () => void;
@@ -193,6 +195,35 @@ export const useStore = create<State>()(
         };
         const offers = state.offers.map((o, i) => i === state.activeIndex ? nextOffer : o);
         return { offer: nextOffer, offers, past: [...state.past, state.offer], future: [] };
+      }),
+      updateOfferAt: (index, updater, options) => set((state) => {
+        if (index < 0 || index >= state.offers.length) return state;
+        const recordHistory = options?.recordHistory ?? (index === state.activeIndex);
+        const clone = JSON.parse(JSON.stringify(state.offers[index])) as TOffer;
+        const nextOffer = updater(clone);
+        const offers = state.offers.map((o, i) => (i === index ? nextOffer : o));
+        const updates: Partial<State> = { offers };
+        if (index === state.activeIndex) {
+          updates.offer = nextOffer;
+          if (recordHistory) {
+            updates.past = [...state.past, state.offer];
+            updates.future = [];
+          }
+        }
+        return updates;
+      }),
+      applyToOffers: (updater) => set((state) => {
+        const offers = state.offers.map((offer, index) => {
+          const clone = JSON.parse(JSON.stringify(offer)) as TOffer;
+          return updater(clone, index);
+        });
+        const activeOffer = offers[state.activeIndex] ?? offers[0] ?? initialOffer;
+        return {
+          offers,
+          offer: activeOffer,
+          past: [...state.past, state.offer],
+          future: [],
+        };
       }),
       undo: () => set((state) => {
         if (state.past.length === 0) return state;

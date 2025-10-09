@@ -26,8 +26,13 @@ export default function Home() {
           </div>
         </TabsContent>
         <TabsContent value="compare">
-          <div className="mt-4">
+          <div className="mt-4 space-y-4">
             <ComparisonChart />
+            <div className="grid gap-4 lg:grid-cols-2">
+              <ComparisonTrendChart />
+              <ComparisonStockChart />
+            </div>
+            <ComparisonAdjustments />
           </div>
         </TabsContent>
         <TabsContent value="col">
@@ -55,5 +60,8 @@ import COLPanel from '@/components/COLPanel';
 import EquityExplorer from '@/components/EquityExplorer';
 import YearExtras from '@/components/YearExtras';
 import ShareHydrator from '@/components/ShareHydrator';
+import ComparisonAdjustments from '@/components/ComparisonAdjustments';
+import ComparisonTrendChart from '@/components/ComparisonTrendChart';
+import ComparisonStockChart from '@/components/ComparisonStockChart';
 
 // (Removed demo table to keep page server-safe and avoid client hooks here)
