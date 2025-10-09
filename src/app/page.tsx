@@ -1,51 +1,58 @@
 export default function Home() {
   return (
-    <main className="min-h-screen p-8">
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_55%)] pb-20">
       <ShareHydrator />
-      <h1 className="text-3xl font-semibold mb-6">Compensation</h1>
-      <MultiOfferBar />
-      <Tabs defaultValue="calc">
-        <TabsList>
-          <TabsTrigger value="calc">Calculator</TabsTrigger>
-          <TabsTrigger value="compare">Compare</TabsTrigger>
-          <TabsTrigger value="col">COL</TabsTrigger>
-          <TabsTrigger value="growth">Stock Growth</TabsTrigger>
-        </TabsList>
-        <TabsContent value="calc">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-6">
-              <OfferForm />
-            </div>
-            <YearChart />
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 pb-12 pt-12">
+        <header className="flex flex-col gap-5">
+          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/80 shadow-xs">
+            Model your offers
           </div>
-          <div className="mt-6">
-            <YearTable />
+          <div className="flex flex-col gap-3">
+            <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">Compare compensation packages with clarity.</h1>
+            <p className="max-w-2xl text-base text-muted-foreground sm:text-lg">
+              Tune every lever—cash, equity, bonuses, and perks—and instantly see how they play out over multiple years.
+            </p>
           </div>
-          <div className="mt-6">
-            <YearExtras />
-          </div>
-        </TabsContent>
-        <TabsContent value="compare">
-          <div className="mt-4 space-y-4">
-            <ComparisonChart />
-            <div className="grid gap-4 lg:grid-cols-2">
-              <ComparisonTrendChart />
-              <ComparisonStockChart />
-            </div>
-            <ComparisonAdjustments />
-          </div>
-        </TabsContent>
-        <TabsContent value="col">
-          <div className="mt-4">
-            <COLPanel />
-          </div>
-        </TabsContent>
-        <TabsContent value="growth">
-          <div className="mt-4">
-            <EquityExplorer />
-          </div>
-        </TabsContent>
-      </Tabs>
+          <MultiOfferBar />
+        </header>
+
+        <StatCards />
+
+        <section className="rounded-3xl border border-border/60 bg-background/80 p-4 shadow-lg shadow-black/5 backdrop-blur-sm">
+          <Tabs defaultValue="calc" className="gap-6">
+            <TabsList className="w-full flex-wrap justify-start gap-2 bg-muted/50 p-1">
+              <TabsTrigger value="calc" className="flex-1 min-w-[140px]">Calculator</TabsTrigger>
+              <TabsTrigger value="compare" className="flex-1 min-w-[140px]">Compare</TabsTrigger>
+              <TabsTrigger value="col" className="flex-1 min-w-[140px]">COL</TabsTrigger>
+              <TabsTrigger value="growth" className="flex-1 min-w-[140px]">Stock Growth</TabsTrigger>
+            </TabsList>
+            <TabsContent value="calc" className="mt-6 space-y-8">
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] xl:items-start">
+                <OfferForm />
+                <div className="flex flex-col gap-6">
+                  <YearChart />
+                  <YearExtras />
+                </div>
+              </div>
+              <YearTable />
+            </TabsContent>
+            <TabsContent value="compare" className="mt-6 space-y-6">
+              <ComparisonChart />
+              <div className="grid gap-6 lg:grid-cols-2">
+                <ComparisonTrendChart />
+                <ComparisonStockChart />
+              </div>
+              <ComparisonAdjustments />
+            </TabsContent>
+            <TabsContent value="col" className="mt-6">
+              <COLPanel />
+            </TabsContent>
+            <TabsContent value="growth" className="mt-6">
+              <EquityExplorer />
+            </TabsContent>
+          </Tabs>
+        </section>
+      </div>
     </main>
   );
 }
@@ -63,5 +70,6 @@ import ShareHydrator from '@/components/ShareHydrator';
 import ComparisonAdjustments from '@/components/ComparisonAdjustments';
 import ComparisonTrendChart from '@/components/ComparisonTrendChart';
 import ComparisonStockChart from '@/components/ComparisonStockChart';
+import StatCards from '@/components/StatCards';
 
 // (Removed demo table to keep page server-safe and avoid client hooks here)
