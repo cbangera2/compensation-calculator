@@ -1,7 +1,9 @@
 export default function Home() {
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_55%)] pb-20">
-      <ShareHydrator />
+      <Suspense fallback={null}>
+        <ShareHydrator />
+      </Suspense>
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 pb-12 pt-12">
         <header className="flex flex-col gap-5">
           <div className="inline-flex w-fit items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground/80 shadow-xs">
@@ -71,5 +73,6 @@ import ComparisonAdjustments from '@/components/ComparisonAdjustments';
 import ComparisonTrendChart from '@/components/ComparisonTrendChart';
 import ComparisonStockChart from '@/components/ComparisonStockChart';
 import StatCards from '@/components/StatCards';
+import { Suspense } from 'react';
 
 // (Removed demo table to keep page server-safe and avoid client hooks here)
