@@ -17,10 +17,26 @@ import { Separator } from '@/components/ui/separator';
 
 // PresetLoader removed; defaults can now be imported on demand from Import/Export.
 
+// Stable helper components and functions (outside component to prevent re-creation on every render)
+const Section = ({ title, description, children }: { title: string; description?: string; children: ReactNode }) => (
+  <section className="space-y-4 rounded-xl border border-border/50 bg-background/70 p-4 shadow-xs backdrop-blur-sm">
+    <div className="space-y-1">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">{title}</p>
+      {description ? (
+        <p className="text-sm text-muted-foreground">{description}</p>
+      ) : null}
+    </div>
+    {children}
+  </section>
+);
+
+const slugify = (label: string) => `perk-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+
 export default function OfferForm() {
   const { offer, setOffer, setBonusValue, undo, redo, addGrant, updateGrant } = useStore();
   const [collapsed, setCollapsed] = useState(false);
   const contentId = useId();
+  
 
   // Keyboard shortcuts: Cmd+Z / Shift+Cmd+Z
   useEffect(() => {
@@ -38,18 +54,6 @@ export default function OfferForm() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [undo, redo]);
-
-  const Section = ({ title, description, children }: { title: string; description?: string; children: ReactNode }) => (
-    <section className="space-y-4 rounded-xl border border-border/50 bg-background/70 p-4 shadow-xs backdrop-blur-sm">
-      <div className="space-y-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">{title}</p>
-        {description ? (
-          <p className="text-sm text-muted-foreground">{description}</p>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  );
 
   const renderBonusSummary = () => (
     <span className="text-xs text-muted-foreground whitespace-nowrap">
@@ -103,13 +107,13 @@ export default function OfferForm() {
             <div className="space-y-2">
               <Label htmlFor="name">Company</Label>
               <Input id="name" value={offer.name}
-                onChange={(e) => setOffer({ ...offer, name: e.target.value })}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, name: e.target.value })}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="startDate">Start date</Label>
               <Input id="startDate" type="date" value={offer.startDate}
-                onChange={(e) => setOffer({ ...offer, startDate: e.target.value })}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, startDate: e.target.value })}
               />
             </div>
           </div>
@@ -127,7 +131,7 @@ export default function OfferForm() {
             <div className="space-y-2">
               <Label htmlFor="col-adjust">Cost-of-living multiplier</Label>
               <Input id="col-adjust" type="number" step="0.05" value={offer.assumptions?.colAdjust ?? 1}
-                onChange={(e) => setOffer({ ...offer, assumptions: { ...(offer.assumptions ?? { horizonYears: 4, colAdjust: 1 }), colAdjust: Number(e.target.value || '1') } })}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, assumptions: { ...(offer.assumptions ?? { horizonYears: 4, colAdjust: 1 }), colAdjust: Number(e.target.value || '1') } })}
               />
               <p className="text-xs text-muted-foreground">Applies to base, one-time cash, and perks. 1.0 = no adjustment.</p>
             </div>
@@ -160,7 +164,7 @@ export default function OfferForm() {
                     type="number"
                     step={offer.performanceBonus?.kind === 'percent' ? 0.5 : 100}
                     value={offer.performanceBonus?.kind === 'percent' ? Math.round(((offer.performanceBonus?.value ?? 0) * 1000)) / 10 : (offer.performanceBonus?.value ?? 0)}
-                    onChange={(e) => {
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
                       const v = Number(e.target.value || '0');
                       if ((offer.performanceBonus?.kind ?? 'percent') === 'percent') setBonusValue(v / 100);
                       else setBonusValue(v);
@@ -186,7 +190,7 @@ export default function OfferForm() {
             <div className="space-y-2">
               <Label htmlFor="performanceBonus.expectedPayout">Expected payout multiplier</Label>
               <Input id="performanceBonus.expectedPayout" type="number" step="0.1" value={offer.performanceBonus?.expectedPayout ?? 1}
-                onChange={(e) => {
+                onChange={(e: ChangeEvent<HTMLInputElement>) => {
                   const v = Number(e.target.value || '0');
                   const cur = offer.performanceBonus ?? { kind: 'percent', value: 0, expectedPayout: 1 };
                   setOffer({ ...offer, performanceBonus: { ...cur, expectedPayout: v } });
@@ -265,7 +269,7 @@ export default function OfferForm() {
                     <div className="flex items-center justify-between gap-3">
                       <label htmlFor="signing-enabled" className="text-sm font-medium">Signing bonus</label>
                       <input id="signing-enabled" type="checkbox" className="size-4" checked={enabled}
-                        onChange={(e) => {
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
                           if (e.target.checked) {
                             if (!enabled) setOffer({ ...offer, signingBonuses: [{ amount, payDate }] });
                           } else {
@@ -293,7 +297,7 @@ export default function OfferForm() {
                     <div className="flex items-center justify-between gap-3">
                       <label htmlFor="relocation-enabled" className="text-sm font-medium">Relocation bonus</label>
                       <input id="relocation-enabled" type="checkbox" className="size-4" checked={enabled}
-                        onChange={(e) => {
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
                           if (e.target.checked) {
                             if (!enabled) setOffer({ ...offer, relocationBonuses: [{ amount, payDate }] });
                           } else {
@@ -334,15 +338,16 @@ export default function OfferForm() {
                   const current = idx >= 0 ? benefits[idx] : undefined;
                   const enabled = Boolean(current?.enabled);
                   const amount = current?.annualValue ?? p.annualValue;
+                  const inputId = slugify(p.name);
                   return (
                     <div key={p.name} className="flex flex-col gap-2 rounded-lg border border-border/40 bg-background/60 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                       <div className="flex items-center gap-2">
                         <input
-                          id={`perk-${p.name}`}
+                          id={inputId}
                           type="checkbox"
                           className="size-4"
                           checked={enabled}
-                          onChange={(e) => {
+                          onChange={(e: ChangeEvent<HTMLInputElement>) => {
                             const next = [...benefits];
                             if (e.target.checked) {
                               if (idx >= 0) next[idx] = { ...next[idx], enabled: true, annualValue: amount };
@@ -353,7 +358,7 @@ export default function OfferForm() {
                             setOffer({ ...offer, benefits: next });
                           }}
                         />
-                        <label htmlFor={`perk-${p.name}`} className="cursor-pointer font-medium sm:font-normal">{p.name}</label>
+                        <label htmlFor={inputId} className="cursor-pointer font-medium sm:font-normal">{p.name}</label>
                       </div>
                       <div className="flex w-full items-center gap-1 sm:w-auto">
                         <span className="text-muted-foreground hidden sm:inline">$</span>
