@@ -1,7 +1,6 @@
 "use client";
 import { useStore } from '@/state/store';
 import type { TVestingSchedule, TEquityGrant, TOffer } from '@/models/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -112,73 +111,120 @@ export default function GrantsPanel() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Equity Grants & Refreshers</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-4">
-          <div className="border rounded p-3">
-            <div className="flex flex-wrap items-end gap-3">
-              <div>
-                <Label>Refresher years</Label>
-                <Input type="number" min={1} step={1} className="w-24" value={refYears}
-                  onChange={(e) => setRefYears(Math.max(1, Math.round(Number(e.target.value || '1'))))} />
-              </div>
-              <div>
-                <Label>Start at</Label>
-                <select className="border rounded px-2 py-2" value={refStartOffset}
-                  onChange={(e) => setRefStartOffset(Number(e.target.value))}>
-                  <option value={0}>Y1 (offer start)</option>
-                  <option value={12}>Y2</option>
-                  <option value={24}>Y3</option>
-                  <option value={36}>Y4</option>
-                </select>
-              </div>
-              <Button type="button" onClick={() => addRefresher('RSU')}>Add Refresher RSU</Button>
-              <Button type="button" variant="secondary" onClick={() => addRefresher('NSO')}>Add Refresher Option</Button>
+    <div className="space-y-4">
+      {/* Refresher Quick Add */}
+      <div className="bg-muted/30 border rounded-lg p-4">
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <Label className="text-sm font-medium">Vesting Period</Label>
+              <Input 
+                type="number" 
+                min={1} 
+                step={1} 
+                className="w-24 mt-1" 
+                value={refYears}
+                onChange={(e) => setRefYears(Math.max(1, Math.round(Number(e.target.value || '1'))))} 
+              />
+              <p className="text-xs text-muted-foreground mt-1">{refYears} year{refYears > 1 ? 's' : ''}</p>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">Adds a new grant with your chosen start and years. Edit details below.</p>
+            <div>
+              <Label className="text-sm font-medium">Grant Start</Label>
+              <select 
+                className="border rounded px-3 py-2 mt-1" 
+                value={refStartOffset}
+                onChange={(e) => setRefStartOffset(Number(e.target.value))}
+              >
+                <option value={0}>Year 1 (offer start)</option>
+                <option value={12}>Year 2</option>
+                <option value={24}>Year 3</option>
+                <option value={36}>Year 4</option>
+              </select>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" size="sm" onClick={() => addRefresher('RSU')}>
+                + RSU Grant
+              </Button>
+              <Button type="button" size="sm" variant="secondary" onClick={() => addRefresher('NSO')}>
+                + Stock Option
+              </Button>
+            </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            💡 Quick add: Creates a new grant with the settings above. Edit full details in the grant cards below.
+          </p>
+        </div>
+      </div>
 
-          <div className="grid gap-3">
-          {grants.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-2">
-              <span className="text-xs text-muted-foreground">Quick years:</span>
-              {[2,3,4].map(y => (
-                <button key={y} type="button" className="px-2 py-1 border rounded text-xs"
-                  onClick={() => grants.forEach((g2, j) => {
-                    if (g2.vesting.model === 'standard') {
-                      updateGrant(j, { vesting: { ...g2.vesting, years: y } });
-                    }
-                  })}>
-                  {y}y
-                </button>
-              ))}
-            </div>
-          )}
+      {/* Quick Vesting Year Buttons */}
+      {grants.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Quick vesting years:</span>
+          {[2, 3, 4].map(y => (
+            <button 
+              key={y} 
+              type="button" 
+              className="px-3 py-1 border rounded text-xs font-medium hover:bg-accent transition-colors"
+              onClick={() => grants.forEach((g2, j) => {
+                if (g2.vesting.model === 'standard') {
+                  updateGrant(j, { vesting: { ...g2.vesting, years: y } });
+                }
+              })}
+            >
+              Set all to {y}y
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Grants List */}
+      <div className="space-y-3">
       {grants.map((g, i) => {
             const impliedShares = Math.round(impliedSharesForGrant(offer, g));
             const isOpen = !!openAdvanced[i];
             return (
-              <div key={i} className="border rounded p-3 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-7 gap-3 items-end">
+              <div key={i} className="border rounded-lg p-4 space-y-3 bg-card hover:bg-accent/5 transition-colors">
+                {/* Grant Header */}
+                <div className="flex items-center justify-between pb-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-semibold">
+                      {g.type === 'RSU' ? '📊 RSU' : '📈 Stock Option'} Grant {i + 1}
+                    </span>
+                    {g.grantStartDate && g.grantStartDate !== offer.startDate && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                        Refresher
+                      </span>
+                    )}
+                  </div>
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    variant="destructive" 
+                    onClick={() => removeGrant(i)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+
+                {/* Basic Configuration */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <Label>Type</Label>
-                    <Input value={g.type} readOnly />
+                    <Label className="text-sm font-medium">Grant Type</Label>
+                    <Input value={g.type} readOnly className="mt-1 bg-muted" />
                   </div>
                   <div>
-                    <Label>Target $</Label>
+                    <Label className="text-sm font-medium">Target Value ($)</Label>
                     <Input
                       type="number"
                       value={g.targetValue ?? 0}
                       onChange={(e) => onTargetChange(i, { targetValue: Number(e.target.value || '0') })}
+                      className="mt-1"
                     />
                   </div>
                   <div>
-                    <Label>Target mode</Label>
+                    <Label className="text-sm font-medium">Valuation Mode</Label>
                     <select
-                      className="border rounded px-2 py-2 w-full"
+                      className="border rounded px-2 py-2 w-full mt-1"
                       value={g.targetMode ?? 'year1'}
                       onChange={(e) => onTargetChange(i, { targetMode: e.target.value as 'year1' | 'total' })}
                     >
@@ -186,140 +232,180 @@ export default function GrantsPanel() {
                       <option value="total">4-year total</option>
                     </select>
                   </div>
-                  <div className="sm:col-span-2 text-xs text-muted-foreground self-center">
-                    {(!g.shares || g.shares === 0) && (g.targetValue ?? 0) > 0 ? (
-                      <span>Implied shares: {isFinite(impliedShares) ? impliedShares : 0}</span>
-                    ) : (
-                      <span>&nbsp;</span>
-                    )}
+                </div>
+
+                {/* Implied Shares Info */}
+                {(!g.shares || g.shares === 0) && (g.targetValue ?? 0) > 0 && (
+                  <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                    <p className="text-xs text-blue-700">
+                      💡 Calculated shares: <strong>{isFinite(impliedShares) ? impliedShares.toLocaleString() : 0}</strong> shares
+                    </p>
                   </div>
-                  <div className="flex gap-2 justify-end sm:col-span-2">
-                    <Button type="button" variant="secondary" onClick={() => setOpenAdvanced(o => ({ ...o, [i]: !o[i] }))}>
-                      {isOpen ? 'Hide advanced' : 'Advanced'}
-                    </Button>
-                    <Button type="button" variant="destructive" onClick={() => removeGrant(i)}>Remove</Button>
-                  </div>
+                )}
+
+                {/* Advanced Toggle */}
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setOpenAdvanced(o => ({ ...o, [i]: !o[i] }))}
+                    className="flex items-center gap-2 text-sm font-medium hover:underline"
+                  >
+                    {isOpen ? '▼' : '▶'} Advanced Configuration
+                  </button>
                 </div>
 
                 {isOpen && (
-                  <div className="grid grid-cols-1 sm:grid-cols-7 gap-3 items-end">
-                    <div>
-                      <Label>Vesting model</Label>
-                      <select
-                        className="border rounded px-2 py-2 w-full"
-                        value={g.vesting.model}
-                        onChange={(e) => {
-                          const next = e.target.value as TVestingSchedule['model'];
-                          if (next === 'standard') updateGrant(i, { vesting: defaultStandardSchedule() });
-                          else if (next === 'milestone') updateGrant(i, { vesting: defaultMilestoneSchedule() });
-                          else updateGrant(i, { vesting: defaultExplicitSchedule(g.grantStartDate ?? offer.startDate) });
-                        }}
-                      >
-                        <option value="standard">Standard</option>
-                        <option value="milestone">Irregular (milestones)</option>
-                        <option value="explicit">Explicit (dates)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <Label>Shares</Label>
-                      <Input
-                        type="number"
-                        value={g.shares}
-                        placeholder={String(isFinite(impliedShares) ? impliedShares : '')}
-                        onChange={(e) => updateGrant(i, { shares: Number(e.target.value || '0') })}
-                      />
-                    </div>
-                    {'strike' in g ? (
+                  <div className="bg-muted/30 rounded-lg p-4 space-y-4">
+                    {/* Core Settings Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                       <div>
-                        <Label>Strike</Label>
+                        <Label className="text-sm font-medium">Vesting Model</Label>
+                        <select
+                          className="border rounded px-2 py-2 w-full mt-1"
+                          value={g.vesting.model}
+                          onChange={(e) => {
+                            const next = e.target.value as TVestingSchedule['model'];
+                            if (next === 'standard') updateGrant(i, { vesting: defaultStandardSchedule() });
+                            else if (next === 'milestone') updateGrant(i, { vesting: defaultMilestoneSchedule() });
+                            else updateGrant(i, { vesting: defaultExplicitSchedule(g.grantStartDate ?? offer.startDate) });
+                          }}
+                        >
+                          <option value="standard">Standard (Years/Cliff)</option>
+                          <option value="milestone">Milestone-based</option>
+                          <option value="explicit">Explicit Dates</option>
+                        </select>
+                      </div>
+                      <div>
+                        <Label className="text-sm font-medium">Total Shares</Label>
                         <Input
                           type="number"
-                          step={0.01}
-                          value={(g as { strike?: number }).strike ?? 0}
-                          placeholder={String(g.fmv ?? startingPrice)}
-                          onChange={(e) => updateGrant(i, { strike: Number(e.target.value || '0') })}
+                          value={g.shares}
+                          placeholder={String(isFinite(impliedShares) ? impliedShares : '')}
+                          onChange={(e) => updateGrant(i, { shares: Number(e.target.value || '0') })}
+                          className="mt-1"
                         />
                       </div>
-                    ) : (
+                      {'strike' in g ? (
+                        <div>
+                          <Label className="text-sm font-medium">Strike Price ($)</Label>
+                          <Input
+                            type="number"
+                            step={0.01}
+                            value={(g as { strike?: number }).strike ?? 0}
+                            placeholder={String(g.fmv ?? startingPrice)}
+                            onChange={(e) => updateGrant(i, { strike: Number(e.target.value || '0') })}
+                            className="mt-1"
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <Label className="text-sm font-medium">FMV at Grant ($)</Label>
+                          <Input
+                            type="number"
+                            step={0.01}
+                            value={g.fmv ?? 0}
+                            placeholder={String(startingPrice)}
+                            onChange={(e) => updateGrant(i, { fmv: Number(e.target.value || '0') })}
+                            className="mt-1"
+                          />
+                        </div>
+                      )}
                       <div>
-                        <Label>FMV</Label>
+                        <Label className="text-sm font-medium">Grant Start Date</Label>
                         <Input
-                          type="number"
-                          step={0.01}
-                          value={g.fmv ?? 0}
-                          placeholder={String(startingPrice)}
-                          onChange={(e) => updateGrant(i, { fmv: Number(e.target.value || '0') })}
+                          type="date"
+                          value={g.grantStartDate ?? offer.startDate}
+                          onChange={(e) => updateGrant(i, { grantStartDate: e.target.value })}
+                          className="mt-1"
                         />
                       </div>
-                    )}
-                    <div>
-                      <Label>Grant start</Label>
-                      <Input
-                        type="date"
-                        value={g.grantStartDate ?? offer.startDate}
-                        onChange={(e) => updateGrant(i, { grantStartDate: e.target.value })}
-                      />
                     </div>
+                    {/* Vesting Schedule Details */}
                     {g.vesting.model === 'standard' ? (
-                      <>
-                        <div>
-                          <Label>Cliff (months)</Label>
-                          <Input
-                            type="number"
-                            value={g.vesting.cliffMonths}
-                            onChange={(e) => updateGrant(i, { vesting: { ...g.vesting, cliffMonths: Number(e.target.value) } as TVestingSchedule })}
-                          />
+                      <div>
+                        <h4 className="text-sm font-medium mb-3">Standard Vesting Schedule</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                          <div>
+                            <Label className="text-sm font-medium">Cliff Period</Label>
+                            <Input
+                              type="number"
+                              value={g.vesting.cliffMonths}
+                              onChange={(e) => updateGrant(i, { vesting: { ...g.vesting, cliffMonths: Number(e.target.value) } as TVestingSchedule })}
+                              className="mt-1"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">months</p>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Total Years</Label>
+                            <Input
+                              type="number"
+                              value={g.vesting.years}
+                              onChange={(e) => updateGrant(i, { vesting: { ...g.vesting, years: Number(e.target.value) } as TVestingSchedule })}
+                              className="mt-1"
+                            />
+                            <p className="text-xs text-muted-foreground mt-1">years</p>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Vesting Frequency</Label>
+                            <select
+                              className="border rounded px-2 py-2 w-full mt-1"
+                              value={g.vesting.frequency}
+                              onChange={(e) => updateGrant(i, { vesting: { ...g.vesting, frequency: e.target.value as 'monthly'|'quarterly'|'annual' } as TVestingSchedule })}
+                            >
+                              <option value="monthly">Monthly</option>
+                              <option value="quarterly">Quarterly</option>
+                              <option value="annual">Annual</option>
+                            </select>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Distribution</Label>
+                            <select
+                              className="border rounded px-2 py-2 w-full mt-1"
+                              value={g.vesting.distribution ?? 'even'}
+                              onChange={(e) => updateGrant(i, { vesting: { ...g.vesting, distribution: e.target.value as 'even'|'frontloaded'|'backloaded' } as TVestingSchedule })}
+                            >
+                              <option value="even">Even</option>
+                              <option value="frontloaded">Front-loaded</option>
+                              <option value="backloaded">Back-loaded</option>
+                            </select>
+                          </div>
+                          <div>
+                            <Label className="text-sm font-medium">Cliff Percentage</Label>
+                            <div className="relative mt-1">
+                              <Input
+                                type="number"
+                                step={0.5}
+                                value={Math.round(((g.vesting.cliffPercent ?? 0) * 10000)) / 100}
+                                onChange={(e) => updateGrant(i, { vesting: { ...g.vesting, cliffPercent: Number(e.target.value || '0') / 100 } as TVestingSchedule })}
+                              />
+                              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
+                            </div>
+                          </div>
                         </div>
-                        <div>
-                          <Label>Years</Label>
-                          <Input
-                            type="number"
-                            value={g.vesting.years}
-                            onChange={(e) => updateGrant(i, { vesting: { ...g.vesting, years: Number(e.target.value) } as TVestingSchedule })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Frequency</Label>
-                          <select
-                            className="border rounded px-2 py-2 w-full"
-                            value={g.vesting.frequency}
-                            onChange={(e) => updateGrant(i, { vesting: { ...g.vesting, frequency: e.target.value as 'monthly'|'quarterly'|'annual' } as TVestingSchedule })}
-                          >
-                            <option value="monthly">Monthly</option>
-                            <option value="quarterly">Quarterly</option>
-                            <option value="annual">Annual</option>
-                          </select>
-                        </div>
-                        <div>
-                          <Label>Distribution</Label>
-                          <select
-                            className="border rounded px-2 py-2 w-full"
-                            value={g.vesting.distribution ?? 'even'}
-                            onChange={(e) => updateGrant(i, { vesting: { ...g.vesting, distribution: e.target.value as 'even'|'frontloaded'|'backloaded' } as TVestingSchedule })}
-                          >
-                            <option value="even">Even</option>
-                            <option value="frontloaded">Frontloaded</option>
-                            <option value="backloaded">Backloaded</option>
-                          </select>
-                        </div>
-                        <div>
-                          <Label>Cliff %</Label>
-                          <Input
-                            type="number"
-                            step={0.5}
-                            value={Math.round(((g.vesting.cliffPercent ?? 0) * 10000)) / 100}
-                            onChange={(e) => updateGrant(i, { vesting: { ...g.vesting, cliffPercent: Number(e.target.value || '0') / 100 } as TVestingSchedule })}
-                          />
-                        </div>
-                      </>
+                      </div>
                     ) : g.vesting.model === 'milestone' ? (
-                      <div className="sm:col-span-6">
-                        <Label>Milestone steps</Label>
-                        <div className="space-y-2 mt-1">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-medium">Milestone-Based Vesting</h4>
+                          <Button 
+                            type="button" 
+                            size="sm" 
+                            variant="secondary" 
+                            onClick={() => {
+                              const vest = g.vesting as Extract<TVestingSchedule, { model: 'milestone' }>;
+                              const last = vest.steps[vest.steps.length - 1];
+                              const steps: { monthsFromStart: number; fraction: number }[] = vest.steps.concat({ monthsFromStart: (last?.monthsFromStart ?? 0) + 12, fraction: 0 });
+                              updateGrant(i, { vesting: { model: 'milestone', steps } as TVestingSchedule });
+                            }}
+                          >
+                            + Add Milestone
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
                           {(g.vesting as Extract<TVestingSchedule, { model: 'milestone' }>).steps.map((s, idx) => (
-                            <div key={idx} className="flex flex-col sm:flex-row items-end gap-2">
-                              <div>
-                                <Label>Months from start</Label>
+                            <div key={idx} className="flex flex-col sm:flex-row items-end gap-2 border rounded p-3 bg-background">
+                              <div className="flex-1">
+                                <Label className="text-sm font-medium">Months from Grant Start</Label>
                                 <Input
                                   type="number"
                                   min={0}
@@ -331,49 +417,70 @@ export default function GrantsPanel() {
                                     steps.sort((a: { monthsFromStart: number }, b: { monthsFromStart: number }) => a.monthsFromStart - b.monthsFromStart);
                                     updateGrant(i, { vesting: { model: 'milestone', steps } as TVestingSchedule });
                                   }}
+                                  className="mt-1"
                                 />
                               </div>
-                              <div>
-                                <Label>Weight %</Label>
-                                <Input
-                                  type="number"
-                                  step={0.5}
-                                  value={Math.round(s.fraction * 1000) / 10}
-                                  onChange={(e) => {
-                                    const vest = g.vesting as Extract<TVestingSchedule, { model: 'milestone' }>;
-                                    const steps: { monthsFromStart: number; fraction: number }[] = vest.steps.slice();
-                                    steps[idx] = { ...steps[idx], fraction: Math.max(0, Number(e.target.value || '0') / 100) };
-                                    updateGrant(i, { vesting: { model: 'milestone', steps } as TVestingSchedule });
-                                  }}
-                                />
+                              <div className="flex-1">
+                                <Label className="text-sm font-medium">Vesting Weight</Label>
+                                <div className="relative mt-1">
+                                  <Input
+                                    type="number"
+                                    step={0.5}
+                                    value={Math.round(s.fraction * 1000) / 10}
+                                    onChange={(e) => {
+                                      const vest = g.vesting as Extract<TVestingSchedule, { model: 'milestone' }>;
+                                      const steps: { monthsFromStart: number; fraction: number }[] = vest.steps.slice();
+                                      steps[idx] = { ...steps[idx], fraction: Math.max(0, Number(e.target.value || '0') / 100) };
+                                      updateGrant(i, { vesting: { model: 'milestone', steps } as TVestingSchedule });
+                                    }}
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
+                                </div>
                               </div>
-          <Button type="button" variant="destructive"
+                              <Button 
+                                type="button" 
+                                size="sm" 
+                                variant="destructive"
                                 onClick={() => {
                                   const vest = g.vesting as Extract<TVestingSchedule, { model: 'milestone' }>;
                                   const steps: { monthsFromStart: number; fraction: number }[] = vest.steps.slice();
                                   steps.splice(idx,1);
                                   updateGrant(i, { vesting: { model: 'milestone', steps } as TVestingSchedule });
                                 }}
-                              >Remove</Button>
+                              >
+                                Remove
+                              </Button>
                             </div>
                           ))}
-                          <Button type="button" variant="secondary" onClick={() => {
-                            const vest = g.vesting as Extract<TVestingSchedule, { model: 'milestone' }>;
-                            const last = vest.steps[vest.steps.length - 1];
-                            const steps: { monthsFromStart: number; fraction: number }[] = vest.steps.concat({ monthsFromStart: (last?.monthsFromStart ?? 0) + 12, fraction: 0 });
-                            updateGrant(i, { vesting: { model: 'milestone', steps } as TVestingSchedule });
-                          }}>Add step</Button>
-                          <p className="text-xs text-muted-foreground">Weights are scaled to 100% automatically.</p>
+                          <p className="text-xs text-muted-foreground pl-1">
+                            💡 Weights are automatically scaled to 100%
+                          </p>
                         </div>
                       </div>
                     ) : (
-          <div className="sm:col-span-6">
-                        <Label>Explicit tranches</Label>
-                        <div className="space-y-2 mt-1">
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-medium">Explicit Date-Based Vesting</h4>
+                          <Button 
+                            type="button" 
+                            size="sm" 
+                            variant="secondary" 
+                            onClick={() => {
+                              const vest = g.vesting as Extract<TVestingSchedule, { model: 'explicit' }>;
+                              const last = vest.tranches[vest.tranches.length - 1];
+                              const nextDate = last ? addMonthsStr(last.date.slice(0,10), 12) : addMonthsStr(g.grantStartDate ?? offer.startDate, 12);
+                              const tranches: { date: string; shares: number }[] = vest.tranches.concat({ date: new Date(nextDate).toISOString(), shares: 0 });
+                              updateGrant(i, { vesting: { model: 'explicit', tranches } as TVestingSchedule });
+                            }}
+                          >
+                            + Add Tranche
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
                           {(g.vesting as Extract<TVestingSchedule, { model: 'explicit' }>).tranches.map((t, idx) => (
-            <div key={idx} className="flex flex-col sm:flex-row items-end gap-2">
-                              <div>
-                                <Label>Date</Label>
+                            <div key={idx} className="flex flex-col sm:flex-row items-end gap-2 border rounded p-3 bg-background">
+                              <div className="flex-1">
+                                <Label className="text-sm font-medium">Vesting Date</Label>
                                 <Input
                                   type="date"
                                   value={t.date.slice(0,10)}
@@ -384,40 +491,44 @@ export default function GrantsPanel() {
                                     tranches.sort((a: { date: string }, b: { date: string }) => new Date(a.date).getTime() - new Date(b.date).getTime());
                                     updateGrant(i, { vesting: { model: 'explicit', tranches } as TVestingSchedule });
                                   }}
+                                  className="mt-1"
                                 />
                               </div>
-                              <div>
-                                <Label>Weight %</Label>
-                                <Input
-                                  type="number"
-                                  step={0.5}
-                                  value={Math.round(t.shares * 1000) / 10}
-                                  onChange={(e) => {
-                                    const vest = g.vesting as Extract<TVestingSchedule, { model: 'explicit' }>;
-                                    const tranches: { date: string; shares: number }[] = vest.tranches.slice();
-                                    tranches[idx] = { ...tranches[idx], shares: Math.max(0, Number(e.target.value || '0') / 100) };
-                                    updateGrant(i, { vesting: { model: 'explicit', tranches } as TVestingSchedule });
-                                  }}
-                                />
+                              <div className="flex-1">
+                                <Label className="text-sm font-medium">Vesting Weight</Label>
+                                <div className="relative mt-1">
+                                  <Input
+                                    type="number"
+                                    step={0.5}
+                                    value={Math.round(t.shares * 1000) / 10}
+                                    onChange={(e) => {
+                                      const vest = g.vesting as Extract<TVestingSchedule, { model: 'explicit' }>;
+                                      const tranches: { date: string; shares: number }[] = vest.tranches.slice();
+                                      tranches[idx] = { ...tranches[idx], shares: Math.max(0, Number(e.target.value || '0') / 100) };
+                                      updateGrant(i, { vesting: { model: 'explicit', tranches } as TVestingSchedule });
+                                    }}
+                                  />
+                                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">%</span>
+                                </div>
                               </div>
-                              <Button type="button" variant="destructive"
+                              <Button 
+                                type="button" 
+                                size="sm" 
+                                variant="destructive"
                                 onClick={() => {
                                   const vest = g.vesting as Extract<TVestingSchedule, { model: 'explicit' }>;
                                   const tranches: { date: string; shares: number }[] = vest.tranches.slice();
                                   tranches.splice(idx,1);
                                   updateGrant(i, { vesting: { model: 'explicit', tranches } as TVestingSchedule });
                                 }}
-                              >Remove</Button>
+                              >
+                                Remove
+                              </Button>
                             </div>
                           ))}
-                          <Button type="button" variant="secondary" onClick={() => {
-                            const vest = g.vesting as Extract<TVestingSchedule, { model: 'explicit' }>;
-                            const last = vest.tranches[vest.tranches.length - 1];
-                            const nextDate = last ? addMonthsStr(last.date.slice(0,10), 12) : addMonthsStr(g.grantStartDate ?? offer.startDate, 12);
-                            const tranches: { date: string; shares: number }[] = vest.tranches.concat({ date: new Date(nextDate).toISOString(), shares: 0 });
-                            updateGrant(i, { vesting: { model: 'explicit', tranches } as TVestingSchedule });
-                          }}>Add tranche</Button>
-                          <p className="text-xs text-muted-foreground">Weights are scaled to 100% automatically.</p>
+                          <p className="text-xs text-muted-foreground pl-1">
+                            💡 Weights are automatically scaled to 100%
+                          </p>
                         </div>
                       </div>
                     )}
@@ -426,14 +537,17 @@ export default function GrantsPanel() {
               </div>
             );
           })}
-          {grants.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              No grants yet. Set a stock grant by $ in Simple mode; then adjust vesting here.
+        {grants.length === 0 && (
+          <div className="border-2 border-dashed rounded-lg p-8 text-center">
+            <p className="text-sm text-muted-foreground mb-2">
+              No equity grants configured yet
             </p>
-          )}
+            <p className="text-xs text-muted-foreground">
+              Use the quick add section above to create a refresher grant, or set your initial grant in Simple mode first.
+            </p>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        )}
+      </div>
+    </div>
   );
 }
