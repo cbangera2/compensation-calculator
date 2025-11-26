@@ -8,22 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { useStore } from '@/state/store';
 import { computeOffer } from '@/core/compute';
-import { buildPricePath, yoyFromCagr, yoyFromRamp } from '@/core/growth';
+import { buildPricePath } from '@/core/growth';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { CITY_PRESETS } from '@/lib/col';
+import { StockGrowthControl, type StockGrowthValue } from '@/components/ui/stock-growth-control';
 
 type Range = { min: number; max: number };
 
 const INITIAL_COL_RANGE: Range = { min: 0.6, max: 2.0 };
-const INITIAL_GROWTH_RANGE: Range = { min: -0.5, max: 0.5 };
-
-const growthPresets = [
-  { label: 'Bull +15% CAGR', generator: (years: number) => yoyFromCagr(0.15, years) },
-  { label: 'Base +8% CAGR', generator: (years: number) => yoyFromCagr(0.08, years) },
-  { label: 'Recovery −5→10%', generator: (years: number) => yoyFromRamp(-0.05, 0.10, years) },
-  { label: 'Flat 0%', generator: (years: number) => yoyFromCagr(0, years) },
-];
 
 function ensureYoY(offer: ReturnType<typeof useStore.getState>['offers'][number]) {
   const years = offer.assumptions?.horizonYears ?? 4;
@@ -62,7 +55,6 @@ export default function ComparisonAdjustments() {
   const [syncGrowth, setSyncGrowth] = useState(false);
   const [expandedOffer, setExpandedOffer] = useState<number | null>(null);
   const [colRange, setColRange] = useState(() => ({ ...INITIAL_COL_RANGE }));
-  const [growthRange, setGrowthRange] = useState(() => ({ ...INITIAL_GROWTH_RANGE }));
 
   const stats = useMemo(() => offers.map((offer) => {
     const rows = computeOffer(offer);
@@ -137,53 +129,26 @@ export default function ComparisonAdjustments() {
     }
   }
 
-  function setYoYValue(offerIndex: number, yearIndex: number, value: number) {
-  const nextValue = coerceNumber(value, 0);
-  setGrowthRange((prev) => expandRange(prev, nextValue));
+  // Handler for StockGrowthControl changes
+  function handleGrowthChange(index: number, newValue: StockGrowthValue) {
     if (syncGrowth) {
-      applyToOffers((offer) => {
-        const years = offer.assumptions?.horizonYears ?? 4;
-        const yoy = ensureYoY(offer);
-        if (yearIndex < years) {
-          yoy[yearIndex] = nextValue;
-        }
-        return {
-          ...offer,
-          growth: { ...(offer.growth ?? {}), yoy },
-        };
-      });
+      applyToOffers((offer) => ({
+        ...offer,
+        growth: {
+          ...offer.growth,
+          startingPrice: newValue.startingPrice,
+          yoy: newValue.yoy,
+        },
+      }));
     } else {
-      updateOfferAt(offerIndex, (offer) => {
-        const years = offer.assumptions?.horizonYears ?? 4;
-        const yoy = ensureYoY(offer);
-        if (yearIndex < years) {
-          yoy[yearIndex] = nextValue;
-        }
-        return {
-          ...offer,
-          growth: { ...(offer.growth ?? {}), yoy },
-        };
-      });
-    }
-  }
-
-  function applyGrowthPreset(offerIndex: number, generator: (years: number) => number[]) {
-    if (syncGrowth) {
-      applyToOffers((offer) => {
-        const years = offer.assumptions?.horizonYears ?? 4;
-        return {
-          ...offer,
-          growth: { ...(offer.growth ?? {}), yoy: generator(years) },
-        };
-      });
-    } else {
-      updateOfferAt(offerIndex, (offer) => {
-        const years = offer.assumptions?.horizonYears ?? 4;
-        return {
-          ...offer,
-          growth: { ...(offer.growth ?? {}), yoy: generator(years) },
-        };
-      });
+      updateOfferAt(index, (offer) => ({
+        ...offer,
+        growth: {
+          ...offer.growth,
+          startingPrice: newValue.startingPrice,
+          yoy: newValue.yoy,
+        },
+      }));
     }
   }
 
@@ -339,46 +304,15 @@ export default function ComparisonAdjustments() {
                 </div>
 
                 {isExpanded && (
-                  <div className="space-y-3 rounded-md border border-dashed border-muted bg-muted/20 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Yearly stock growth</Label>
-                      <div className="flex flex-wrap gap-1">
-                        {growthPresets.map((preset) => (
-                          <Button
-                            key={preset.label}
-                            type="button"
-                            variant="secondary"
-                            size="sm"
-                            className="h-7 px-2 text-xs"
-                            onClick={() => applyGrowthPreset(index, preset.generator)}
-                          >
-                            {preset.label}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      {Array.from({ length: years }).map((_, yearIndex) => (
-                        <div key={yearIndex} className="grid grid-cols-[auto,1fr,60px,auto] items-center gap-2 text-[11px]">
-                          <span className="font-medium text-muted-foreground">Y{yearIndex + 1}</span>
-                          <Slider
-                            value={[clampToRange(yoy[yearIndex] ?? 0, growthRange)]}
-                            min={growthRange.min}
-                            max={growthRange.max}
-                            step={0.01}
-                            onValueChange={(values) => setYoYValue(index, yearIndex, values[0] ?? yoy[yearIndex] ?? 0)}
-                          />
-                          <Input
-                            className="h-8 w-16 px-2 text-xs"
-                            type="number"
-                            step="0.5"
-                            value={((yoy[yearIndex] ?? 0) * 100).toFixed(1)}
-                            onChange={(event) => setYoYValue(index, yearIndex, Number(event.target.value) / 100)}
-                          />
-                          <span>%</span>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="rounded-lg border border-primary/20 bg-gradient-to-b from-primary/5 to-transparent p-4">
+                    <StockGrowthControl
+                      value={{ startingPrice, yoy }}
+                      onChange={(newValue) => handleGrowthChange(index, newValue)}
+                      years={years}
+                      variant="compact"
+                      showPresets={true}
+                      showYearControls={true}
+                    />
                   </div>
                 )}
 
