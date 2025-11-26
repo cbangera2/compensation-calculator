@@ -10,36 +10,17 @@ import { Button } from '@/components/ui/button';
 export default function ComparisonChart() {
   const { offers, activeIndex } = useStore();
   const [showPurchasingPower, setShowPurchasingPower] = useState(false);
-  
-  if (!offers || offers.length < 2) return null;
 
-  const rowsPerOffer = offers.map((o) => computeOffer(o));
-  const horizon = Math.max(...rowsPerOffer.map(r => r.length));
-  const years = Array.from({ length: horizon }, (_, i) => `Y${i + 1}`);
-  const fmt = (n: number) => formatCurrency(Math.round(n));
-  const chartKey = `${offers.length}:${offers.map(o => o.name || '').join('|')}:${horizon}:${showPurchasingPower}`;
-
-  // Prepare per-offer arrays for stacked series
-  // If showPurchasingPower, divide values by colFactor
-  const byOffer = rowsPerOffer.map((rows, i) => {
-    const colFactor = offers[i]?.colFactor ?? 1;
-    const divisor = showPurchasingPower ? colFactor : 1;
-    return {
-      base: Array.from({ length: horizon }, (_, y) => Math.round((rows[y]?.base ?? 0) / divisor)),
-      bonus: Array.from({ length: horizon }, (_, y) => Math.round((rows[y]?.bonus ?? 0) / divisor)),
-      stock: Array.from({ length: horizon }, (_, y) => Math.round((rows[y]?.stock ?? 0) / divisor)),
-      other: Array.from({ length: horizon }, (_, y) => Math.round((rows[y]?.other ?? 0) / divisor)),
-      total: Array.from({ length: horizon }, (_, y) => Math.round((rows[y]?.total ?? 0) / divisor)),
-    };
-  });
-
-  const totals = byOffer.map(b => b.total.reduce((a, v) => a + v, 0));
+  const rowsPerOffer = useMemo(() => 
+    (offers || []).map((o) => computeOffer(o)),
+    [offers]
+  );
 
   // Calculate purchasing power data for the summary cards
   const ppData = useMemo(() => {
-    return offers.map((offer, idx) => {
+    return (offers || []).map((offer, idx) => {
       const colFactor = offer.colFactor ?? 1;
-      const rows = rowsPerOffer[idx];
+      const rows = rowsPerOffer[idx] || [];
       const y1Total = rows[0]?.total ?? 0;
       const total4y = rows.reduce((a, r) => a + r.total, 0);
       const ppY1 = y1Total / colFactor;
@@ -62,6 +43,29 @@ export default function ComparisonChart() {
     [...ppData].sort((a, b) => b.ppY1 - a.ppY1),
     [ppData]
   );
+  
+  if (!offers || offers.length < 2) return null;
+
+  const horizon = Math.max(...rowsPerOffer.map(r => r.length));
+  const years = Array.from({ length: horizon }, (_, i) => `Y${i + 1}`);
+  const fmt = (n: number) => formatCurrency(Math.round(n));
+  const chartKey = `${offers.length}:${offers.map(o => o.name || '').join('|')}:${horizon}:${showPurchasingPower}`;
+
+  // Prepare per-offer arrays for stacked series
+  // If showPurchasingPower, divide values by colFactor
+  const byOffer = rowsPerOffer.map((rows, i) => {
+    const colFactor = offers[i]?.colFactor ?? 1;
+    const divisor = showPurchasingPower ? colFactor : 1;
+    return {
+      base: Array.from({ length: horizon }, (_, y) => Math.round((rows[y]?.base ?? 0) / divisor)),
+      bonus: Array.from({ length: horizon }, (_, y) => Math.round((rows[y]?.bonus ?? 0) / divisor)),
+      stock: Array.from({ length: horizon }, (_, y) => Math.round((rows[y]?.stock ?? 0) / divisor)),
+      other: Array.from({ length: horizon }, (_, y) => Math.round((rows[y]?.other ?? 0) / divisor)),
+      total: Array.from({ length: horizon }, (_, y) => Math.round((rows[y]?.total ?? 0) / divisor)),
+    };
+  });
+
+  const totals = byOffer.map(b => b.total.reduce((a, v) => a + v, 0));
 
   const maxPP = Math.max(...ppData.map(o => o.ppY1), 1);
 
