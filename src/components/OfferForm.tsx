@@ -1,442 +1,953 @@
 "use client";
-import type { ChangeEvent, ReactNode } from 'react';
-import { useEffect, useId, useState } from 'react';
-import { useStore } from '@/state/store';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
-import GrowthYoyEditor from '@/components/GrowthYoyEditor';
-import GrantsPanel from '@/components/GrantsPanel';
-import RaisesEditor from '@/components/RaisesEditor';
-import CashPerksPanel from '@/components/CashPerksPanel';
-import { CurrencyInput } from '@/components/ui/currency-input';
-import { Undo2, Redo2, ChevronDown } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
-import { CITY_PRESETS } from '@/lib/col';
+import type { ChangeEvent } from "react";
+import { useEffect, useId, useState, useMemo } from "react";
+import { useStore } from "@/state/store";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import GrowthYoyEditor from "@/components/GrowthYoyEditor";
+import GrantsPanel from "@/components/GrantsPanel";
+import RaisesEditor from "@/components/RaisesEditor";
+import CashPerksPanel from "@/components/CashPerksPanel";
+import { CurrencyInput } from "@/components/ui/currency-input";
+import { computeOffer } from "@/core/compute";
+import {
+  Undo2,
+  Redo2,
+  ChevronDown,
+  ChevronRight,
+  Briefcase,
+  TrendingUp,
+  Settings2,
+} from "lucide-react";
+import { CITY_PRESETS } from "@/lib/col";
 
-// PresetLoader removed; defaults can now be imported on demand from Import/Export.
-
-// Stable helper components and functions (outside component to prevent re-creation on every render)
-const Section = ({ title, description, children }: { title: string; description?: string; children: ReactNode }) => (
-  <section className="space-y-4 rounded-xl border border-border/50 bg-background/70 p-4 shadow-xs backdrop-blur-sm">
-    <div className="space-y-1">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/80">{title}</p>
-      {description ? (
-        <p className="text-sm text-muted-foreground">{description}</p>
-      ) : null}
-    </div>
-    {children}
-  </section>
-);
-
-const slugify = (label: string) => `perk-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+const QUICK_PERKS = [
+  { name: "Free meals", annualValue: 5000 },
+  { name: "Gym/wellness", annualValue: 1200 },
+  { name: "Learning", annualValue: 1500 },
+  { name: "HSA", annualValue: 1000 },
+] as const;
 
 export default function OfferForm() {
-  const { offer, setOffer, setBonusValue, undo, redo, addGrant, updateGrant } = useStore();
+  const { offer, setOffer, setBonusValue, undo, redo, addGrant, updateGrant } =
+    useStore();
   const [collapsed, setCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState("compensation");
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+    raises: false,
+    perks: false,
+  });
   const contentId = useId();
-  
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
 
   // Keyboard shortcuts: Cmd+Z / Shift+Cmd+Z
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
       if (!meta) return;
-      if (e.key.toLowerCase() === 'z' && !e.shiftKey) {
+      if (e.key.toLowerCase() === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
-      } else if ((e.key.toLowerCase() === 'z' && e.shiftKey) || (e.key.toLowerCase() === 'y')) {
+      } else if (
+        (e.key.toLowerCase() === "z" && e.shiftKey) ||
+        e.key.toLowerCase() === "y"
+      ) {
         e.preventDefault();
         redo();
       }
     };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [undo, redo]);
 
-  const renderBonusSummary = () => (
-    <span className="text-xs text-muted-foreground whitespace-nowrap">
-      {offer.performanceBonus?.kind === 'percent'
-        ? `${Math.round(((offer.performanceBonus?.value ?? 0) * 1000)) / 10}% (~$${Math.round(((offer.performanceBonus?.value ?? 0) * offer.base.startAnnual)).toLocaleString()})`
-        : `$${Math.round(offer.performanceBonus?.value ?? 0).toLocaleString()} (${Math.round((((offer.performanceBonus?.value ?? 0) / Math.max(1, offer.base.startAnnual)) * 1000)) / 10}%)`}
-    </span>
-  );
+  // Computed values for summary display
+  const totalCash = useMemo(() => {
+    const base = offer.base.startAnnual;
+    const bonusAmt =
+      offer.performanceBonus?.kind === "percent"
+        ? (offer.performanceBonus?.value ?? 0) * base
+        : (offer.performanceBonus?.value ?? 0);
+    return base + bonusAmt * (offer.performanceBonus?.expectedPayout ?? 1);
+  }, [offer.base.startAnnual, offer.performanceBonus]);
+
+  const totalEquityY1 = useMemo(() => {
+    const grants = offer.equityGrants ?? [];
+    const rsu = grants.find((g) => g.type === "RSU");
+    if (!rsu?.targetValue) return 0;
+    return rsu.targetMode === "year1"
+      ? rsu.targetValue
+      : Math.round(rsu.targetValue / 4);
+  }, [offer.equityGrants]);
+
+  // Compute perks total for breakdown visualization
+  const totalPerks = useMemo(() => {
+    const signing = (offer.signingBonuses ?? []).reduce((sum, b) => sum + (b.amount ?? 0), 0);
+    const relocation = (offer.relocationBonuses ?? []).reduce((sum, b) => sum + (b.amount ?? 0), 0);
+    const benefits = (offer.benefits ?? []).reduce((sum, b) => sum + (b.enabled !== false ? (b.annualValue ?? 0) : 0), 0);
+    const misc = (offer.miscRecurring ?? []).reduce((sum, m) => sum + (m.annualValue ?? 0), 0);
+    return signing + relocation + benefits + misc;
+  }, [offer.signingBonuses, offer.relocationBonuses, offer.benefits, offer.miscRecurring]);
+
+  // Breakdown percentages for visual bar
+  const breakdown = useMemo(() => {
+    const total = totalCash + totalEquityY1 + totalPerks;
+    if (total === 0) return { cash: 33, equity: 33, perks: 34 };
+    return {
+      cash: Math.round((totalCash / total) * 100),
+      equity: Math.round((totalEquityY1 / total) * 100),
+      perks: Math.round((totalPerks / total) * 100),
+    };
+  }, [totalCash, totalEquityY1, totalPerks]);
+
+  // Compute year-by-year data for mini chart
+  const yearData = useMemo(() => {
+    const rows = computeOffer(offer);
+    const horizon = offer.assumptions?.horizonYears ?? 4;
+    return rows.slice(0, horizon);
+  }, [offer]);
+
+  // Helper for RSU grant management
+  const ensureRsuGrant = (patch: {
+    targetValue?: number;
+    targetMode?: "year1" | "total";
+  }) => {
+    const grants = offer.equityGrants ?? [];
+    const idx = grants.findIndex((g) => g.type === "RSU");
+    const startingPrice = offer.growth?.startingPrice ?? 10;
+    if (idx >= 0) {
+      updateGrant(idx, patch);
+    } else {
+      addGrant({
+        type: "RSU",
+        shares: 0,
+        fmv: startingPrice,
+        targetValue: patch.targetValue ?? 40000,
+        targetMode: patch.targetMode ?? "year1",
+        vesting: {
+          model: "standard",
+          years: 4,
+          cliffMonths: 12,
+          frequency: "monthly",
+          distribution: "even",
+          cliffPercent: 0,
+        },
+      });
+    }
+  };
+
+  const rsuGrant = useMemo(() => {
+    const grants = offer.equityGrants ?? [];
+    return grants.find((g) => g.type === "RSU");
+  }, [offer.equityGrants]);
 
   return (
-    <Card className="border-border/60">
-      <CardHeader className="border-b border-border/60 pb-6">
-        <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="space-y-1">
-              <CardTitle className="text-2xl font-semibold">Offer details</CardTitle>
-              <CardDescription>Fine-tune cash, equity, and perks for the active offer.</CardDescription>
+    <Card className="border-border/60 overflow-hidden">
+      {/* Compact Header with Visual Breakdown */}
+      <CardHeader className="border-b border-border/60 py-4 px-5 space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <CardTitle className="text-lg font-semibold">
+              {offer.name || "Offer"}
+            </CardTitle>
+            <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+              ${Math.round(totalCash + totalEquityY1 + totalPerks).toLocaleString()}/yr
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={undo}
+              aria-label="Undo"
+            >
+              <Undo2 className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={redo}
+              aria-label="Redo"
+            >
+              <Redo2 className="size-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="size-8"
+              onClick={() => setCollapsed((prev) => !prev)}
+              aria-expanded={!collapsed}
+              aria-controls={contentId}
+            >
+              <ChevronDown
+                className={`size-4 transition-transform ${collapsed ? "-rotate-90" : "rotate-0"}`}
+              />
+            </Button>
+          </div>
+        </div>
+        
+        {/* Visual Compensation Breakdown Bar */}
+        <div className="space-y-2">
+          <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted/30">
+            <div 
+              className="bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+              style={{ width: `${breakdown.cash}%` }}
+              title={`Cash: $${Math.round(totalCash).toLocaleString()} (${breakdown.cash}%)`}
+            />
+            <div 
+              className="bg-gradient-to-r from-amber-500 to-amber-400 transition-all duration-500"
+              style={{ width: `${breakdown.equity}%` }}
+              title={`Equity: $${Math.round(totalEquityY1).toLocaleString()} (${breakdown.equity}%)`}
+            />
+            <div 
+              className="bg-gradient-to-r from-violet-500 to-violet-400 transition-all duration-500"
+              style={{ width: `${breakdown.perks}%` }}
+              title={`Perks: $${Math.round(totalPerks).toLocaleString()} (${breakdown.perks}%)`}
+            />
+          </div>
+          <div className="flex justify-between text-[10px] text-muted-foreground">
+            <div className="flex items-center gap-1">
+              <span className="size-2 rounded-full bg-emerald-500" />
+              <span>Cash ${Math.round(totalCash / 1000)}k</span>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setCollapsed((prev) => !prev)}
-                aria-expanded={!collapsed}
-                aria-controls={contentId}
-                className="flex items-center gap-1"
-              >
-                <ChevronDown className={`size-4 transition-transform ${collapsed ? '-rotate-90' : 'rotate-0'}`} />
-                {collapsed ? 'Expand' : 'Collapse'}
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={undo} aria-label="Undo">
-                <Undo2 className="size-4" />
-                Undo
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={redo} aria-label="Redo">
-                <Redo2 className="size-4" />
-                Redo
-              </Button>
+            <div className="flex items-center gap-1">
+              <span className="size-2 rounded-full bg-amber-500" />
+              <span>Equity ${Math.round(totalEquityY1 / 1000)}k</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="size-2 rounded-full bg-violet-500" />
+              <span>Perks ${Math.round(totalPerks / 1000)}k</span>
             </div>
           </div>
         </div>
       </CardHeader>
+
       <CardContent
         id={contentId}
-        className={`space-y-6 pb-8 pt-6 ${collapsed ? 'hidden' : ''}`}
+        className={`p-0 ${collapsed ? "hidden" : ""}`}
         aria-hidden={collapsed}
       >
-        <Section title="Basics" description="Company context and start timeline.">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="name">Company</Label>
-              <Input id="name" value={offer.name}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, name: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="location">Location</Label>
-              <select
-                id="location"
-                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={CITY_PRESETS.find(c => c.name === offer.location || (offer.colFactor && Math.abs(c.factor - offer.colFactor) < 0.001))?.key ?? 'custom'}
-                onChange={(e) => {
-                  const key = e.target.value;
-                  const preset = CITY_PRESETS.find(c => c.key === key);
-                  if (preset) {
-                    setOffer({ ...offer, location: preset.name, colFactor: preset.factor });
-                  } else {
-                    setOffer({ ...offer, location: 'Custom', colFactor: offer.colFactor ?? 1 });
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full"
+        >
+          <TabsList className="w-full justify-start gap-0 rounded-none border-b border-border/60 bg-transparent p-0 h-auto">
+            <TabsTrigger
+              value="compensation"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm"
+            >
+              <Briefcase className="size-4 mr-1.5" />
+              Compensation
+            </TabsTrigger>
+            <TabsTrigger
+              value="equity"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm"
+            >
+              <TrendingUp className="size-4 mr-1.5" />
+              Equity
+            </TabsTrigger>
+            <TabsTrigger
+              value="advanced"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm"
+            >
+              <Settings2 className="size-4 mr-1.5" />
+              Advanced
+            </TabsTrigger>
+          </TabsList>
+
+          {/* COMPENSATION TAB (merged Essentials + Perks) */}
+          <TabsContent value="compensation" className="p-5 space-y-5 mt-0">
+            {/* Company Info - Compact Row */}
+            <div className="flex flex-wrap gap-3">
+              <div className="flex-1 min-w-[180px] space-y-1.5">
+                <Label htmlFor="name" className="text-xs text-muted-foreground">
+                  Company
+                </Label>
+                <Input
+                  id="name"
+                  value={offer.name}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setOffer({ ...offer, name: e.target.value })
                   }
-                }}
-              >
-                <option value="custom">Custom...</option>
-                {CITY_PRESETS.map(c => (
-                  <option key={c.key} value={c.key}>{c.name} ({c.factor.toFixed(2)}×)</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="startDate">Start date</Label>
-              <Input id="startDate" type="date" value={offer.startDate}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, startDate: e.target.value })}
-              />
-            </div>
-          </div>
-        </Section>
-
-        <Section title="Cash compensation" description="Annual base and bonus expectations.">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-            <div className="space-y-2">
-              <Label htmlFor="base.startAnnual">Base salary (annual)</Label>
-              <CurrencyInput id="base.startAnnual" value={offer.base.startAnnual}
-                onValueChange={(v) => setOffer({ ...offer, base: { ...offer.base, startAnnual: v } })}
-                className="w-full"
-              />
-            </div>
-            {(!CITY_PRESETS.find(c => c.name === offer.location)) && (
-              <div className="space-y-2">
-                <Label htmlFor="col-factor">Custom COL factor</Label>
-                <Input id="col-factor" type="number" step="0.05" min="0.5" max="2" value={offer.colFactor ?? 1}
-                  onChange={(e: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, colFactor: Number(e.target.value || '1') })}
+                  className="h-9"
+                  placeholder="Company name"
                 />
-                <p className="text-xs text-muted-foreground">1.0 = US average. Higher = more expensive city.</p>
               </div>
-            )}
-          </div>
-
-          <Separator className="hidden lg:block" />
-
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-            <div className="space-y-3">
-              <Label>Bonus (percent or cash)</Label>
-              <div className="flex flex-col gap-3 rounded-lg border border-border/50 bg-background/60 p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                  <select
-                    className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={offer.performanceBonus?.kind ?? 'percent'}
-                    onChange={(e) => {
-                      const nextKind = e.target.value as 'percent' | 'fixed';
-                      const cur = offer.performanceBonus ?? { kind: 'percent', value: 0, expectedPayout: 1 };
-                      const base = offer.base.startAnnual;
-                      const converted = nextKind === 'percent'
-                        ? (cur.kind === 'fixed' && base > 0 ? Math.min(1, cur.value / base) : cur.value)
-                        : (cur.kind === 'percent' ? Math.round(cur.value * base) : cur.value);
-                      setOffer({ ...offer, performanceBonus: { ...cur, kind: nextKind, value: converted } });
-                    }}
-                  >
-                    <option value="percent">% of base</option>
-                    <option value="fixed">$ cash</option>
-                  </select>
-                  <Input
-                    type="number"
-                    step={offer.performanceBonus?.kind === 'percent' ? 0.5 : 100}
-                    value={offer.performanceBonus?.kind === 'percent' ? Math.round(((offer.performanceBonus?.value ?? 0) * 1000)) / 10 : (offer.performanceBonus?.value ?? 0)}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                      const v = Number(e.target.value || '0');
-                      if ((offer.performanceBonus?.kind ?? 'percent') === 'percent') setBonusValue(v / 100);
-                      else setBonusValue(v);
-                    }}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <Slider
-                    value={[Number(offer.performanceBonus?.kind === 'percent' ? (offer.performanceBonus?.value ?? 0) * 100 : (offer.performanceBonus?.value ?? 0))]}
-                    onValueChange={(v) => {
-                      const raw = v[0];
-                      if ((offer.performanceBonus?.kind ?? 'percent') === 'percent') setBonusValue(raw / 100);
-                      else setBonusValue(raw);
-                    }}
-                    min={0}
-                    max={offer.performanceBonus?.kind === 'percent' ? 50 : Math.max(10000, Math.ceil(offer.base.startAnnual * 0.25 / 500) * 500)}
-                    step={offer.performanceBonus?.kind === 'percent' ? 0.5 : 500}
-                  />
-                  {renderBonusSummary()}
-                </div>
+              <div className="w-[140px] space-y-1.5">
+                <Label
+                  htmlFor="startDate"
+                  className="text-xs text-muted-foreground"
+                >
+                  Start date
+                </Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={offer.startDate}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setOffer({ ...offer, startDate: e.target.value })
+                  }
+                  className="h-9"
+                />
               </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="performanceBonus.expectedPayout">Expected payout multiplier</Label>
-              <Input id="performanceBonus.expectedPayout" type="number" step="0.1" value={offer.performanceBonus?.expectedPayout ?? 1}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                  const v = Number(e.target.value || '0');
-                  const cur = offer.performanceBonus ?? { kind: 'percent', value: 0, expectedPayout: 1 };
-                  setOffer({ ...offer, performanceBonus: { ...cur, expectedPayout: v } });
-                }}
-              />
-              <p className="text-xs text-muted-foreground">Adjust up or down if payouts differ from target.</p>
-            </div>
-          </div>
-        </Section>
-
-        <Section title="Equity" description="Estimate annual equity value using the default RSU grant.">
-          <div className="grid gap-4">
-            <div className="space-y-3">
-              <Label>Stock grant by $</Label>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                {(() => {
-                  const grants = offer.equityGrants ?? [];
-                  const idx = grants.findIndex(g => g.type === 'RSU');
-                  const rsu = idx >= 0 ? grants[idx] : undefined;
-                  const startingPrice = (offer.growth?.startingPrice ?? rsu?.fmv ?? 10);
-                  const years = 4;
-                  const ensureGrant = (patch: { targetValue?: number; targetMode?: 'year1'|'total' }) => {
-                    if (idx >= 0) {
-                      updateGrant(idx, patch);
+              <div className="w-[180px] space-y-1.5">
+                <Label
+                  htmlFor="location"
+                  className="text-xs text-muted-foreground"
+                >
+                  Location
+                </Label>
+                <select
+                  id="location"
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={
+                    CITY_PRESETS.find(
+                      (c) =>
+                        c.name === offer.location ||
+                        (offer.colFactor &&
+                          Math.abs(c.factor - offer.colFactor) < 0.001)
+                    )?.key ?? "custom"
+                  }
+                  onChange={(e) => {
+                    const key = e.target.value;
+                    const preset = CITY_PRESETS.find((c) => c.key === key);
+                    if (preset) {
+                      setOffer({
+                        ...offer,
+                        location: preset.name,
+                        colFactor: preset.factor,
+                      });
                     } else {
-                      addGrant({
-                        type: 'RSU',
-                        shares: 0,
-                        fmv: startingPrice,
-                        targetValue: (patch.targetValue as number) ?? 40000,
-                        targetMode: (patch.targetMode as 'year1'|'total') ?? 'year1',
-                        vesting: { model: 'standard', years, cliffMonths: 12, frequency: 'monthly', distribution: 'even', cliffPercent: 0 },
+                      setOffer({
+                        ...offer,
+                        location: "Custom",
+                        colFactor: offer.colFactor ?? 1,
                       });
                     }
-                  };
+                  }}
+                >
+                  <option value="custom">Custom COL...</option>
+                  {CITY_PRESETS.map((c) => (
+                    <option key={c.key} value={c.key}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Main Compensation Grid */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {/* Base Salary */}
+              <div className="rounded-lg border border-border/50 bg-gradient-to-br from-emerald-500/5 to-transparent p-4 space-y-2 relative overflow-hidden">
+                <div className="absolute bottom-0 left-0 h-1 bg-emerald-500/40 transition-all duration-500" style={{ width: `${Math.min(100, (offer.base.startAnnual / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%` }} />
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  Base Salary
+                  <span className="text-[10px] text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                    {Math.round((offer.base.startAnnual / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%
+                  </span>
+                </Label>
+                <CurrencyInput
+                  id="base.startAnnual"
+                  value={offer.base.startAnnual}
+                  onValueChange={(v) =>
+                    setOffer({ ...offer, base: { ...offer.base, startAnnual: v } })
+                  }
+                  className="text-lg font-semibold h-11"
+                />
+                <p className="text-xs text-muted-foreground">Annual</p>
+              </div>
+
+              {/* Bonus */}
+              <div className="rounded-lg border border-border/50 bg-gradient-to-br from-blue-500/5 to-transparent p-4 space-y-2 relative overflow-hidden">
+                <div className="absolute bottom-0 left-0 h-1 bg-blue-500/40 transition-all duration-500" style={{ width: `${Math.min(100, ((totalCash - offer.base.startAnnual) / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%` }} />
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    Target Bonus
+                    <span className="text-[10px] text-blue-600 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                      {Math.round(((totalCash - offer.base.startAnnual) / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%
+                    </span>
+                  </Label>
+                  <select
+                    className="h-5 text-xs rounded border-0 bg-transparent px-1 focus-visible:outline-none text-muted-foreground"
+                    value={offer.performanceBonus?.kind ?? "percent"}
+                    onChange={(e) => {
+                      const nextKind = e.target.value as "percent" | "fixed";
+                      const cur = offer.performanceBonus ?? {
+                        kind: "percent",
+                        value: 0,
+                        expectedPayout: 1,
+                      };
+                      const base = offer.base.startAnnual;
+                      const converted =
+                        nextKind === "percent"
+                          ? cur.kind === "fixed" && base > 0
+                            ? Math.min(1, cur.value / base)
+                            : cur.value
+                          : cur.kind === "percent"
+                            ? Math.round(cur.value * base)
+                            : cur.value;
+                      setOffer({
+                        ...offer,
+                        performanceBonus: { ...cur, kind: nextKind, value: converted },
+                      });
+                    }}
+                  >
+                    <option value="percent">%</option>
+                    <option value="fixed">$</option>
+                  </select>
+                </div>
+                {offer.performanceBonus?.kind === "fixed" ? (
+                  <CurrencyInput
+                    value={offer.performanceBonus?.value ?? 0}
+                    onValueChange={(v) => setBonusValue(v)}
+                    className="text-lg font-semibold h-11"
+                  />
+                ) : (
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      step={1}
+                      min={0}
+                      max={100}
+                      value={Math.round((offer.performanceBonus?.value ?? 0) * 100)}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                        setBonusValue(Number(e.target.value || "0") / 100)
+                      }
+                      className="text-lg font-semibold h-11 pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      %
+                    </span>
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  ≈ $
+                  {Math.round(
+                    offer.performanceBonus?.kind === "percent"
+                      ? (offer.performanceBonus?.value ?? 0) * offer.base.startAnnual
+                      : (offer.performanceBonus?.value ?? 0)
+                  ).toLocaleString()}
+                  /yr
+                </p>
+              </div>
+
+              {/* Equity */}
+              <div className="rounded-lg border border-border/50 bg-gradient-to-br from-amber-500/5 to-transparent p-4 space-y-2 relative overflow-hidden">
+                <div className="absolute bottom-0 left-0 h-1 bg-amber-500/40 transition-all duration-500" style={{ width: `${Math.min(100, (totalEquityY1 / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%` }} />
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium flex items-center gap-2">
+                    Equity
+                    <span className="text-[10px] text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                      {Math.round((totalEquityY1 / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%
+                    </span>
+                  </Label>
+                  <select
+                    className="h-5 text-xs rounded border-0 bg-transparent px-1 focus-visible:outline-none text-muted-foreground"
+                    value={rsuGrant?.targetMode ?? "year1"}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                      ensureRsuGrant({
+                        targetMode: e.target.value as "year1" | "total",
+                      });
+                    }}
+                  >
+                    <option value="year1">Y1</option>
+                    <option value="total">4yr</option>
+                  </select>
+                </div>
+                <CurrencyInput
+                  placeholder="e.g., 60,000"
+                  value={rsuGrant?.targetValue ?? 0}
+                  onValueChange={(amt) => ensureRsuGrant({ targetValue: amt })}
+                  className="text-lg font-semibold h-11"
+                />
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => setActiveTab("equity")}
+                >
+                  Configure grants →
+                </button>
+              </div>
+            </div>
+
+            {/* One-Time & Perks Row */}
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Bonuses & Benefits
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Signing Bonus */}
+                {(() => {
+                  const signing = offer.signingBonuses ?? [];
+                  const enabled = signing.length > 0;
+                  const amount = signing[0]?.amount ?? 10000;
+                  const payDate = signing[0]?.payDate ?? offer.startDate;
                   return (
-                    <>
-                      <CurrencyInput
-                        placeholder="e.g., 60000"
-                        value={rsu?.targetValue ?? 0}
-                        onValueChange={(amt) => {
-                          ensureGrant({ targetValue: amt });
+                    <label
+                      className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${enabled ? "border-primary/50 bg-primary/5" : "border-border/50 hover:border-border"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4 rounded"
+                        checked={enabled}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                          if (e.target.checked) {
+                            setOffer({
+                              ...offer,
+                              signingBonuses: [{ amount, payDate }],
+                            });
+                          } else {
+                            setOffer({ ...offer, signingBonuses: [] });
+                          }
                         }}
-                        className="w-full sm:w-48"
                       />
-                      <select
-                        className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                        value={rsu?.targetMode ?? 'year1'}
-                        onChange={(e: ChangeEvent<HTMLSelectElement>) => {
-                          const v = (e.target.value === 'total' ? 'total' : 'year1') as 'year1' | 'total';
-                          ensureGrant({ targetMode: v });
-                        }}
-                      >
-                        <option value="year1">1st year value</option>
-                        <option value="total">4-year total</option>
-                      </select>
-                    </>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">Signing</p>
+                        {enabled && (
+                          <CurrencyInput
+                            className="mt-1 h-7 text-sm"
+                            value={amount}
+                            onValueChange={(val) => {
+                              setOffer({
+                                ...offer,
+                                signingBonuses: [{ amount: val, payDate }],
+                              });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </div>
+                    </label>
                   );
                 })()}
-              </div>
-              <p className="text-xs text-muted-foreground">Uses starting price or FMV to back-calc shares; standard 4 year vesting.</p>
-            </div>
-          </div>
-        </Section>
 
-        <Section title="One-time cash & perks" description="Quick toggles for relocation, signing, and everyday benefits.">
-          <div className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(() => {
-                const signing = offer.signingBonuses ?? [];
-                const enabled = signing.length > 0;
-                const amount = signing[0]?.amount ?? 5000;
-                const payDate = signing[0]?.payDate ?? offer.startDate;
-                return (
-                  <div className="flex flex-col gap-2 rounded-lg border border-border/50 bg-background/60 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <label htmlFor="signing-enabled" className="text-sm font-medium">Signing bonus</label>
-                      <input id="signing-enabled" type="checkbox" className="size-4" checked={enabled}
+                {/* Relocation Bonus */}
+                {(() => {
+                  const relocation = offer.relocationBonuses ?? [];
+                  const enabled = relocation.length > 0;
+                  const amount = relocation[0]?.amount ?? 10000;
+                  const payDate = relocation[0]?.payDate ?? offer.startDate;
+                  return (
+                    <label
+                      className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${enabled ? "border-primary/50 bg-primary/5" : "border-border/50 hover:border-border"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4 rounded"
+                        checked={enabled}
                         onChange={(e: ChangeEvent<HTMLInputElement>) => {
                           if (e.target.checked) {
-                            if (!enabled) setOffer({ ...offer, signingBonuses: [{ amount, payDate }] });
+                            setOffer({
+                              ...offer,
+                              relocationBonuses: [{ amount, payDate }],
+                            });
                           } else {
-                            if (enabled) setOffer({ ...offer, signingBonuses: signing.slice(1) });
+                            setOffer({ ...offer, relocationBonuses: [] });
                           }
-                        }} />
-                    </div>
-                    <CurrencyInput className="w-full" value={amount} disabled={!enabled}
-                      onValueChange={(val) => {
-                        if (!enabled) return;
-                        const next = [...signing];
-                        next[0] = { amount: val, payDate };
-                        setOffer({ ...offer, signingBonuses: next });
-                      }} />
-                  </div>
-                );
-              })()}
-              {(() => {
-                const relocation = offer.relocationBonuses ?? [];
-                const enabled = relocation.length > 0;
-                const amount = relocation[0]?.amount ?? 5000;
-                const payDate = relocation[0]?.payDate ?? offer.startDate;
-                return (
-                  <div className="flex flex-col gap-2 rounded-lg border border-border/50 bg-background/60 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <label htmlFor="relocation-enabled" className="text-sm font-medium">Relocation bonus</label>
-                      <input id="relocation-enabled" type="checkbox" className="size-4" checked={enabled}
-                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                          if (e.target.checked) {
-                            if (!enabled) setOffer({ ...offer, relocationBonuses: [{ amount, payDate }] });
-                          } else {
-                            if (enabled) setOffer({ ...offer, relocationBonuses: relocation.slice(1) });
-                          }
-                        }} />
-                    </div>
-                    <CurrencyInput className="w-full" value={amount} disabled={!enabled}
-                      onValueChange={(val) => {
-                        if (!enabled) return;
-                        const next = [...relocation];
-                        next[0] = { amount: val, payDate };
-                        setOffer({ ...offer, relocationBonuses: next });
-                      }} />
-                  </div>
-                );
-              })()}
-            </div>
-            <p className="text-xs text-muted-foreground">For multiple payments, open the Cash, Bonuses &amp; Perks section below.</p>
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium">Relocation</p>
+                        {enabled && (
+                          <CurrencyInput
+                            className="mt-1 h-7 text-sm"
+                            value={amount}
+                            onValueChange={(val) => {
+                              setOffer({
+                                ...offer,
+                                relocationBonuses: [{ amount: val, payDate }],
+                              });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
+                      </div>
+                    </label>
+                  );
+                })()}
 
-            <Separator />
-
-            <div className="space-y-3">
-              <Label>Quick perks</Label>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {[
-                  { name: 'Free breakfast', annualValue: 2600 },
-                  { name: 'Free lunch', annualValue: 2600 },
-                  { name: 'Free dinner', annualValue: 2600 },
-                  { name: 'Gym stipend', annualValue: 1200 },
-                  { name: 'Learning stipend', annualValue: 1500 },
-                  { name: 'Tuition', annualValue: 1500 },
-                  { name: 'HSA', annualValue: 1000 },
-                  { name: 'Other stipend', annualValue: 1500 },
-                ].map((p) => {
+                {/* Quick Perks */}
+                {QUICK_PERKS.map((p) => {
                   const benefits = offer.benefits ?? [];
-                  const idx = benefits.findIndex(b => b.name === p.name);
+                  const idx = benefits.findIndex((b) => b.name === p.name);
                   const current = idx >= 0 ? benefits[idx] : undefined;
                   const enabled = Boolean(current?.enabled);
                   const amount = current?.annualValue ?? p.annualValue;
-                  const inputId = slugify(p.name);
                   return (
-                    <div key={p.name} className="flex flex-col gap-2 rounded-lg border border-border/40 bg-background/60 p-3 text-sm sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-                      <div className="flex items-center gap-2">
-                        <input
-                          id={inputId}
-                          type="checkbox"
-                          className="size-4"
-                          checked={enabled}
-                          onChange={(e: ChangeEvent<HTMLInputElement>) => {
-                            const next = [...benefits];
-                            if (e.target.checked) {
-                              if (idx >= 0) next[idx] = { ...next[idx], enabled: true, annualValue: amount };
-                              else next.push({ name: p.name, annualValue: amount, enabled: true });
-                            } else if (idx >= 0) {
-                              next[idx] = { ...next[idx], enabled: false };
-                            }
-                            setOffer({ ...offer, benefits: next });
-                          }}
-                        />
-                        <label htmlFor={inputId} className="cursor-pointer font-medium sm:font-normal">{p.name}</label>
+                    <label
+                      key={p.name}
+                      className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${enabled ? "border-primary/50 bg-primary/5" : "border-border/50 hover:border-border"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4 rounded"
+                        checked={enabled}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                          const next = [...benefits];
+                          if (e.target.checked) {
+                            if (idx >= 0)
+                              next[idx] = {
+                                ...next[idx],
+                                enabled: true,
+                                annualValue: amount,
+                              };
+                            else
+                              next.push({
+                                name: p.name,
+                                annualValue: amount,
+                                enabled: true,
+                              });
+                          } else if (idx >= 0) {
+                            next[idx] = { ...next[idx], enabled: false };
+                          }
+                          setOffer({ ...offer, benefits: next });
+                        }}
+                      />
+                      <div className="flex-1 flex items-center justify-between gap-2">
+                        <span className="text-sm">{p.name}</span>
+                        {enabled && (
+                          <CurrencyInput
+                            className="w-20 h-6 text-xs"
+                            value={amount}
+                            onValueChange={(val) => {
+                              const next = [...benefits];
+                              if (idx >= 0)
+                                next[idx] = {
+                                  ...next[idx],
+                                  annualValue: val,
+                                  enabled: true,
+                                };
+                              else
+                                next.push({
+                                  name: p.name,
+                                  annualValue: val,
+                                  enabled: true,
+                                });
+                              setOffer({ ...offer, benefits: next });
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        )}
                       </div>
-                      <div className="flex w-full items-center gap-1 sm:w-auto">
-                        <span className="text-muted-foreground hidden sm:inline">$</span>
-                        <CurrencyInput
-                          aria-label={`${p.name} annual value`}
-                          className="w-full sm:w-28"
-                          value={amount}
-                          disabled={!enabled}
-                          onValueChange={(val) => {
-                            const next = [...benefits];
-                            if (idx >= 0) next[idx] = { ...next[idx], annualValue: val, enabled: true };
-                            else next.push({ name: p.name, annualValue: val, enabled: true });
-                            setOffer({ ...offer, benefits: next });
-                          }}
+                    </label>
+                  );
+                })}
+
+                {/* 401k Match Toggle */}
+                {(() => {
+                  const retirement = offer.retirement;
+                  const enabled = Boolean(retirement);
+                  const matchRate = retirement?.matchRate ?? 0.5;
+                  const matchCapPct = retirement?.matchCapPercentOfSalary ?? 0.06;
+                  const irsLimit = retirement?.employeeContributionCapDollar ?? 23500;
+                  const base = offer.base.startAnnual;
+                  // Cap contribution at IRS limit, then apply match
+                  const maxContrib = Math.min(base * matchCapPct, irsLimit);
+                  const annualMatch = Math.round(maxContrib * matchRate);
+                  
+                  return (
+                    <label
+                      className={`flex items-center gap-3 rounded-lg border p-3 cursor-pointer transition-colors ${enabled ? "border-indigo-500/50 bg-indigo-500/5" : "border-border/50 hover:border-border"}`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="size-4 rounded"
+                        checked={enabled}
+                        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+                          if (e.target.checked) {
+                            setOffer({
+                              ...offer,
+                              retirement: {
+                                employeeContributionPercent: 0.06,
+                                matchRate: 0.5,
+                                matchCapPercentOfSalary: 0.06,
+                                employeeContributionCapDollar: 23500,
+                                matchCapMode: 'percentOfSalary',
+                                matchCapDollar: 0,
+                              },
+                            });
+                          } else {
+                            setOffer({ ...offer, retirement: undefined });
+                          }
+                        }}
+                      />
+                      <div 
+                        className="flex-1 min-w-0"
+                        onClick={(e) => {
+                          if (enabled) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setActiveTab("advanced");
+                            setExpandedSections(prev => ({ ...prev, perks: true }));
+                          }
+                        }}
+                      >
+                        <p className="text-sm font-medium">401k Match</p>
+                        {enabled && (
+                          <p className="text-xs text-indigo-600 mt-0.5 hover:underline">
+                            +${annualMatch.toLocaleString()}/yr • Edit details →
+                          </p>
+                        )}
+                      </div>
+                    </label>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* 401k Match Utilization Visual */}
+            {(() => {
+              const retirement = offer.retirement;
+              if (!retirement) return null;
+              
+              const base = offer.base.startAnnual;
+              const employeeContribPct = retirement.employeeContributionPercent ?? 0.06;
+              const matchRate = retirement.matchRate ?? 0.5;
+              const matchCapPct = retirement.matchCapPercentOfSalary ?? 0.06;
+              const irsLimit = retirement.employeeContributionCapDollar ?? 23500;
+              
+              // Your contribution capped at IRS limit
+              const yourContrib = Math.min(base * employeeContribPct, irsLimit);
+              // Max matchable is the lesser of: salary * matchCapPct OR IRS limit
+              const maxMatchableContrib = Math.min(base * matchCapPct, irsLimit);
+              // Actual match based on your contribution
+              const actualMatch = Math.min(yourContrib, maxMatchableContrib) * matchRate;
+              // Max possible match if you contributed optimally
+              const maxPossibleMatch = maxMatchableContrib * matchRate;
+              const matchPct = maxPossibleMatch > 0 ? (actualMatch / maxPossibleMatch) * 100 : 0;
+              
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab("advanced");
+                    setExpandedSections(prev => ({ ...prev, perks: true }));
+                  }}
+                  className="w-full text-left rounded-lg border border-border/50 bg-gradient-to-br from-indigo-500/5 to-transparent p-4 space-y-3 hover:border-indigo-500/30 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">401k Match Utilization</p>
+                    <p className="text-xs text-muted-foreground">
+                      Click to edit →
+                    </p>
+                  </div>
+                  
+                  {/* Circular progress ring */}
+                  <div className="flex items-center gap-4">
+                    <div className="relative size-16">
+                      <svg className="size-16 -rotate-90" viewBox="0 0 36 36">
+                        <path
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          className="text-muted/30"
                         />
-                        <span className="text-muted-foreground hidden sm:inline">/yr</span>
+                        <path
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeDasharray={`${matchPct}, 100`}
+                          className="text-indigo-500 transition-all duration-500"
+                        />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">
+                        {Math.round(matchPct)}%
+                      </span>
+                    </div>
+                    <div className="flex-1 space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Your contribution ({Math.round(employeeContribPct * 100)}%)</span>
+                        <span className="font-medium">${Math.round(yourContrib).toLocaleString()}/yr</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Employer match ({Math.round(matchRate * 100)}%)</span>
+                        <span className="font-medium text-indigo-600">${Math.round(actualMatch).toLocaleString()}/yr</span>
+                      </div>
+                      <div className="flex justify-between text-[10px]">
+                        <span className="text-muted-foreground">IRS limit: ${irsLimit.toLocaleString()}</span>
+                        <span>Max match: ${Math.round(maxPossibleMatch).toLocaleString()}/yr</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {matchPct < 100 && (
+                    <p className="text-[10px] text-amber-600 bg-amber-500/10 rounded px-2 py-1">
+                      💡 Contribute {Math.round(matchCapPct * 100)}% (${Math.round(Math.min(base * matchCapPct, irsLimit)).toLocaleString()}) to get full match
+                    </p>
+                  )}
+                </button>
+              );
+            })()}
+          </TabsContent>
+
+          {/* EQUITY TAB */}
+          <TabsContent value="equity" className="p-5 space-y-5 mt-0">
+            {/* Equity Value by Year Visual */}
+            <div className="rounded-lg border border-border/50 bg-gradient-to-br from-amber-500/5 to-transparent p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Equity Vesting Timeline</p>
+                <p className="text-xs text-muted-foreground">
+                  {yearData.length}-year equity: <span className="font-semibold text-amber-600">${Math.round(yearData.reduce((s, r) => s + r.stock, 0)).toLocaleString()}</span>
+                </p>
+              </div>
+              
+              {/* Horizontal Vesting Bars */}
+              <div className="space-y-2">
+                {yearData.map((row) => {
+                  const maxStock = Math.max(...yearData.map(r => r.stock), 1);
+                  const pct = (row.stock / maxStock) * 100;
+                  return (
+                    <div key={row.year} className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-6">Y{row.year}</span>
+                      <div className="flex-1 h-5 bg-muted/30 rounded overflow-hidden relative">
+                        <div 
+                          className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded transition-all duration-500 flex items-center justify-end pr-2"
+                          style={{ width: `${Math.max(pct, 8)}%` }}
+                        >
+                          <span className="text-[10px] font-medium text-amber-950">${Math.round(row.stock / 1000)}k</span>
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
+              
+              {/* Cliff indicator if applicable */}
+              {rsuGrant?.vesting && 'cliffMonths' in rsuGrant.vesting && rsuGrant.vesting.cliffMonths > 0 && (
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <span className="size-1.5 rounded-full bg-amber-500" />
+                  {rsuGrant.vesting.cliffMonths}-month cliff before first vest
+                </p>
+              )}
             </div>
-          </div>
-        </Section>
 
-        <Section title="Advanced editors" description="Open detailed panels when you need precise control.">
-          <div className="space-y-3">
-            <details className="group rounded-lg border border-border/50 bg-background/60 p-4 transition-shadow hover:shadow-sm">
-              <summary className="cursor-pointer list-none font-medium">Stock growth (YoY) and starting price</summary>
-              <div className="mt-3">
-                <GrowthYoyEditor />
+            {/* Stock Price Sensitivity */}
+            {(() => {
+              const basePrice = offer.growth?.startingPrice ?? 100;
+              const totalEquity4yr = yearData.reduce((s, r) => s + r.stock, 0);
+              const scenarios = [
+                { label: '-50%', multiplier: 0.5, color: 'bg-red-400' },
+                { label: '-25%', multiplier: 0.75, color: 'bg-orange-400' },
+                { label: 'Current', multiplier: 1, color: 'bg-emerald-500' },
+                { label: '+25%', multiplier: 1.25, color: 'bg-blue-400' },
+                { label: '+50%', multiplier: 1.5, color: 'bg-violet-500' },
+              ];
+              const maxValue = totalEquity4yr * 1.5;
+              return (
+                <div className="rounded-lg border border-border/50 bg-gradient-to-br from-blue-500/5 to-transparent p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">Stock Price Sensitivity</p>
+                    <p className="text-xs text-muted-foreground">
+                      Current price: <span className="font-semibold">${basePrice}</span>
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
+                    {scenarios.map((s) => {
+                      const value = totalEquity4yr * s.multiplier;
+                      const pct = (value / maxValue) * 100;
+                      return (
+                        <div key={s.label} className="flex items-center gap-2">
+                          <span className="text-[10px] text-muted-foreground w-12 text-right">{s.label}</span>
+                          <div className="flex-1 h-4 bg-muted/30 rounded overflow-hidden">
+                            <div 
+                              className={`h-full ${s.color} rounded transition-all duration-500 flex items-center justify-end pr-1.5`}
+                              style={{ width: `${pct}%` }}
+                            >
+                              <span className="text-[9px] font-medium text-white drop-shadow-sm">${Math.round(value / 1000)}k</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    4-year equity value at different stock prices
+                  </p>
+                </div>
+              );
+            })()}
+
+            <div className="space-y-2">
+              <h3 className="font-medium text-sm">Stock Growth Assumptions</h3>
+              <GrowthYoyEditor />
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-medium text-sm">All Equity Grants</h3>
+              <GrantsPanel />
+            </div>
+          </TabsContent>
+
+          {/* ADVANCED TAB - Cleaner accordion style */}
+          <TabsContent value="advanced" className="mt-0">
+            <div className="divide-y divide-border/60">
+              {/* Raises Section */}
+              <div>
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors"
+                  onClick={() => toggleSection("raises")}
+                >
+                  <div className="flex items-center gap-3">
+                    <ChevronRight
+                      className={`size-4 text-muted-foreground transition-transform ${expandedSections.raises ? "rotate-90" : ""}`}
+                    />
+                    <div className="text-left">
+                      <p className="text-sm font-medium">Raises & Salary Growth</p>
+                      <p className="text-xs text-muted-foreground">
+                        Configure annual raises and promotions
+                      </p>
+                    </div>
+                  </div>
+                </button>
+                {expandedSections.raises && (
+                  <div className="px-5 pb-5 pt-2">
+                    <RaisesEditor />
+                  </div>
+                )}
               </div>
-            </details>
-            <details className="group rounded-lg border border-border/50 bg-background/60 p-4 transition-shadow hover:shadow-sm">
-              <summary className="cursor-pointer list-none font-medium">Equity grants</summary>
-              <div className="mt-3">
-                <GrantsPanel />
+
+              {/* Full Perks Section */}
+              <div>
+                <button
+                  type="button"
+                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors"
+                  onClick={() => toggleSection("perks")}
+                >
+                  <div className="flex items-center gap-3">
+                    <ChevronRight
+                      className={`size-4 text-muted-foreground transition-transform ${expandedSections.perks ? "rotate-90" : ""}`}
+                    />
+                    <div className="text-left">
+                      <p className="text-sm font-medium">All Benefits & 401(k)</p>
+                      <p className="text-xs text-muted-foreground">
+                        Full perks, retirement matching, and recurring benefits
+                      </p>
+                    </div>
+                  </div>
+                </button>
+                {expandedSections.perks && (
+                  <div className="px-5 pb-5 pt-2">
+                    <CashPerksPanel />
+                  </div>
+                )}
               </div>
-            </details>
-            <details className="group rounded-lg border border-border/50 bg-background/60 p-4 transition-shadow hover:shadow-sm">
-              <summary className="cursor-pointer list-none font-medium">Raises over time</summary>
-              <div className="mt-3">
-                <RaisesEditor />
-              </div>
-            </details>
-            <details className="group rounded-lg border border-border/50 bg-background/60 p-4 transition-shadow hover:shadow-sm">
-              <summary className="cursor-pointer list-none font-medium">Cash, bonuses &amp; perks (full)</summary>
-              <div className="mt-3">
-                <CashPerksPanel />
-              </div>
-            </details>
-          </div>
-        </Section>
+            </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
