@@ -38,6 +38,8 @@ const initialOffer: TOffer = {
   name: 'DemoCo',
   currency: 'USD',
   startDate: '2025-01-01',
+  location: 'San Francisco, CA',
+  colFactor: 1.40,
   base: { startAnnual: 110000 },
   raises: [
     { effectiveDate: '2026-06-01', type: 'percent', value: 0.05 }

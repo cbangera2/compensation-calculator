@@ -11,6 +11,7 @@ import { computeOffer } from '@/core/compute';
 import { buildPricePath, yoyFromCagr, yoyFromRamp } from '@/core/growth';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ChevronDown, ChevronUp } from 'lucide-react';
+import { CITY_PRESETS } from '@/lib/col';
 
 type Range = { min: number; max: number };
 
@@ -89,12 +90,34 @@ export default function ComparisonAdjustments() {
     if (syncCol) {
       applyToOffers((offer) => ({
         ...offer,
-        assumptions: { ...(offer.assumptions ?? { horizonYears: 4, colAdjust: 1 }), colAdjust: next },
+        colFactor: next,
+        location: 'Custom', // Clear city name when manually adjusted
       }));
     } else {
       updateOfferAt(index, (offer) => ({
         ...offer,
-        assumptions: { ...(offer.assumptions ?? { horizonYears: 4, colAdjust: 1 }), colAdjust: next },
+        colFactor: next,
+        location: 'Custom',
+      }));
+    }
+  }
+
+  function setLocation(index: number, cityKey: string) {
+    const preset = CITY_PRESETS.find(c => c.key === cityKey);
+    const factor = preset?.factor ?? 1;
+    const location = preset?.name ?? 'Custom';
+    
+    if (syncCol) {
+      applyToOffers((offer) => ({
+        ...offer,
+        colFactor: factor,
+        location,
+      }));
+    } else {
+      updateOfferAt(index, (offer) => ({
+        ...offer,
+        colFactor: factor,
+        location,
       }));
     }
   }
@@ -191,8 +214,9 @@ export default function ComparisonAdjustments() {
       <CardContent>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {offers.map((offer, index) => {
-          const rawCol = coerceNumber(offer.assumptions?.colAdjust ?? 1, 1);
-          const colAdjust = rawCol;
+          const colFactor = coerceNumber(offer.colFactor ?? 1, 1);
+          const location = offer.location || '';
+          const presetKey = CITY_PRESETS.find(c => c.name === location || Math.abs(c.factor - colFactor) < 0.001)?.key ?? 'custom';
           const yoy = ensureYoY(offer);
           const startingPrice = offer.growth?.startingPrice ?? offer.equityGrants?.[0]?.fmv ?? 10;
           const preview = pricePreviews[index] ?? [];
@@ -217,7 +241,7 @@ export default function ComparisonAdjustments() {
                 <div className="space-y-1">
                   <div className="text-sm font-semibold text-foreground">{offer.name || `Offer ${index + 1}`}</div>
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    {index === activeIndex ? 'Active offer' : 'Comparison offer'} · COL {colAdjust.toFixed(2)}×
+                    {index === activeIndex ? 'Active offer' : 'Comparison offer'} · {location || `${colFactor.toFixed(2)}× COL`}
                   </div>
                 </div>
                 <Button
@@ -262,24 +286,44 @@ export default function ComparisonAdjustments() {
               <div className="mt-3 space-y-3">
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
                   <div>
-                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Cost of living (×)</Label>
-                    <div className="mt-1 flex items-center gap-2">
-                      <Slider
-                        value={[clampToRange(colAdjust, colRange)]}
-                        min={colRange.min}
-                        max={colRange.max}
-                        step={0.01}
-                        onValueChange={(values) => setColAdjust(index, values[0] ?? colAdjust)}
-                      />
-                      <Input
-                        className="h-8 w-20 px-2 text-xs"
-                        type="number"
-                        step="0.05"
-                        value={colAdjust.toFixed(2)}
-                        onChange={(event) => setColAdjust(index, Number(event.target.value))}
-                      />
+                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Location / Cost of Living</Label>
+                    <div className="mt-1 flex flex-col gap-2">
+                      <select 
+                        className="h-8 w-full rounded-md border border-input bg-background px-2 text-xs"
+                        value={presetKey}
+                        onChange={(e) => {
+                          const key = e.target.value;
+                          if (key === 'custom') {
+                            setColAdjust(index, colFactor);
+                          } else {
+                            setLocation(index, key);
+                          }
+                        }}
+                      >
+                        <option value="custom">Custom COL factor...</option>
+                        {CITY_PRESETS.map(c => (
+                          <option key={c.key} value={c.key}>{c.name} ({c.factor.toFixed(2)}×)</option>
+                        ))}
+                      </select>
+                      {presetKey === 'custom' && (
+                        <div className="flex items-center gap-2">
+                          <Slider
+                            value={[clampToRange(colFactor, colRange)]}
+                            min={colRange.min}
+                            max={colRange.max}
+                            step={0.01}
+                            onValueChange={(values) => setColAdjust(index, values[0] ?? colFactor)}
+                          />
+                          <Input
+                            className="h-8 w-20 px-2 text-xs"
+                            type="number"
+                            step="0.05"
+                            value={colFactor.toFixed(2)}
+                            onChange={(event) => setColAdjust(index, Number(event.target.value))}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <p className="mt-1 text-[11px] text-muted-foreground">Scales salary, cash, and perks for this offer.</p>
                   </div>
                   <div>
                     <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Starting stock price ($)</Label>

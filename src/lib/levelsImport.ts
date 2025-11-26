@@ -164,6 +164,7 @@ export function parseLevelsOfferFromHtml(html: string): TOffer {
     name: company || 'Imported Offer',
     currency: 'USD',
     startDate: today,
+    colFactor: 1, // Default to US average; user can set location in UI
     base: { startAnnual: base || 0 },
     raises: [],
     equityGrants: (() => {

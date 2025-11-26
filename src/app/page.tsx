@@ -25,7 +25,6 @@ export default function Home() {
             <TabsList className="w-full flex-wrap justify-start gap-2 bg-muted/50 p-1">
               <TabsTrigger value="calc" className="flex-1 min-w-[140px]">Calculator</TabsTrigger>
               <TabsTrigger value="compare" className="flex-1 min-w-[140px]">Compare</TabsTrigger>
-              <TabsTrigger value="col" className="flex-1 min-w-[140px]">COL</TabsTrigger>
               <TabsTrigger value="growth" className="flex-1 min-w-[140px]">Stock Growth</TabsTrigger>
             </TabsList>
             <TabsContent value="calc" className="mt-6 space-y-8">
@@ -48,9 +47,6 @@ export default function Home() {
               </div>
               <ComparisonAdjustments />
             </TabsContent>
-            <TabsContent value="col" className="mt-6">
-              <COLPanel />
-            </TabsContent>
             <TabsContent value="growth" className="mt-6">
               <EquityExplorer />
             </TabsContent>
@@ -67,7 +63,6 @@ import YearTable from '@/components/YearTable';
 import MultiOfferBar from '@/components/MultiOfferBar';
 import ComparisonChart from '@/components/ComparisonChart';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import COLPanel from '@/components/COLPanel';
 import EquityExplorer from '@/components/EquityExplorer';
 import YearExtras from '@/components/YearExtras';
 import ShareHydrator from '@/components/ShareHydrator';

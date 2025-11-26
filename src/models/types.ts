@@ -61,6 +61,8 @@ export const Offer = z.object({
   name: z.string(),
   currency: z.string().default('USD'),
   startDate: z.string(),
+  location: z.string().optional(), // City name for display
+  colFactor: z.number().positive().optional().default(1), // Cost of living multiplier (1.0 = baseline)
   base: z.object({ startAnnual: z.number().nonnegative() }),
   raises: z.array(Raise).default([]),
   performanceBonus: PerformanceBonus.optional(),

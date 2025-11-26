@@ -14,6 +14,7 @@ import CashPerksPanel from '@/components/CashPerksPanel';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Undo2, Redo2, ChevronDown } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import { CITY_PRESETS } from '@/lib/col';
 
 // PresetLoader removed; defaults can now be imported on demand from Import/Export.
 
@@ -111,6 +112,28 @@ export default function OfferForm() {
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="location">Location</Label>
+              <select
+                id="location"
+                className="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={CITY_PRESETS.find(c => c.name === offer.location || (offer.colFactor && Math.abs(c.factor - offer.colFactor) < 0.001))?.key ?? 'custom'}
+                onChange={(e) => {
+                  const key = e.target.value;
+                  const preset = CITY_PRESETS.find(c => c.key === key);
+                  if (preset) {
+                    setOffer({ ...offer, location: preset.name, colFactor: preset.factor });
+                  } else {
+                    setOffer({ ...offer, location: 'Custom', colFactor: offer.colFactor ?? 1 });
+                  }
+                }}
+              >
+                <option value="custom">Custom...</option>
+                {CITY_PRESETS.map(c => (
+                  <option key={c.key} value={c.key}>{c.name} ({c.factor.toFixed(2)}×)</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="startDate">Start date</Label>
               <Input id="startDate" type="date" value={offer.startDate}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, startDate: e.target.value })}
@@ -119,7 +142,7 @@ export default function OfferForm() {
           </div>
         </Section>
 
-        <Section title="Cash compensation" description="Annual base, bonus expectations, and geo adjustments.">
+        <Section title="Cash compensation" description="Annual base and bonus expectations.">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <div className="space-y-2">
               <Label htmlFor="base.startAnnual">Base salary (annual)</Label>
@@ -128,13 +151,15 @@ export default function OfferForm() {
                 className="w-full"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="col-adjust">Cost-of-living multiplier</Label>
-              <Input id="col-adjust" type="number" step="0.05" value={offer.assumptions?.colAdjust ?? 1}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, assumptions: { ...(offer.assumptions ?? { horizonYears: 4, colAdjust: 1 }), colAdjust: Number(e.target.value || '1') } })}
-              />
-              <p className="text-xs text-muted-foreground">Applies to base, one-time cash, and perks. 1.0 = no adjustment.</p>
-            </div>
+            {(!CITY_PRESETS.find(c => c.name === offer.location)) && (
+              <div className="space-y-2">
+                <Label htmlFor="col-factor">Custom COL factor</Label>
+                <Input id="col-factor" type="number" step="0.05" min="0.5" max="2" value={offer.colFactor ?? 1}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setOffer({ ...offer, colFactor: Number(e.target.value || '1') })}
+                />
+                <p className="text-xs text-muted-foreground">1.0 = US average. Higher = more expensive city.</p>
+              </div>
+            )}
           </div>
 
           <Separator className="hidden lg:block" />
