@@ -79,6 +79,7 @@ export default function ActiveOfferStrip() {
     <div
       className="flex items-center gap-2.5 overflow-x-auto whitespace-nowrap text-[11px] tabular-nums md:hidden"
       aria-live="polite"
+      title="Modeled totals: base + bonus + equity + perks, pre-tax. Includes startup equity when enabled."
     >
       <span className="max-w-32 shrink-0 truncate font-medium text-foreground/80">{name}</span>
       <span className="shrink-0 text-muted-foreground">

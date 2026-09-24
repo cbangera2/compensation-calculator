@@ -73,6 +73,13 @@ export const StartupRsuGrant = z.object({
   grantStartDate: z.string().optional(),
 });
 
+export const ValuationScenario = z.object({
+  name: z.string(),
+  valuation: z.number().nonnegative(),
+  fullyDilutedShares: z.number().positive(),
+  savedAt: z.string().optional(),
+});
+
 export const StartupEquity = z.object({
   enabled: z.boolean().default(false),
   companyName: z.string().default('Example Startup'),
@@ -81,6 +88,8 @@ export const StartupEquity = z.object({
   fullyDilutedShares: z.number().positive().default(100_000_000),
   optionGrants: z.array(StartupOptionGrant).default([]),
   rsuGrants: z.array(StartupRsuGrant).default([]),
+  // Named, restorable valuation snapshots (user-saved; not auto-managed).
+  savedScenarios: z.array(ValuationScenario).default([]),
 });
 
 export const PerformanceBonus = z.object({
@@ -92,6 +101,10 @@ export const PerformanceBonus = z.object({
 export const Offer = z.object({
   id: z.string().optional(),
   name: z.string(),
+  // Optional job title / level, e.g. "Software Engineer", "IC3". Persisted so
+  // tabs like Benchmarks can pre-select from it instead of asking every time.
+  jobTitle: z.string().optional(),
+  jobLevel: z.string().optional(),
   currency: z.string().default('USD'),
   startDate: z.string(),
   location: z.string().optional(), // City name for display
@@ -134,3 +147,4 @@ export type TOffer = z.infer<typeof Offer>;
 export type TStartupOptionGrant = z.infer<typeof StartupOptionGrant>;
 export type TStartupRsuGrant = z.infer<typeof StartupRsuGrant>;
 export type TStartupEquity = z.infer<typeof StartupEquity>;
+export type TValuationScenario = z.infer<typeof ValuationScenario>;

@@ -40,7 +40,7 @@ export default function StatCards() {
 		const deltaCash = yearTwo ? (yearTwo.base + yearTwo.bonus + yearTwo.other) - cashYearOne : 0;
 
 		const formatDelta = (value: number): Stat['delta'] => {
-			if (Math.abs(value) < 1) return { label: 'No change vs Y2', tone: 'neutral' };
+			if (Math.abs(value) < 1) return { label: 'Matches Y2', tone: 'neutral' };
 			const tone = value < 0 ? 'positive' : 'negative';
 			const formatted = formatCurrency(Math.abs(value));
 			return {
@@ -52,7 +52,7 @@ export default function StatCards() {
 		const stats: Stat[] = [
 			{
 				label: 'Year 1 total comp',
-				hint: 'Base + bonus + equity + perks in the first 12 months.',
+				hint: 'Base + bonus + equity + perks in the first 12 months. Pre-tax.',
 				value: formatCurrency(totalYearOne),
 				delta: formatDelta(deltaTotal),
 				icon: TrendingUp,
@@ -72,7 +72,7 @@ export default function StatCards() {
 			},
 			{
 				label: `${horizon}-year total value`,
-				hint: 'All cash, stock, benefits, and stipends across the horizon.',
+				hint: 'All cash, stock, benefits, and stipends across the horizon. Pre-tax.',
 				value: formatCurrency(totalFourYears),
 				icon: PiggyBank,
 			},
