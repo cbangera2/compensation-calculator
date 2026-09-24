@@ -19,6 +19,45 @@ const scrollGradient = "pointer-events-none absolute inset-y-0 w-6 bg-gradient-t
 const fileInputWrapper = "relative inline-flex";
 const hiddenInput = "absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0";
 
+/**
+ * Derive the equity-kind select value from the merged parse fields.
+ * Exported for regression tests.
+ */
+export function deriveEquityKind(merged: ExtractedOfferFields | null): 'none' | 'rsu' | 'option' {
+  if (!merged) return 'none';
+  if (merged.optionShares !== null) return 'option';
+  if (merged.rsuShares !== null || merged.rsuValue !== null) return 'rsu';
+  return 'none';
+}
+
+/**
+ * Edits patch for an equity-kind select change. Selecting rsu/option from
+ * 'none' seeds the chosen kind with a non-null value (preserving any parsed
+ * value) so the select can actually leave 'none' and its inputs render;
+ * the unselected kind's fields are cleared.
+ * Exported for regression tests.
+ */
+export function equityKindEdits(
+  merged: ExtractedOfferFields | null,
+  kind: string
+): Partial<ExtractedOfferFields> {
+  if (kind === 'none') {
+    return { rsuShares: null, rsuValue: null, optionShares: null, strikePrice: null };
+  }
+  if (kind === 'rsu') {
+    return {
+      optionShares: null,
+      strikePrice: null,
+      rsuShares: merged?.rsuShares ?? (merged?.rsuValue != null ? null : 0),
+    };
+  }
+  return {
+    rsuShares: null,
+    rsuValue: null,
+    optionShares: merged?.optionShares ?? 0,
+  };
+}
+
 export default function MultiOfferBar() {
   const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer, resetAll, uiMode } = useStore();
   const [presetKey, setPresetKey] = useState<string | undefined>();
@@ -401,13 +440,7 @@ function OfferLetterDialog({
   if (!open) return null;
 
   const merged: ExtractedOfferFields | null = result ? { ...result.extracted, ...edits } : null;
-  const equityKind = !merged
-    ? 'none'
-    : merged.optionShares !== null
-      ? 'option'
-      : merged.rsuShares !== null || merged.rsuValue !== null
-        ? 'rsu'
-        : 'none';
+  const equityKind = deriveEquityKind(merged);
 
   function setField<K extends keyof ExtractedOfferFields>(key: K, value: ExtractedOfferFields[K]) {
     setEdits((prev) => ({ ...prev, [key]: value }));
@@ -420,13 +453,7 @@ function OfferLetterDialog({
   }
 
   function handleEquityKindChange(kind: string) {
-    if (kind === 'none') {
-      setEdits((prev) => ({ ...prev, rsuShares: null, rsuValue: null, optionShares: null, strikePrice: null }));
-    } else if (kind === 'rsu') {
-      setEdits((prev) => ({ ...prev, optionShares: null, strikePrice: null }));
-    } else {
-      setEdits((prev) => ({ ...prev, rsuShares: null, rsuValue: null }));
-    }
+    setEdits((prev) => ({ ...prev, ...equityKindEdits(merged, kind) }));
   }
 
   function handleAdd() {

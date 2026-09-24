@@ -36,7 +36,11 @@ export async function fetchYahooMonthly(ticker: string): Promise<MonthlyClose[]>
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(
     ticker,
   )}?interval=1mo&range=6y`;
-  const res = await fetch(url, { headers: UA, next: { revalidate: 86400 } });
+  const res = await fetch(url, {
+    headers: UA,
+    next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(8_000),
+  });
   if (!res.ok) throw new Error(`yahoo ${res.status}`);
   const json = await res.json();
   const result = json?.chart?.result?.[0];
@@ -60,7 +64,11 @@ export async function fetchYahooMonthly(ticker: string): Promise<MonthlyClose[]>
 /** Fallback source: Stooq daily CSV, resampled to month-end. */
 export async function fetchStooqMonthly(ticker: string): Promise<MonthlyClose[]> {
   const url = `https://stooq.com/q/d/l/?s=${encodeURIComponent(ticker.toLowerCase())}.us&i=d`;
-  const res = await fetch(url, { headers: UA, next: { revalidate: 86400 } });
+  const res = await fetch(url, {
+    headers: UA,
+    next: { revalidate: 86400 },
+    signal: AbortSignal.timeout(8_000),
+  });
   if (!res.ok) throw new Error(`stooq ${res.status}`);
   const text = await res.text();
   const lines = text.trim().split('\n').slice(1); // drop header

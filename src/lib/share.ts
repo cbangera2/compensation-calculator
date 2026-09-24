@@ -198,6 +198,18 @@ function roundMoney(value: number, granularity = ROUND_GRANULARITY): number {
   return Math.round(value / granularity) * granularity;
 }
 
+/**
+ * Round to 2 significant figures. Fixed steps (Math.round, $1B buckets)
+ * zero out small-but-meaningful values like a $0.40 strike or a $1.6B
+ * valuation; relative rounding keeps them meaningful while still coarse
+ * enough to anonymize.
+ */
+function roundSig(value: number, digits = 2): number {
+  if (!Number.isFinite(value) || value === 0) return value;
+  const p = Math.pow(10, digits - Math.ceil(Math.log10(Math.abs(value))));
+  return Math.round(value * p) / p;
+}
+
 // Share counts are identifying (they match offer letters), so anonymized
 // payloads round them to the nearest 100: coarse enough to break exact
 // matching against a real grant, fine enough to keep projections meaningful.
@@ -305,8 +317,8 @@ export function anonymizeOffer(offer: TOffer, index: number): TOffer {
     const g = { ...grant } as Record<string, unknown>;
     delete g.id;
     if (typeof g.shares === 'number') g.shares = roundShares(g.shares);
-    if (typeof g.strike === 'number') g.strike = Math.round(g.strike);
-    if (typeof g.fmv === 'number') g.fmv = Math.round(g.fmv);
+    if (typeof g.strike === 'number') g.strike = roundSig(g.strike);
+    if (typeof g.fmv === 'number') g.fmv = roundSig(g.fmv);
     if (typeof g.targetValue === 'number') g.targetValue = roundMoney(g.targetValue);
     if (typeof g.grantStartDate === 'string') g.grantStartDate = roundDateToQuarter(g.grantStartDate);
     const vesting = g.vesting as { model?: string; tranches?: Array<{ date: string; shares: number }> } | undefined;
@@ -324,20 +336,20 @@ export function anonymizeOffer(offer: TOffer, index: number): TOffer {
   });
 
   if (clone.growth?.startingPrice != null) {
-    clone.growth = { ...clone.growth, startingPrice: Math.round(clone.growth.startingPrice) };
+    clone.growth = { ...clone.growth, startingPrice: roundSig(clone.growth.startingPrice) };
   }
 
   if (clone.startupEquity) {
     const se = { ...clone.startupEquity };
     se.companyName = alias;
-    se.valuation = roundMoney(se.valuation, 1_000_000_000);
+    se.valuation = roundSig(se.valuation);
     se.optionGrants = (se.optionGrants ?? []).map((grant) => {
       const g = { ...grant } as Record<string, unknown>;
       delete g.id;
       g.label = alias;
       if (typeof g.quantity === 'number') g.quantity = roundShares(g.quantity);
-      if (typeof g.strike === 'number') g.strike = Math.round(g.strike);
-      if (typeof g.fmvAtGrant === 'number') g.fmvAtGrant = Math.round(g.fmvAtGrant);
+      if (typeof g.strike === 'number') g.strike = roundSig(g.strike);
+      if (typeof g.fmvAtGrant === 'number') g.fmvAtGrant = roundSig(g.fmvAtGrant);
       return g as (typeof se.optionGrants)[number];
     });
     se.rsuGrants = (se.rsuGrants ?? []).map((grant) => {
@@ -345,7 +357,7 @@ export function anonymizeOffer(offer: TOffer, index: number): TOffer {
       delete g.id;
       g.label = alias;
       if (typeof g.shares === 'number') g.shares = roundShares(g.shares);
-      if (typeof g.fmvAtGrant === 'number') g.fmvAtGrant = Math.round(g.fmvAtGrant);
+      if (typeof g.fmvAtGrant === 'number') g.fmvAtGrant = roundSig(g.fmvAtGrant);
       return g as (typeof se.rsuGrants)[number];
     });
     clone.startupEquity = se;

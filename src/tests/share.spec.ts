@@ -149,7 +149,7 @@ describe('anonymized share tokens', () => {
     expect(anon.equityGrants[0].targetValue).toBe(25_000);
   });
 
-  it('rounds per-share prices to whole dollars and valuation to whole billions', () => {
+  it('rounds per-share prices and valuation to 2 significant figures', () => {
     const anon = anonymizeOffer(identifyingOffer(), 0);
     expect(anon.equityGrants[0].strike).toBe(43);
     expect(anon.equityGrants[0].fmv).toBe(55);

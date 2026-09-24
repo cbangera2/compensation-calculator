@@ -1,6 +1,6 @@
 "use client";
 import type { ChangeEvent } from "react";
-import { useEffect, useId, useState, useMemo } from "react";
+import { useEffect, useId, useState, useMemo, useRef } from "react";
 import { useStore } from "@/state/store";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -134,8 +134,24 @@ function switchTab(tab: string) {
   );
 }
 
+/**
+ * True only for an explicit location edit on the same offer — not a mount,
+ * offer switch, undo/redo, or import. The COL auto-suggest must only run on
+ * explicit edits so it never mutates a stored factor unprompted (and so a
+ * global undo restoring the default factor isn't immediately re-applied).
+ * Exported for regression tests.
+ */
+export function isExplicitLocationEdit(
+  prev: { index: number; location: string | undefined } | null,
+  index: number,
+  location: string | undefined
+): boolean {
+  if (prev === null || prev.index !== index) return false;
+  return prev.location !== location;
+}
+
 export default function OfferForm() {
-  const { offer, setOffer, setBonusValue, undo, redo, addGrant, updateGrant, uiMode } =
+  const { offer, setOffer, setBonusValue, undo, redo, addGrant, updateGrant, uiMode, activeIndex } =
     useStore();
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("compensation");
@@ -261,11 +277,10 @@ export default function OfferForm() {
   }, [offer.equityGrants]);
 
   // Location -> COL auto-suggest: fills colFactor from the city-compare dataset
-  // when the location text matches a known metro and colFactor is still
-  // default (1) — never fights a manual override. colAuto tracks what we
-  // applied so the note + undo stay honest; followingMove lets the factor
-  // follow when the location changes to a different matched city while the
-  // previous value was ours.
+  // only on an explicit location edit for the current offer — never on offer
+  // open, undo/redo, or import. colAuto tracks what we applied so the note +
+  // undo stay honest; followingMove lets the factor follow when the location
+  // changes to a different matched city while the previous value was ours.
   const matchedCity = useMemo(
     () => matchCompareCity(offer.location),
     [offer.location]
@@ -277,9 +292,26 @@ export default function OfferForm() {
   } | null>(null);
   const [colDismissed, setColDismissed] = useState<string | null>(null);
 
+  // Tracks the last (offer, location) this effect saw. Auto-apply only runs
+  // when the location changes for the same offer — an explicit location edit.
+  // Offer switches, undo/redo, and imports change the factor without a
+  // location edit, and must never mutate the stored colFactor.
+  const lastColSeen = useRef<{ index: number; location: string | undefined } | null>(null);
+
   useEffect(() => {
+    const prevSeen = lastColSeen.current;
+    const locationEdited = isExplicitLocationEdit(prevSeen, activeIndex, offer.location);
+    lastColSeen.current = { index: activeIndex, location: offer.location };
+
     if (!matchedCity || matchedCity.key === colDismissed) {
       if (colAuto) setColAuto(null);
+      return;
+    }
+    if (!locationEdited) {
+      // No explicit location edit: an external change (e.g. undo restoring
+      // the default factor) may have moved colFactor away from what we
+      // applied — drop the stale note so it stays honest.
+      if (colAuto && (offer.colFactor ?? 1) !== colAuto.factor) setColAuto(null);
       return;
     }
     const current = offer.colFactor ?? 1;
@@ -302,7 +334,7 @@ export default function OfferForm() {
     setColAuto({ key: matchedCity.key, factor: target, prev });
     setOffer({ ...offer, colFactor: target });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchedCity, offer.location, offer.colFactor, colDismissed]);
+  }, [matchedCity, offer.location, offer.colFactor, colDismissed, activeIndex]);
 
   const undoColAuto = () => {
     if (!colAuto) return;

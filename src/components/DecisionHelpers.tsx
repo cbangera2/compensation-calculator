@@ -76,13 +76,15 @@ function fmtShort(n: number): string {
 /**
  * Horizon cumulative total for an offer with its growth replaced by a
  * constant annual rate g. Used by the sensitivity bisection.
+ * Exported for regression tests: a missing startingPrice must fall back to
+ * the per-grant FMV (grant.fmv ?? 10), never a hardcoded $100.
  */
-function horizonTotalWithGrowth(offer: TOffer, g: number): number {
+export function horizonTotalWithGrowth(offer: TOffer, g: number): number {
   const horizon = offer.assumptions?.horizonYears ?? 4;
   const rows = computeOffer({
     ...offer,
     growth: {
-      startingPrice: offer.growth?.startingPrice ?? 100,
+      ...(offer.growth ?? {}),
       yoy: yoyFromCagr(g, horizon),
     },
   });
@@ -97,28 +99,28 @@ export function crossoverLine(aName: string, bName: string, cumA: number[], cumB
   const B = padTo(cumB, h);
   const gap = B[h - 1]! - A[h - 1]!;
 
-  let crossYear = -1;
-  for (let i = 0; i < h; i++) {
-    if (B[i]! > A[i]!) {
-      crossYear = i + 1;
-      break;
-    }
-  }
-
   if (Math.abs(gap) < 0.5) {
+    let crossYear = -1;
+    for (let i = 0; i < h; i++) {
+      if (B[i]! > A[i]!) {
+        crossYear = i + 1;
+        break;
+      }
+    }
     return crossYear > 0
       ? `Dead even over ${h} years — ${bName} catches up in year ${crossYear}.`
       : `Dead even over ${h} years.`;
   }
   const leader = gap > 0 ? bName : aName;
+  const leads = (i: number) => (gap > 0 ? B[i]! > A[i]! : A[i]! > B[i]!);
+  // Start of the final leader's uninterrupted lead through year h.
+  let start = h - 1;
+  while (start > 0 && leads(start - 1)) start--;
   const ahead = fmtShort(Math.abs(gap));
-  if (crossYear < 0) {
+  if (start === 0) {
     return `${leader} stays ahead every year — ends ${ahead} ahead over ${h} years.`;
   }
-  if (crossYear === 1) {
-    return `${leader} leads from year 1 — ends ${ahead} ahead over ${h} years.`;
-  }
-  return `${leader} pulls ahead in year ${crossYear} — ends ${ahead} ahead over ${h} years.`;
+  return `${leader} pulls ahead in year ${start + 1} — ends ${ahead} ahead over ${h} years.`;
 }
 
 function sensitivityLine(

@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/utils';
 import { useStore } from '@/state/store';
 import { computeOffer } from '@/core/compute';
+import type { TOffer } from '@/models/types';
 import {
   COMPARE_CITIES,
   compareCities,
@@ -138,8 +139,20 @@ function OfferPicker({
   );
 }
 
-export default function CityComparePanel() {
-  const offers = useStore((s) => s.offers);
+/**
+ * Year-1 total to load into the shared from-city pay when an offer is picked,
+ * or null when the pick must not touch it. A "to" offer only sets the
+ * destination city — comp is the from-city nominal pay, so loading the
+ * to-offer's total would mislabel the verdict.
+ * Exported for regression tests.
+ */
+export function sharedPayForOfferPick(picked: TOffer, which: 'from' | 'to'): number | null {
+  if (which !== 'from') return null;
+  const y1 = computeOffer(picked)[0]?.total ?? 0;
+  return Math.max(0, Math.round(y1));
+}
+
+export default function CityComparePanel() {  const offers = useStore((s) => s.offers);
   const [fromKey, setFromKey] = useState('renter-sunnyvale');
   const [toKey, setToKey] = useState('renter-ann-arbor');
   const [comp, setComp] = useState(200_000);
@@ -156,8 +169,8 @@ export default function CityComparePanel() {
   const applyOffer = (index: number, which: 'from' | 'to') => {
     const picked = offers[index];
     if (!picked) return;
-    const y1 = computeOffer(picked)[0]?.total ?? 0;
-    setComp(Math.max(0, Math.round(y1)));
+    const pay = sharedPayForOfferPick(picked, which);
+    if (pay !== null) setComp(pay);
     const cityKey = METRO_TO_CITY_KEY[metroForLocation(picked.location)];
     if (cityKey && getCompareCity(cityKey)) {
       if (which === 'from') setFromKey(cityKey);
@@ -214,7 +227,7 @@ export default function CityComparePanel() {
           />
         </div>
         <p className="-mt-2 text-[11px] text-muted-foreground">
-          Picking an offer loads its Year 1 total into the shared pay below, plus its city.
+          Picking the from offer loads its Year 1 total into the shared pay below, plus its city. Picking the to offer only sets the destination city.
         </p>
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
