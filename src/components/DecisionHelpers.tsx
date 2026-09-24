@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { ArrowLeftRight, CalendarClock, TrendingUp } from 'lucide-react';
-import { useStore } from '@/state/store';
+import { useComparedOffers } from '@/lib/useComparedOffers';
 import { computeOffer, type YearRow } from '@/core/compute';
 import { yoyFromCagr } from '@/core/growth';
 import { formatCurrency } from '@/lib/utils';
@@ -247,7 +247,8 @@ function InsightRow({ icon, children }: { icon: React.ReactNode; children: React
 }
 
 export default function DecisionHelpers() {
-  const { offers } = useStore();
+  const compared = useComparedOffers();
+  const offers = useMemo(() => compared.map((p) => p.offer), [compared]);
   const insights = useMemo(() => buildInsights(offers), [offers]);
 
   if (offers.length < 2) {

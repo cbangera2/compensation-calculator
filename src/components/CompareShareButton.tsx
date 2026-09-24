@@ -11,13 +11,14 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useStore } from '@/state/store';
+import { useComparedOffers } from '@/lib/useComparedOffers';
 import { buildAnonymizedToken } from '@/lib/share';
 import { cn } from '@/lib/utils';
 
 /**
  * "Share this comparison" for the Compare tab. Builds an anonymized
  * multi-offer share token for exactly the offers the compare charts
- * render (all offers in the store), then presents a copyable link.
+ * render (the picker-scoped selection), then presents a copyable link.
  * Not mounted anywhere yet — the parent mounts it.
  */
 export default function CompareShareButton() {
@@ -27,10 +28,12 @@ export default function CompareShareButton() {
   const [error, setError] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 
-  // Same derivation the compare charts use: every offer in the store.
+  // Same derivation the compare charts use: the picker-scoped offers
+  // (at most MAX_COMPARE_OFFERS), paired with original store indices.
+  const compared = useComparedOffers();
   const comparedIndices = useMemo(
-    () => (offers || []).map((_, i) => i),
-    [offers],
+    () => compared.map((p) => p.index),
+    [compared],
   );
   const canShare = comparedIndices.length >= 2;
 

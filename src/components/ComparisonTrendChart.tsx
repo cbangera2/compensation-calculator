@@ -3,7 +3,7 @@
 import ReactEChartsCore from 'echarts-for-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useMemo, useState } from 'react';
-import { useStore } from '@/state/store';
+import { useComparedOffers } from '@/lib/useComparedOffers';
 import { computeOffer } from '@/core/compute';
 import { formatCurrency } from '@/lib/utils';
 import { useDarkMode } from '@/lib/useDarkMode';
@@ -19,7 +19,8 @@ import { useChartHeight } from '@/lib/useIsMobile';
 
 export default function ComparisonTrendChart() {
   const chartH = useChartHeight(320, 240);
-  const { offers } = useStore();
+  const compared = useComparedOffers();
+  const offers = useMemo(() => compared.map((p) => p.offer), [compared]);
   const dark = useDarkMode();
   const [mode, setMode] = useState<'yearly' | 'cumulative'>('yearly');
   const palette = useMemo(() => categoricalPalette(dark), [dark]);
