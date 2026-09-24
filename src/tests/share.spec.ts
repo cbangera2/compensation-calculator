@@ -72,6 +72,7 @@ function identifyingOffer(): TOffer {
       rsuGrants: [
         { id: 'rsu-1', label: 'RSU refresh', shares: 2_345, fmvAtGrant: 55.0, doubleTrigger: true, vestYears: 4 },
       ],
+      savedScenarios: [],
     },
     assumptions: { horizonYears: 4, colAdjust: 1 },
   };

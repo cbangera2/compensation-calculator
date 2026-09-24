@@ -88,7 +88,8 @@ describe('valuateStartupEquity', () => {
     expect(opt.grantValue).toBe(24_000);
     expect(opt.netValue).toBe(90_000);
     expect(opt.exerciseCost).toBe(90_000);
-    expect(opt.annualizedGrantValue).toBe(6_000);
+    // annualized at the SCENARIO share price ($60), not grant FMV: 90_000/4
+    expect(opt.annualizedGrantValue).toBe(22_500);
 
     // rsu grant: 250 shares @ $60 FMV = 15_000; net at $60 = 15_000
     expect(rsu.kind).toBe('rsu');
@@ -100,7 +101,7 @@ describe('valuateStartupEquity', () => {
     expect(v.totalGrantValue).toBe(39_000);
     expect(v.totalNetValue).toBe(105_000);
     expect(v.totalExerciseCost).toBe(90_000);
-    expect(v.totalAnnualizedGrantValue).toBe(13_500);
+    expect(v.totalAnnualizedGrantValue).toBe(30_000);
   });
 
   it('supports a valuation override (e.g. from a slider)', () => {
@@ -111,6 +112,19 @@ describe('valuateStartupEquity', () => {
     expect(v.totalNetValue).toBe((150 - 30) * 3000 + 250 * 150);
   });
 
+  it('moves the annualized figure when the valuation scenario changes', () => {
+    const block = sampleStartupEquity();
+    const low = valuateStartupEquity(block, 6_000_000_000); // $60/share
+    const high = valuateStartupEquity(block, 15_000_000_000); // $150/share
+    // Regression: annualized used to be frozen at grant-FMV basis while
+    // total net value moved with the slider. Both must move now.
+    expect(high.totalAnnualizedGrantValue).toBeGreaterThan(low.totalAnnualizedGrantValue);
+    expect(high.totalAnnualizedGrantValue).toBe((150 - 30) * 3000 / 4 + (250 * 150) / 2);
+    expect(low.totalAnnualizedGrantValue).toBe((60 - 30) * 3000 / 4 + (250 * 60) / 2);
+    // Grant-FMV reference figures stay put.
+    expect(high.totalGrantValue).toBe(low.totalGrantValue);
+  });
+
   it('handles an empty block', () => {
     const v = valuateStartupEquity({
       enabled: true,
@@ -119,6 +133,7 @@ describe('valuateStartupEquity', () => {
       fullyDilutedShares: 100_000_000,
       optionGrants: [],
       rsuGrants: [],
+      savedScenarios: [],
     });
     expect(v.sharePrice).toBe(10);
     expect(v.grants).toHaveLength(0);

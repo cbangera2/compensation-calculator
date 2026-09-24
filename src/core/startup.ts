@@ -43,13 +43,13 @@ export function annualizeGrantValue(totalValue: number, vestYears: number): numb
 export type StartupGrantValuation = {
   label: string;
   kind: 'option' | 'rsu';
-  /** Value of the grant at grant-date FMV (the "grant value" used for annualization). */
+  /** Value of the grant at grant-date FMV (reference only; not annualized). */
   grantValue: number;
   /** Net value at the scenario share price. */
   netValue: number;
   /** Cash to exercise (options only; 0 for RSUs). */
   exerciseCost: number;
-  /** grantValue spread across vest years. */
+  /** netValue (at the scenario share price) spread across vest years. Moves with the valuation scenario. */
   annualizedGrantValue: number;
 };
 
@@ -65,26 +65,28 @@ export type StartupEquityValuation = {
 
 function valuateOptionGrant(grant: TStartupOptionGrant, sharePrice: number): StartupGrantValuation {
   const grantValue = optionNetValue(grant.quantity, grant.strike, grant.fmvAtGrant);
+  const netValue = optionNetValue(grant.quantity, grant.strike, sharePrice);
   const cost = exerciseCost(grant.quantity, grant.strike);
   return {
     label: grant.label,
     kind: 'option',
     grantValue,
-    netValue: optionNetValue(grant.quantity, grant.strike, sharePrice),
+    netValue,
     exerciseCost: cost,
-    annualizedGrantValue: annualizeGrantValue(grantValue, grant.vestYears),
+    annualizedGrantValue: annualizeGrantValue(netValue, grant.vestYears),
   };
 }
 
 function valuateRsuGrant(grant: TStartupRsuGrant, sharePrice: number): StartupGrantValuation {
   const grantValue = rsuValue(grant.shares, grant.fmvAtGrant);
+  const netValue = rsuValue(grant.shares, sharePrice);
   return {
     label: grant.label,
     kind: 'rsu',
     grantValue,
-    netValue: rsuValue(grant.shares, sharePrice),
+    netValue,
     exerciseCost: 0,
-    annualizedGrantValue: annualizeGrantValue(grantValue, grant.vestYears),
+    annualizedGrantValue: annualizeGrantValue(netValue, grant.vestYears),
   };
 }
 
@@ -139,5 +141,6 @@ export function sampleStartupEquity(): TStartupEquity {
         vestYears: 2,
       },
     ],
+    savedScenarios: [],
   };
 }
