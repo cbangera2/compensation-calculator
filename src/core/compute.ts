@@ -172,6 +172,39 @@ export type StartupGrantYearly = {
   yearly: number[];
 };
 
+/** One month's vested shares. */
+type VestEvent = { date: Date; shares: number };
+
+/**
+ * Monthly vest schedule shared by option and RSU grants so their year
+ * bucketing can never drift apart. A cliff vests its accrued pro-rata
+ * portion as a lump at the cliff month; the remainder vests monthly after.
+ */
+function buildVestSchedule(opts: {
+  grantStart: Date;
+  totalShares: number;
+  vestYears: number;
+  cliffMonths?: number;
+}): VestEvent[] {
+  const totalMonths = Math.max(1, Math.round(opts.vestYears * 12));
+  const cliff = Math.min(Math.max(0, opts.cliffMonths ?? 0), totalMonths);
+  const events: VestEvent[] = [];
+  if (cliff > 0) {
+    const cliffShares = (opts.totalShares * cliff) / totalMonths;
+    events.push({ date: addMonths(opts.grantStart, cliff), shares: cliffShares });
+    const remaining = opts.totalShares - cliffShares;
+    const monthsAfter = totalMonths - cliff;
+    for (let m = 1; m <= monthsAfter; m++) {
+      events.push({ date: addMonths(opts.grantStart, cliff + m), shares: remaining / monthsAfter });
+    }
+  } else {
+    for (let m = 1; m <= totalMonths; m++) {
+      events.push({ date: addMonths(opts.grantStart, m), shares: opts.totalShares / totalMonths });
+    }
+  }
+  return events;
+}
+
 /** Per-grant yearly vested value for the startup equity block. */
 export function computeStartupVesting(offer: TOffer): StartupGrantYearly[] {
   const block = offer.startupEquity;
@@ -194,40 +227,30 @@ export function computeStartupVesting(offer: TOffer): StartupGrantYearly[] {
   const out: StartupGrantYearly[] = [];
   for (const g of block.optionGrants ?? []) {
     const grantStart = new Date(g.grantStartDate ?? offer.startDate);
-    const totalMonths = Math.max(1, Math.round(g.vestYears * 12));
-    const cliff = Math.min(Math.max(0, g.cliffMonths ?? 0), totalMonths);
     const intrinsic = Math.max(0, sharePrice - g.strike);
     const yearly = empty();
     if (intrinsic > 0 && g.quantity > 0) {
-      const credit = (date: Date, shares: number) => {
-        const y = yearOf(date);
-        if (y !== null) yearly[y] += shares * intrinsic;
-      };
-      if (cliff > 0) {
-        // Cliff lump: the pro-rata portion accrued up to the cliff month.
-        const cliffShares = (g.quantity * cliff) / totalMonths;
-        credit(addMonths(grantStart, cliff), cliffShares);
-        const remaining = g.quantity - cliffShares;
-        const monthsAfter = totalMonths - cliff;
-        for (let m = 1; m <= monthsAfter; m++) {
-          credit(addMonths(grantStart, cliff + m), remaining / monthsAfter);
-        }
-      } else {
-        for (let m = 1; m <= totalMonths; m++) {
-          credit(addMonths(grantStart, m), g.quantity / totalMonths);
-        }
+      const schedule = buildVestSchedule({
+        grantStart,
+        totalShares: g.quantity,
+        vestYears: g.vestYears,
+        cliffMonths: g.cliffMonths,
+      });
+      for (const e of schedule) {
+        const y = yearOf(e.date);
+        if (y !== null) yearly[y] += e.shares * intrinsic;
       }
     }
     out.push({ label: g.label, kind: 'option', yearly });
   }
   for (const g of block.rsuGrants ?? []) {
     const grantStart = new Date(g.grantStartDate ?? offer.startDate);
-    const totalMonths = Math.max(1, Math.round(g.vestYears * 12));
     const yearly = empty();
     if (g.shares > 0) {
-      for (let m = 1; m <= totalMonths; m++) {
-        const y = yearOf(addMonths(grantStart, m));
-        if (y !== null) yearly[y] += (g.shares / totalMonths) * sharePrice;
+      const schedule = buildVestSchedule({ grantStart, totalShares: g.shares, vestYears: g.vestYears });
+      for (const e of schedule) {
+        const y = yearOf(e.date);
+        if (y !== null) yearly[y] += e.shares * sharePrice;
       }
     }
     out.push({ label: g.label, kind: 'rsu', yearly });

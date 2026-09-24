@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { X, Copy, Check, AlertTriangle, ShieldCheck, Link2 } from 'lucide-react';
+import { Copy, Check, AlertTriangle, ShieldCheck, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { TOffer } from '@/models/types';
 import {
   anonymizeOffer,
@@ -44,21 +45,6 @@ export default function ShareDialog({ open, onClose, offers, activeIndex, uiMode
       setCopyState('idle');
     }
   }, [open, activeIndex]);
-
-  // Escape to close + lock body scroll while open.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open, onClose]);
 
   const previewRows = useMemo(
     () =>
@@ -129,32 +115,13 @@ export default function ShareDialog({ open, onClose, offers, activeIndex, uiMode
     : 'No offers selected';
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Share offers"
-      onClick={onClose}
+    <Modal
+      title="Share offers"
+      description="Pick which offers go into the link and how much detail they carry."
+      onClose={onClose}
     >
-      <div
-        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-background p-4 shadow-xl sm:p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold">Share offers</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              Pick which offers go into the link and how much detail they carry.
-            </p>
-          </div>
-          <Button type="button" size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={onClose} aria-label="Close">
-            <X className="size-4" />
-          </Button>
-        </div>
-
-        <div className="mt-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Offers in this link</p>
-          <div className="mt-2 max-h-44 space-y-1.5 overflow-y-auto">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Offers in this link</p>
+      <div className="mt-2 max-h-44 space-y-1.5 overflow-y-auto">
             {offers.map((offer, index) => {
               const checked = selected.includes(index);
               return (
@@ -188,7 +155,6 @@ export default function ShareDialog({ open, onClose, offers, activeIndex, uiMode
               );
             })}
           </div>
-        </div>
 
         <button
           type="button"
@@ -253,7 +219,6 @@ export default function ShareDialog({ open, onClose, offers, activeIndex, uiMode
             {copyState === 'copied' ? 'Link copied' : copyState === 'error' ? 'Copy failed — try again' : 'Copy link'}
           </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

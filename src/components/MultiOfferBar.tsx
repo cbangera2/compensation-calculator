@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, Copy, Trash2, Download, Share2, RotateCcw, Upload, Globe, FileText, ClipboardPaste, ChevronDown } from 'lucide-react';
 import { useStore } from '@/state/store';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parseLevelsOfferFromHtml } from '@/lib/levelsImport';
@@ -202,15 +203,15 @@ function ImportMenu({
                 <SelectItem value="ford">Ford</SelectItem>
                 <SelectItem value="startup">Startup</SelectItem>
                 <SelectSeparator />
-                <SelectItem value="meta">Meta (illustrative)</SelectItem>
-                <SelectItem value="apple">Apple (illustrative)</SelectItem>
-                <SelectItem value="microsoft">Microsoft (illustrative)</SelectItem>
-                <SelectItem value="bloomberg">Bloomberg (illustrative)</SelectItem>
-                <SelectItem value="stripe">Stripe (illustrative)</SelectItem>
-                <SelectItem value="spacex">SpaceX (illustrative)</SelectItem>
-                <SelectItem value="tesla">Tesla (illustrative)</SelectItem>
-                <SelectItem value="anduril">Anduril (illustrative)</SelectItem>
-                <SelectItem value="palantir">Palantir (illustrative)</SelectItem>
+                <SelectItem value="meta">Meta</SelectItem>
+                <SelectItem value="apple">Apple</SelectItem>
+                <SelectItem value="microsoft">Microsoft</SelectItem>
+                <SelectItem value="bloomberg">Bloomberg</SelectItem>
+                <SelectItem value="stripe">Stripe</SelectItem>
+                <SelectItem value="spacex">SpaceX</SelectItem>
+                <SelectItem value="tesla">Tesla</SelectItem>
+                <SelectItem value="anduril">Anduril</SelectItem>
+                <SelectItem value="palantir">Palantir</SelectItem>
                 <SelectSeparator />
                 <SelectItem value="all">Import all</SelectItem>
               </SelectContent>
@@ -535,21 +536,6 @@ function OfferLetterDialog({
     }
   }, [open ]);
 
-  // Escape to close + lock body scroll while open.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = prevOverflow;
-    };
-  }, [open, onClose]);
-
   if (!open) return null;
 
   const merged: ExtractedOfferFields | null = result ? { ...result.extracted, ...edits } : null;
@@ -575,26 +561,21 @@ function OfferLetterDialog({
     onClose();
   }
 
+  const isPasteStep = step === 'paste';
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Paste offer letter"
-      onClick={onClose}
+    <Modal
+      title={isPasteStep ? 'Paste offer letter' : 'Review extracted details'}
+      description={
+        isPasteStep
+          ? 'Paste the text of your offer letter. We\u2019ll pull out the numbers \u2014 you review them before anything is added.'
+          : 'Heuristic parse \u2014 double-check the numbers before adding. Nothing has been saved yet.'
+      }
+      onClose={onClose}
+      maxWidth="max-w-xl"
+      hideCloseButton
     >
-      <div
-        className="max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-2xl border border-border bg-background p-4 shadow-xl sm:p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {step === 'paste' ? (
+      {step === 'paste' ? (
           <div className="space-y-3">
-            <div>
-              <h2 className="text-base font-semibold">Paste offer letter</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Paste the text of your offer letter. We&apos;ll pull out the numbers — you review them before anything is added.
-              </p>
-            </div>
             <textarea
               className="min-h-44 w-full rounded-xl border border-border bg-background p-3 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-primary"
               placeholder={'Dear Alex,\n\nWe are pleased to offer you the position of Software Engineer at ExampleCo.\nYour starting base salary will be $150,000 per year...\n\n(paste the full letter text here)'}
@@ -612,12 +593,6 @@ function OfferLetterDialog({
           </div>
         ) : (
           <div className="space-y-4">
-            <div>
-              <h2 className="text-base font-semibold">Review extracted details</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Heuristic parse — double-check the numbers before adding. Nothing has been saved yet.
-              </p>
-            </div>
 
             {merged && result!.unparsed.length > 0 && (
               <div className="rounded-xl bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300">
@@ -682,7 +657,6 @@ function OfferLetterDialog({
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 }

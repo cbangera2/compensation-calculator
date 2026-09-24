@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '@/state/store';
 import { computeOffer } from '@/core/compute';
 import {
@@ -39,8 +39,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/utils';
-import { cn } from '@/lib/utils';
-import { AlertTriangle, Database, Info, History, Plus } from 'lucide-react';
+import { Database, Info, History, Plus } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
 import MobileCollapse from '@/components/MobileCollapse';
 
@@ -65,15 +64,7 @@ function DatasetBadge() {
   );
 }
 
-function ConfidenceBadge({ cell }: { cell: TBenchmarkCell }) {
-  if (cell.confidence === 'illustrative') {
-    return (
-      <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-        <AlertTriangle className="size-3" />
-        Illustrative
-      </span>
-    );
-  }
+function ConfidenceBadge() {
   return (
     <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
       <Database className="size-3" />
@@ -258,18 +249,25 @@ export default function BenchmarkPanel({
   }, [offer?.jobLevel, initialLevel]);
 
   // Keep the selectors in sync with the active offer so switching offers
-  // re-targets the panel. User edits still win until the offer changes.
-  useEffect(() => {
-    setCompany(derivedCompany);
-  }, [derivedCompany]);
-
-  useEffect(() => {
-    setLevel(derivedLevel);
-  }, [derivedLevel]);
-
-  useEffect(() => {
-    setMetro(initialMetro);
-  }, [initialMetro]);
+  // re-targets the panel. User edits still win until the offer changes: each
+  // field re-syncs only when its own derived value changes. Done as a
+  // render-time adjustment (React's "store previous render info" pattern)
+  // instead of three sync effects.
+  const [prevDerived, setPrevDerived] = useState({
+    company: derivedCompany,
+    level: derivedLevel,
+    metro: initialMetro,
+  });
+  if (
+    prevDerived.company !== derivedCompany ||
+    prevDerived.level !== derivedLevel ||
+    prevDerived.metro !== initialMetro
+  ) {
+    setPrevDerived({ company: derivedCompany, level: derivedLevel, metro: initialMetro });
+    if (prevDerived.company !== derivedCompany) setCompany(derivedCompany);
+    if (prevDerived.level !== derivedLevel) setLevel(derivedLevel);
+    if (prevDerived.metro !== initialMetro) setMetro(initialMetro);
+  }
 
   const { baseValue, totalValue } = useMemo(() => {
     if (!offer) return { baseValue: 0, totalValue: 0 };
@@ -284,10 +282,10 @@ export default function BenchmarkPanel({
   const cell = lookup?.cell ?? null;
 
   /**
-   * Bridge: Benchmarks → Compare. Builds a synthetic, honestly-labeled
-   * illustrative offer from this cell's p50 bands (base at base.p50, the
-   * remainder of totalComp.p50 as a 4-year even RSU grant) and drops it into
-   * the offer list, then jumps to the Compare tab.
+   * Bridge: Benchmarks → Compare. Builds a benchmark-derived offer from this
+   * cell's p50 bands (base at base.p50, the remainder of totalComp.p50 as a
+   * 4-year even RSU grant) and drops it into the offer list, then jumps to
+   * the Compare tab. Honestly labeled as benchmark-derived, never as a real offer.
    */
   const addCellToCompare = () => {
     if (!cell) return;
@@ -340,7 +338,7 @@ export default function BenchmarkPanel({
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {cell && <ConfidenceBadge cell={cell} />}
+            {cell && <ConfidenceBadge />}
             <DatasetBadge />
           </div>
         </div>
@@ -413,18 +411,6 @@ export default function BenchmarkPanel({
                 No {metro} data for this combo — showing {lookup.rolledUpFrom} bands instead.
               </p>
             )}
-            {cell.confidence === 'illustrative' && (
-              <p
-                className={cn(
-                  'rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs',
-                  'text-amber-700 dark:text-amber-300'
-                )}
-              >
-                Illustrative estimate: no public aggregate was found for this cell in v2 research.
-                Use for rough planning only, not negotiation.
-              </p>
-            )}
-
             <div className="space-y-4">
               <BandSection
                 title={`Base salary — ${company} ${cell.companyLevel}`}
@@ -442,7 +428,7 @@ export default function BenchmarkPanel({
 
             <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-muted/30 p-3">
               <p className="min-w-[180px] flex-1 text-xs leading-relaxed text-muted-foreground">
-                Illustrative only: adds this cell&rsquo;s p50 bands as a
+                Benchmark-derived: adds this cell&rsquo;s p50 bands as a
                 benchmark-derived offer (base + 4-yr even RSU) so you can
                 compare your offers against the market.
               </p>

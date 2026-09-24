@@ -90,4 +90,26 @@ describe('startup equity feeds computeOffer (regression: equity-over-4-years sho
     const b = computeOffer(withoutStartup).reduce((x, r) => x + r.total, 0);
     expect(a - b).toBeGreaterThan(10_000);
   });
+
+  it('vests options and RSUs on the same monthly schedule for identical grants', () => {
+    // Regression guard for the shared buildVestSchedule: an option grant and
+    // an RSU grant with the same share count, vest length, and start date
+    // must produce identical yearly vesting (intrinsic value aside).
+    const optionOffer = startupOffer(block({
+      optionGrants: [
+        { label: 'opts', quantity: 1200, strike: 0, fmvAtGrant: 100, vestYears: 4, cliffMonths: 0, grantStartDate: '2024-08-01' },
+      ],
+    }));
+    const rsuOffer = startupOffer(block({
+      rsuGrants: [
+        { label: 'rsus', shares: 1200, fmvAtGrant: 100, doubleTrigger: false, vestYears: 4, grantStartDate: '2024-08-01' },
+      ],
+    }));
+    // Strike 0 makes the option intrinsic value equal the $100 share price,
+    // so the yearly stock rows should match the RSU rows exactly.
+    const optionRows = computeOffer(optionOffer).map((r) => r.stock);
+    const rsuRows = computeOffer(rsuOffer).map((r) => r.stock);
+    expect(optionRows).toHaveLength(rsuRows.length);
+    optionRows.forEach((v, i) => expect(v).toBeCloseTo(rsuRows[i], 6));
+  });
 });

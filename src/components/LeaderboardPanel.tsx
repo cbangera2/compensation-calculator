@@ -51,6 +51,45 @@ function formatPct(x: number): string {
   return `${sign}${(x * 100).toFixed(1)}%`;
 }
 
+function SortButton({
+  label,
+  k,
+  align = 'left',
+  sortKey,
+  sortDir,
+  onToggle,
+}: {
+  label: string;
+  k: SortKey;
+  align?: 'left' | 'right';
+  sortKey: SortKey;
+  sortDir: 'asc' | 'desc';
+  onToggle: (key: SortKey) => void;
+}) {
+  const active = sortKey === k;
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(k)}
+      className={cn(
+        'inline-flex items-center gap-1 font-medium hover:text-foreground',
+        align === 'right' && 'flex-row-reverse',
+      )}
+    >
+      {label}
+      {active ? (
+        sortDir === 'asc' ? (
+          <ArrowUp className="size-3.5" />
+        ) : (
+          <ArrowDown className="size-3.5" />
+        )
+      ) : (
+        <ArrowUpDown className="size-3.5 opacity-40" />
+      )}
+    </button>
+  );
+}
+
 export default function LeaderboardPanel() {
   const [prices, setPrices] = useState<Record<string, GrantPricePoints>>({});
   const [failed, setFailed] = useState<string[]>([]);
@@ -168,27 +207,7 @@ export default function LeaderboardPanel() {
     }
   };
 
-  const SortButton = ({ label, k, align = 'left' }: { label: string; k: SortKey; align?: 'left' | 'right' }) => (
-    <button
-      type="button"
-      onClick={() => toggleSort(k)}
-      className={cn(
-        'inline-flex items-center gap-1 font-medium hover:text-foreground',
-        align === 'right' && 'flex-row-reverse',
-      )}
-    >
-      {label}
-      {sortKey === k ? (
-        sortDir === 'asc' ? (
-          <ArrowUp className="size-3.5" />
-        ) : (
-          <ArrowDown className="size-3.5" />
-        )
-      ) : (
-        <ArrowUpDown className="size-3.5 opacity-40" />
-      )}
-    </button>
-  );
+  const sortButtonProps = { sortKey, sortDir, onToggle: toggleSort };
 
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -240,17 +259,17 @@ export default function LeaderboardPanel() {
                 <TableRow>
                   <TableHead className="w-14">Rank</TableHead>
                   <TableHead>
-                    <SortButton label="Company" k="company" />
+                    <SortButton label="Company" k="company" {...sortButtonProps} />
                   </TableHead>
                   <TableHead>Level</TableHead>
                   <TableHead className="text-right">
-                    <SortButton label="2024 offer TC at grant" k="tc" align="right" />
+                    <SortButton label="2024 offer TC at grant" k="tc" align="right" {...sortButtonProps} />
                   </TableHead>
                   <TableHead className="text-right">
-                    <SortButton label="Stock since grant" k="growth" align="right" />
+                    <SortButton label="Stock since grant" k="growth" align="right" {...sortButtonProps} />
                   </TableHead>
                   <TableHead className="text-right">
-                    <SortButton label="Realized 4yr value today" k="realized" align="right" />
+                    <SortButton label="Realized 4yr value today" k="realized" align="right" {...sortButtonProps} />
                   </TableHead>
                 </TableRow>
               </TableHeader>

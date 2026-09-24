@@ -3,6 +3,7 @@ import {
   fetchStooqMonthly,
   fetchYahooMonthly,
   isSupportedTicker,
+  SUPPORTED_TICKERS,
   toStats,
   type HistoryStats,
 } from '@/lib/market';
@@ -21,7 +22,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error: `unsupported ticker "${ticker}"`,
-        supported: ['META', 'GOOGL', 'AAPL', 'MSFT', 'TSLA', 'PLTR', 'AMZN', 'NFLX', 'ABNB', 'UBER', 'CRM', 'ADBE', 'NVDA'],
+        supported: [...SUPPORTED_TICKERS],
         note: 'Private companies (Stripe, SpaceX, Anduril, Bloomberg) have no public price history.',
       },
       { status: 400 },
