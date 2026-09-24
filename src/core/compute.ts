@@ -1,7 +1,8 @@
-import { addYears, differenceInCalendarDays, differenceInCalendarMonths, max as maxDate, min as minDate } from 'date-fns';
+import { addYears, addMonths, differenceInCalendarDays, differenceInCalendarMonths, max as maxDate, min as minDate } from 'date-fns';
 import { TOffer, TEquityGrant } from '@/models/types';
 import { expandVesting } from './vesting';
 import { priceAtVest } from './growth';
+import { impliedSharePrice } from './startup';
 
 export type YearRow = {
   year: number; // 1-based index
@@ -155,6 +156,90 @@ function computeStockForYear(offer: TOffer, yearIndex: number): number {
   return offer.equityGrants.reduce((acc, g) => acc + grantValueForYear(offer, g, yearIndex), 0);
 }
 
+/**
+ * Value of private-company (startup) equity vesting in a given offer year.
+ *
+ * Grants vest monthly from their grant start date (default: the offer start
+ * date). A cliff vests its accrued portion as a lump at the cliff month;
+ * the remainder vests monthly after that. Options are valued at intrinsic
+ * value (share price minus strike); RSUs (including double-trigger) at the
+ * full scenario share price.
+ */
+export type StartupGrantYearly = {
+  label: string;
+  kind: 'option' | 'rsu';
+  /** Vested value per offer year (index 0 = year 1). */
+  yearly: number[];
+};
+
+/** Per-grant yearly vested value for the startup equity block. */
+export function computeStartupVesting(offer: TOffer): StartupGrantYearly[] {
+  const block = offer.startupEquity;
+  const years = offer.assumptions?.horizonYears ?? 4;
+  const empty = (): number[] => Array.from({ length: years }, () => 0);
+  if (!block?.enabled) return [];
+  const sharePrice = impliedSharePrice(block.valuation, block.fullyDilutedShares);
+  if (sharePrice <= 0) return [];
+  const offerStart = new Date(offer.startDate);
+  const inYear = (d: Date, yearIndex: number) => {
+    const yStart = startOfYear(offerStart, yearIndex);
+    const yEnd = endOfYear(offerStart, yearIndex);
+    return d > yStart && d <= yEnd;
+  };
+  const yearOf = (d: Date): number | null => {
+    for (let y = 0; y < years; y++) if (inYear(d, y)) return y;
+    return null;
+  };
+
+  const out: StartupGrantYearly[] = [];
+  for (const g of block.optionGrants ?? []) {
+    const grantStart = new Date(g.grantStartDate ?? offer.startDate);
+    const totalMonths = Math.max(1, Math.round(g.vestYears * 12));
+    const cliff = Math.min(Math.max(0, g.cliffMonths ?? 0), totalMonths);
+    const intrinsic = Math.max(0, sharePrice - g.strike);
+    const yearly = empty();
+    if (intrinsic > 0 && g.quantity > 0) {
+      const credit = (date: Date, shares: number) => {
+        const y = yearOf(date);
+        if (y !== null) yearly[y] += shares * intrinsic;
+      };
+      if (cliff > 0) {
+        // Cliff lump: the pro-rata portion accrued up to the cliff month.
+        const cliffShares = (g.quantity * cliff) / totalMonths;
+        credit(addMonths(grantStart, cliff), cliffShares);
+        const remaining = g.quantity - cliffShares;
+        const monthsAfter = totalMonths - cliff;
+        for (let m = 1; m <= monthsAfter; m++) {
+          credit(addMonths(grantStart, cliff + m), remaining / monthsAfter);
+        }
+      } else {
+        for (let m = 1; m <= totalMonths; m++) {
+          credit(addMonths(grantStart, m), g.quantity / totalMonths);
+        }
+      }
+    }
+    out.push({ label: g.label, kind: 'option', yearly });
+  }
+  for (const g of block.rsuGrants ?? []) {
+    const grantStart = new Date(g.grantStartDate ?? offer.startDate);
+    const totalMonths = Math.max(1, Math.round(g.vestYears * 12));
+    const yearly = empty();
+    if (g.shares > 0) {
+      for (let m = 1; m <= totalMonths; m++) {
+        const y = yearOf(addMonths(grantStart, m));
+        if (y !== null) yearly[y] += (g.shares / totalMonths) * sharePrice;
+      }
+    }
+    out.push({ label: g.label, kind: 'rsu', yearly });
+  }
+  return out;
+}
+
+function computeStartupStockForYear(offer: TOffer, yearIndex: number, vesting?: StartupGrantYearly[]): number {
+  const schedule = vesting ?? computeStartupVesting(offer);
+  return schedule.reduce((acc, g) => acc + (g.yearly[yearIndex] ?? 0), 0);
+}
+
 function computeOtherForYear(offer: TOffer, yearIndex: number): number {
   const offerStart = new Date(offer.startDate);
   const yStart = startOfYear(offerStart, yearIndex);
@@ -180,11 +265,12 @@ function computeOtherForYear(offer: TOffer, yearIndex: number): number {
 
 export function computeOffer(offer: TOffer): YearRow[] {
   const years = offer.assumptions?.horizonYears ?? 4;
+  const startupVesting = computeStartupVesting(offer);
   const rows: YearRow[] = [];
   for (let y = 0; y < years; y++) {
     const base = computeProratedBaseForYear(offer, y);
     const bonus = computeBonusForYear(offer, base);
-    const stock = computeStockForYear(offer, y);
+    const stock = computeStockForYear(offer, y) + computeStartupStockForYear(offer, y, startupVesting);
     const other = computeOtherForYear(offer, y);
     const total = base + bonus + stock + other;
     rows.push({ year: y + 1, base, bonus, stock, other, total });

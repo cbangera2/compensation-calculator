@@ -117,7 +117,9 @@ export default function ComparisonChart() {
       id: `offer-${i}-base`,
       name: 'Base', type: 'bar' as const, stack: `offer-${i}`,
       itemStyle: { color: colors.Base, borderRadius: 0 },
-      barWidth: '52%',
+      // Share the category width across offers so bars dodge instead of overlapping.
+      barWidth: `${Math.max(10, Math.floor(72 / offers.length))}%`,
+      barGap: '30%',
       emphasis: { focus: 'series' as const },
       data: byOffer[i].base,
     },
