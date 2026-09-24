@@ -50,6 +50,37 @@ export const Raise = z.object({
   value: z.number(),
 });
 
+// ---- Startup (private-company) equity ----
+
+export const StartupOptionGrant = z.object({
+  id: z.string().optional(),
+  label: z.string().default('Option grant'),
+  quantity: z.number().nonnegative(),
+  strike: z.number().nonnegative(),
+  fmvAtGrant: z.number().nonnegative(),
+  vestYears: z.number().positive(),
+  cliffMonths: z.number().int().nonnegative().default(12),
+});
+
+export const StartupRsuGrant = z.object({
+  id: z.string().optional(),
+  label: z.string().default('RSU grant'),
+  shares: z.number().nonnegative(),
+  fmvAtGrant: z.number().nonnegative(),
+  doubleTrigger: z.boolean().default(true),
+  vestYears: z.number().positive(),
+});
+
+export const StartupEquity = z.object({
+  enabled: z.boolean().default(false),
+  companyName: z.string().default('Example Startup'),
+  // Scenario valuation in dollars; implied share price = valuation / fullyDilutedShares
+  valuation: z.number().nonnegative().default(1_000_000_000),
+  fullyDilutedShares: z.number().positive().default(100_000_000),
+  optionGrants: z.array(StartupOptionGrant).default([]),
+  rsuGrants: z.array(StartupRsuGrant).default([]),
+});
+
 export const PerformanceBonus = z.object({
   kind: z.enum(['percent', 'fixed']),
   value: z.number().nonnegative(),
@@ -76,11 +107,15 @@ export const Offer = z.object({
   miscRecurring: z.array(z.object({ name: z.string(), annualValue: z.number().nonnegative() })).default([]),
   equityGrants: z.array(EquityGrant).default([]),
   growth: z.object({ startingPrice: z.number().optional(), yoy: z.array(z.number()) }).optional(),
+  // Optional private-company equity block. When present and enabled, it is
+  // modeled separately from equityGrants (public-company style grants) so the
+  // existing compute path is untouched.
+  startupEquity: StartupEquity.optional(),
   retirement: z.object({
     employeeContributionPercent: z.number().nonnegative().max(1).default(0.06),
     matchRate: z.number().nonnegative().max(1).default(0.5),
   matchCapPercentOfSalary: z.number().nonnegative().max(1).default(0.06),
-  employeeContributionCapDollar: z.number().nonnegative().default(23500),
+  employeeContributionCapDollar: z.number().nonnegative().default(24500),
   matchCapMode: z.enum(['percentOfSalary', 'dollar']).default('percentOfSalary'),
   matchCapDollar: z.number().nonnegative().default(0),
   }).optional(),
@@ -94,3 +129,6 @@ export const Offer = z.object({
 export type TVestingSchedule = z.infer<typeof VestingSchedule>;
 export type TEquityGrant = z.infer<typeof EquityGrant>;
 export type TOffer = z.infer<typeof Offer>;
+export type TStartupOptionGrant = z.infer<typeof StartupOptionGrant>;
+export type TStartupRsuGrant = z.infer<typeof StartupRsuGrant>;
+export type TStartupEquity = z.infer<typeof StartupEquity>;

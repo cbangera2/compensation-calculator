@@ -82,28 +82,35 @@ export default function StatCards() {
 	}, [offer]);
 
 	return (
-		<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+		<div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2 xl:grid-cols-4">
 			{stats.map((stat) => (
 				<article
 					key={stat.label}
-					className="group flex flex-col justify-between gap-3 rounded-2xl border border-border/50 bg-background/60 p-4 shadow-sm transition-shadow hover:shadow-md"
+					className="group flex flex-col justify-between gap-2 rounded-2xl border border-border/50 bg-background/60 p-3 shadow-sm transition-shadow hover:shadow-md sm:gap-3 sm:p-4"
 				>
-					<div className="flex items-center justify-between gap-3">
-						<div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-							<span className="grid size-9 place-items-center rounded-lg border border-border/50 bg-background/70 text-primary">
-								<stat.icon className="size-4" />
+					<div className="flex items-center gap-2">
+						<div className="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium text-muted-foreground sm:gap-2 sm:text-sm">
+							<span className="grid size-7 shrink-0 place-items-center rounded-lg border border-border/50 bg-background/70 text-primary sm:size-9">
+								<stat.icon className="size-3.5 sm:size-4" />
 							</span>
-							<span className="font-semibold text-foreground">{stat.label}</span>
+							<span className="line-clamp-2 font-semibold text-foreground">{stat.label}</span>
 						</div>
 						{stat.delta ? (
-							<span className={cn('rounded-full border px-2.5 py-1 text-xs font-medium transition-colors', toneClass[stat.delta.tone])}>
+							<span className={cn('hidden shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors sm:inline-flex', toneClass[stat.delta.tone])}>
 								{stat.delta.label}
 							</span>
 						) : null}
 					</div>
 					<div>
-						<p className="text-2xl font-semibold tracking-tight text-foreground">{stat.value}</p>
-						<p className="mt-1 text-xs text-muted-foreground">{stat.hint}</p>
+						<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+							<p className="text-lg font-semibold tracking-tight text-foreground tabular-nums sm:text-2xl">{stat.value}</p>
+							{stat.delta ? (
+								<span className={cn('inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors sm:hidden', toneClass[stat.delta.tone])}>
+									{stat.delta.label}
+								</span>
+							) : null}
+						</div>
+						<p className="mt-0.5 hidden text-xs text-muted-foreground sm:mt-1 sm:block">{stat.hint}</p>
 					</div>
 				</article>
 			))}

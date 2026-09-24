@@ -9,28 +9,28 @@ export default function YearTable() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Yearly Table</CardTitle>
+        <CardTitle className="text-base sm:text-lg">Yearly Table</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 sm:px-6">
         <div className="overflow-auto">
-          <table className="min-w-[720px] text-sm">
+          <table className="min-w-[560px] text-xs tabular-nums sm:min-w-[720px] sm:text-sm">
             <thead>
               <tr className="text-left">
-                <th className="pr-4 py-2">Year</th>
-                <th className="pr-4 py-2">Base</th>
-                <th className="pr-4 py-2">Stock</th>
-                <th className="pr-4 py-2">Bonus+Other</th>
-                <th className="pr-4 py-2">Total</th>
+                <th className="py-2 pr-3 sm:pr-4">Year</th>
+                <th className="py-2 pr-3 sm:pr-4">Base</th>
+                <th className="py-2 pr-3 sm:pr-4">Stock</th>
+                <th className="py-2 pr-3 sm:pr-4">Bonus+Other</th>
+                <th className="py-2 pr-3 sm:pr-4">Total</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.year} className="border-t border-gray-200">
-                  <td className="pr-4 py-2">{r.year}</td>
-                  <td className="pr-4 py-2">${Math.round(r.base).toLocaleString()}</td>
-                  <td className="pr-4 py-2">${Math.round(r.stock).toLocaleString()}</td>
-                  <td className="pr-4 py-2">${Math.round(r.bonus + r.other).toLocaleString()}</td>
-                  <td className="pr-4 py-2 font-medium">${Math.round(r.total).toLocaleString()}</td>
+                <tr key={r.year} className="border-t border-border">
+                  <td className="py-2 pr-3 sm:pr-4">{r.year}</td>
+                  <td className="py-2 pr-3 sm:pr-4">${Math.round(r.base).toLocaleString()}</td>
+                  <td className="py-2 pr-3 sm:pr-4">${Math.round(r.stock).toLocaleString()}</td>
+                  <td className="py-2 pr-3 sm:pr-4">${Math.round(r.bonus + r.other).toLocaleString()}</td>
+                  <td className="py-2 pr-3 font-medium sm:pr-4">${Math.round(r.total).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>

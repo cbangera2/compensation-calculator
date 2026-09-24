@@ -21,8 +21,19 @@ import {
   Briefcase,
   TrendingUp,
   Settings2,
+  MapPin,
+  Rocket,
+  CalendarClock,
+  BarChart3,
 } from "lucide-react";
 import { CITY_PRESETS } from "@/lib/col";
+import { COMPARE_CITIES, type CompareCity } from "@/core/cityCompare";
+import { findCell, compaRatio } from "@/core/benchmarks";
+import {
+  BENCHMARK_COMPANIES,
+  BENCHMARK_LEVELS,
+  type TBenchmarkMetro,
+} from "@/data/benchmarks.v2";
 
 const QUICK_PERKS = [
   { name: "Free meals", annualValue: 5000 },
@@ -30,6 +41,80 @@ const QUICK_PERKS = [
   { name: "Learning", annualValue: 1500 },
   { name: "HSA", annualValue: 1000 },
 ] as const;
+
+// --- Intelligence chips: location -> COL, benchmark, startup, raises --------
+
+function getCompareCity(key: string): CompareCity | null {
+  return COMPARE_CITIES.find((c) => c.key === key) ?? null;
+}
+
+/** Match free-text offer locations to the city-compare dataset. Order matters:
+ *  more specific regions first. Exported for tests. */
+export function matchCompareCity(location?: string): CompareCity | null {
+  const h = (location ?? "").toLowerCase().trim();
+  if (!h) return null;
+  if (
+    /sunnyvale|mountain view|palo alto|menlo park|cupertino|san jose|santa clara|bay area|san francisco/.test(
+      h
+    )
+  )
+    return getCompareCity("renter-sunnyvale");
+  if (/ann arbor|detroit|dearborn|troy|royal oak/.test(h))
+    return getCompareCity("renter-ann-arbor");
+  if (
+    /washington|arlington|alexandria|mclean|bethesda|district of columbia|\bdc\b/.test(
+      h
+    )
+  )
+    return getCompareCity("renter-dc");
+  if (/seattle|bellevue|redmond|kirkland/.test(h)) return getCompareCity("sea");
+  if (/new york|nyc|manhattan|brooklyn|queens|jersey city|hoboken/.test(h))
+    return getCompareCity("nyc");
+  if (/austin|round rock/.test(h)) return getCompareCity("aus");
+  return null;
+}
+
+/** Match free-text offer locations to benchmark metros. findCell rolls up
+ *  across metros anyway, so this only needs to be directionally right.
+ *  Exported for tests. */
+export function metroForBenchmarkLocation(location?: string): TBenchmarkMetro {
+  const h = (location ?? "").toLowerCase();
+  if (/new york|nyc|manhattan|brooklyn|queens|jersey city/.test(h)) return "NYC";
+  if (/seattle|bellevue|redmond|kirkland/.test(h)) return "Seattle";
+  if (/austin|round rock/.test(h)) return "Austin";
+  if (/detroit|ann arbor|dearborn|troy/.test(h)) return "Detroit/Ann Arbor";
+  if (
+    /washington|arlington|alexandria|mclean|bethesda|district of columbia|\bdc\b/.test(
+      h
+    )
+  )
+    return "DC";
+  return "Bay Area";
+}
+
+const fmtFactor = (f: number): string => String(Math.round(f * 100) / 100);
+
+function fmtValuation(v: number): string {
+  if (v >= 1_000_000_000) {
+    const b = v / 1_000_000_000;
+    return `$${b >= 10 ? Math.round(b) : Math.round(b * 10) / 10}B`;
+  }
+  if (v >= 1_000_000) {
+    const m = v / 1_000_000;
+    return `$${m >= 10 ? Math.round(m) : Math.round(m * 10) / 10}M`;
+  }
+  return `$${Math.round(v).toLocaleString()}`;
+}
+
+function fmtK(v: number): string {
+  return `$${Math.round(v / 1000)}k`;
+}
+
+function switchTab(tab: string) {
+  window.dispatchEvent(
+    new CustomEvent("compcalc:switch-tab", { detail: tab })
+  );
+}
 
 export default function OfferForm() {
   const { offer, setOffer, setBonusValue, undo, redo, addGrant, updateGrant } =
@@ -94,14 +179,17 @@ export default function OfferForm() {
     return signing + relocation + benefits + misc;
   }, [offer.signingBonuses, offer.relocationBonuses, offer.benefits, offer.miscRecurring]);
 
-  // Breakdown percentages for visual bar
+  // Breakdown percentages for visual bar. The last segment takes the
+  // remainder so independent rounding can't leave the bar at 99%.
   const breakdown = useMemo(() => {
     const total = totalCash + totalEquityY1 + totalPerks;
     if (total === 0) return { cash: 33, equity: 33, perks: 34 };
+    const cash = Math.round((totalCash / total) * 100);
+    const equity = Math.round((totalEquityY1 / total) * 100);
     return {
-      cash: Math.round((totalCash / total) * 100),
-      equity: Math.round((totalEquityY1 / total) * 100),
-      perks: Math.round((totalPerks / total) * 100),
+      cash,
+      equity,
+      perks: Math.max(0, 100 - cash - equity),
     };
   }, [totalCash, totalEquityY1, totalPerks]);
 
@@ -146,13 +234,116 @@ export default function OfferForm() {
     return grants.find((g) => g.type === "RSU");
   }, [offer.equityGrants]);
 
+  // Location -> COL auto-suggest: fills colFactor from the city-compare dataset
+  // when the location text matches a known metro and colFactor is still
+  // default (1) — never fights a manual override. colAuto tracks what we
+  // applied so the note + undo stay honest; followingMove lets the factor
+  // follow when the location changes to a different matched city while the
+  // previous value was ours.
+  const matchedCity = useMemo(
+    () => matchCompareCity(offer.location),
+    [offer.location]
+  );
+  const [colAuto, setColAuto] = useState<{
+    key: string;
+    factor: number;
+    prev: number;
+  } | null>(null);
+  const [colDismissed, setColDismissed] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!matchedCity || matchedCity.key === colDismissed) {
+      if (colAuto) setColAuto(null);
+      return;
+    }
+    const current = offer.colFactor ?? 1;
+    const target = matchedCity.colFactor;
+    if (current === target) return; // already aligned
+    if (colAuto && colAuto.key === matchedCity.key && current === colAuto.factor)
+      return; // note active, nothing to do
+    const manualOverride =
+      current !== 1 && !(colAuto && current === colAuto.factor);
+    const followingMove =
+      colAuto !== null &&
+      colAuto.key !== matchedCity.key &&
+      current === colAuto.factor;
+    if (manualOverride && !followingMove) {
+      if (colAuto) setColAuto(null);
+      return;
+    }
+    const prev =
+      colAuto && current === colAuto.factor ? colAuto.prev : current;
+    setColAuto({ key: matchedCity.key, factor: target, prev });
+    setOffer({ ...offer, colFactor: target });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchedCity, offer.location, offer.colFactor, colDismissed]);
+
+  const undoColAuto = () => {
+    if (!colAuto) return;
+    setOffer({ ...offer, colFactor: colAuto.prev });
+    setColDismissed(colAuto.key);
+    setColAuto(null);
+  };
+
+  const colChipVisible =
+    colAuto !== null &&
+    matchedCity !== null &&
+    colAuto.key === matchedCity.key;
+
+  // Benchmark strip: match the offer name to a benchmark company, infer the
+  // level by closest base-salary p50, and show where the offer's base lands.
+  // Renders nothing when the company isn't in the dataset or no cell exists.
+  const benchmarkStrip = useMemo(() => {
+    const name = (offer.name ?? "").trim().toLowerCase();
+    if (!name) return null;
+    const company = BENCHMARK_COMPANIES.find(
+      (c) => c.toLowerCase() === name
+    );
+    if (!company) return null;
+    const metro = metroForBenchmarkLocation(offer.location);
+    const base = offer.base.startAnnual ?? 0;
+    let best: {
+      companyLevel: string;
+      cellMetro: string;
+      baseP50: number;
+      rolledUpFrom: string | null;
+    } | null = null;
+    let bestDist = Infinity;
+    for (const level of BENCHMARK_LEVELS) {
+      const lookup = findCell(company, level, metro);
+      if (!lookup) continue;
+      const dist = Math.abs(lookup.cell.base.p50 - base);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = {
+          companyLevel: lookup.cell.companyLevel,
+          cellMetro: lookup.cell.metro,
+          baseP50: lookup.cell.base.p50,
+          rolledUpFrom: lookup.rolledUpFrom,
+        };
+      }
+    }
+    if (!best || best.baseP50 <= 0) return null;
+    return {
+      company,
+      ...best,
+      pct: Math.round(compaRatio(base, best.baseP50) * 100),
+    };
+  }, [offer.name, offer.location, offer.base.startAnnual]);
+
+  const hasGrowth = offer.growth?.yoy?.some((y) => y !== 0) ?? false;
+  const hasStartup = offer.startupEquity?.enabled ?? false;
+  const raiseCount = offer.raises?.length ?? 0;
+  const showChips =
+    hasGrowth || colChipVisible || benchmarkStrip !== null || hasStartup || raiseCount > 0;
+
   return (
     <Card className="border-border/60 overflow-hidden">
       {/* Compact Header with Visual Breakdown */}
-      <CardHeader className="border-b border-border/60 py-4 px-5 space-y-3">
+      <CardHeader className="border-b border-border/60 py-3 px-4 space-y-3 sm:py-4 sm:px-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <CardTitle className="text-lg font-semibold">
+            <CardTitle className="text-base sm:text-lg font-semibold">
               {offer.name || "Offer"}
             </CardTitle>
             <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
@@ -164,7 +355,7 @@ export default function OfferForm() {
               type="button"
               variant="ghost"
               size="icon"
-              className="size-8"
+              className="size-10"
               onClick={undo}
               aria-label="Undo"
             >
@@ -174,7 +365,7 @@ export default function OfferForm() {
               type="button"
               variant="ghost"
               size="icon"
-              className="size-8"
+              className="size-10"
               onClick={redo}
               aria-label="Redo"
             >
@@ -184,7 +375,7 @@ export default function OfferForm() {
               type="button"
               variant="ghost"
               size="icon"
-              className="size-8"
+              className="size-10"
               onClick={() => setCollapsed((prev) => !prev)}
               aria-expanded={!collapsed}
               aria-controls={contentId}
@@ -215,7 +406,7 @@ export default function OfferForm() {
               title={`Perks: $${Math.round(totalPerks).toLocaleString()} (${breakdown.perks}%)`}
             />
           </div>
-          <div className="flex justify-between text-[10px] text-muted-foreground">
+          <div className="hidden justify-between text-[10px] text-muted-foreground sm:flex">
             <div className="flex items-center gap-1">
               <span className="size-2 rounded-full bg-emerald-500" />
               <span>Cash ${Math.round(totalCash / 1000)}k</span>
@@ -230,6 +421,104 @@ export default function OfferForm() {
             </div>
           </div>
         </div>
+        {/* Intelligence chips: provenance + auto-suggests, one shared pill language */}
+        {showChips && (
+          <div className="flex flex-wrap gap-1.5">
+            {/* Growth provenance: shown when the offer carries equity growth assumptions */}
+            {hasGrowth && offer.growth?.yoy && (
+              <button
+                type="button"
+                onClick={() => switchTab("growth")}
+                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                title="Edit in Stock Growth"
+              >
+                <TrendingUp className="size-3 shrink-0" />
+                <span>
+                  Equity growth{" "}
+                  {(offer.growth.yoy[0] ?? 0) >= 0 ? "+" : ""}
+                  {((offer.growth.yoy[0] ?? 0) * 100).toFixed(1)}%/yr · set in
+                  Stock Growth
+                </span>
+                <span className="underline underline-offset-2">edit</span>
+              </button>
+            )}
+            {/* Location -> COL auto-suggest note */}
+            {colChipVisible && colAuto && matchedCity && (
+              <span
+                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground"
+                title="COL factor auto-filled from the city dataset because your location matched. Undo restores the previous value."
+              >
+                <MapPin className="size-3 shrink-0" />
+                <span>
+                  COL {fmtFactor(colAuto.factor)}× from {matchedCity.shortName}{" "}
+                  · auto
+                </span>
+                <button
+                  type="button"
+                  onClick={undoColAuto}
+                  className="underline underline-offset-2 transition-colors hover:text-foreground"
+                >
+                  undo
+                </button>
+              </span>
+            )}
+            {/* Benchmark strip: where this base lands vs the market p50 */}
+            {benchmarkStrip && (
+              <span
+                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground"
+                title={`Benchmark p50, illustrative public aggregates${
+                  benchmarkStrip.rolledUpFrom
+                    ? ` (rolled up from ${benchmarkStrip.rolledUpFrom})`
+                    : ""
+                }. Not your offer's actual market.`}
+              >
+                <BarChart3 className="size-3 shrink-0" />
+                <span>
+                  {benchmarkStrip.company} {benchmarkStrip.companyLevel} ·{" "}
+                  {benchmarkStrip.cellMetro} p50 base{" "}
+                  {fmtK(benchmarkStrip.baseP50)} — your base is at{" "}
+                  {benchmarkStrip.pct}% of market
+                </span>
+                <span className="text-[10px] opacity-70">
+                  benchmark p50, illustrative
+                </span>
+              </span>
+            )}
+            {/* Startup provenance: shown when startup equity is modeled */}
+            {hasStartup && offer.startupEquity && (
+              <button
+                type="button"
+                onClick={() => switchTab("startup")}
+                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                title="Edit in Startup lab"
+              >
+                <Rocket className="size-3 shrink-0" />
+                <span>
+                  Valuation {fmtValuation(offer.startupEquity.valuation)} · set
+                  in Startup lab
+                </span>
+                <span className="underline underline-offset-2">edit</span>
+              </button>
+            )}
+            {/* Raises provenance: shown when the offer carries a raise plan */}
+            {raiseCount > 0 && (
+              <button
+                type="button"
+                onClick={() => switchTab("raises")}
+                className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                title="Edit in Raise Planner"
+              >
+                <CalendarClock className="size-3 shrink-0" />
+                <span>
+                  Raise plan · {raiseCount}{" "}
+                  {raiseCount === 1 ? "raise" : "raises"} · set in Raise
+                  Planner
+                </span>
+                <span className="underline underline-offset-2">edit</span>
+              </button>
+            )}
+          </div>
+        )}
       </CardHeader>
 
       <CardContent
@@ -245,21 +534,21 @@ export default function OfferForm() {
           <TabsList className="w-full justify-start gap-0 rounded-none border-b border-border/60 bg-transparent p-0 h-auto">
             <TabsTrigger
               value="compensation"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 py-2.5 text-[13px] sm:px-4 sm:py-3 sm:text-sm"
             >
               <Briefcase className="size-4 mr-1.5" />
               Compensation
             </TabsTrigger>
             <TabsTrigger
               value="equity"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 py-2.5 text-[13px] sm:px-4 sm:py-3 sm:text-sm"
             >
               <TrendingUp className="size-4 mr-1.5" />
               Equity
             </TabsTrigger>
             <TabsTrigger
               value="advanced"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3 text-sm"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 py-2.5 text-[13px] sm:px-4 sm:py-3 sm:text-sm"
             >
               <Settings2 className="size-4 mr-1.5" />
               Advanced
@@ -267,7 +556,7 @@ export default function OfferForm() {
           </TabsList>
 
           {/* COMPENSATION TAB (merged Essentials + Perks) */}
-          <TabsContent value="compensation" className="p-5 space-y-5 mt-0">
+          <TabsContent value="compensation" className="p-4 space-y-4 mt-0 sm:p-5 sm:space-y-5">
             {/* Company Info - Compact Row */}
             <div className="flex flex-wrap gap-3">
               <div className="flex-1 min-w-[180px] space-y-1.5">
@@ -350,11 +639,11 @@ export default function OfferForm() {
             {/* Main Compensation Grid */}
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {/* Base Salary */}
-              <div className="rounded-lg border border-border/50 bg-gradient-to-br from-emerald-500/5 to-transparent p-4 space-y-2 relative overflow-hidden">
+              <div className="rounded-lg border border-border/50 bg-gradient-to-br from-emerald-500/5 to-transparent p-3 space-y-2 relative overflow-hidden sm:p-4">
                 <div className="absolute bottom-0 left-0 h-1 bg-emerald-500/40 transition-all duration-500" style={{ width: `${Math.min(100, (offer.base.startAnnual / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%` }} />
                 <Label className="text-sm font-medium flex items-center gap-2">
                   Base Salary
-                  <span className="text-[10px] text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded">
+                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded">
                     {Math.round((offer.base.startAnnual / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%
                   </span>
                 </Label>
@@ -370,12 +659,12 @@ export default function OfferForm() {
               </div>
 
               {/* Bonus */}
-              <div className="rounded-lg border border-border/50 bg-gradient-to-br from-blue-500/5 to-transparent p-4 space-y-2 relative overflow-hidden">
+              <div className="rounded-lg border border-border/50 bg-gradient-to-br from-blue-500/5 to-transparent p-3 space-y-2 relative overflow-hidden sm:p-4">
                 <div className="absolute bottom-0 left-0 h-1 bg-blue-500/40 transition-all duration-500" style={{ width: `${Math.min(100, ((totalCash - offer.base.startAnnual) / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%` }} />
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     Target Bonus
-                    <span className="text-[10px] text-blue-600 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">
                       {Math.round(((totalCash - offer.base.startAnnual) / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%
                     </span>
                   </Label>
@@ -444,12 +733,12 @@ export default function OfferForm() {
               </div>
 
               {/* Equity */}
-              <div className="rounded-lg border border-border/50 bg-gradient-to-br from-amber-500/5 to-transparent p-4 space-y-2 relative overflow-hidden">
+              <div className="rounded-lg border border-border/50 bg-gradient-to-br from-amber-500/5 to-transparent p-3 space-y-2 relative overflow-hidden sm:p-4">
                 <div className="absolute bottom-0 left-0 h-1 bg-amber-500/40 transition-all duration-500" style={{ width: `${Math.min(100, (totalEquityY1 / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%` }} />
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium flex items-center gap-2">
                     Equity
-                    <span className="text-[10px] text-amber-600 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
                       {Math.round((totalEquityY1 / (totalCash + totalEquityY1 + totalPerks || 1)) * 100)}%
                     </span>
                   </Label>
@@ -696,7 +985,7 @@ export default function OfferForm() {
                       >
                         <p className="text-sm font-medium">401k Match</p>
                         {enabled && (
-                          <p className="text-xs text-indigo-600 mt-0.5 hover:underline">
+                          <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5 hover:underline">
                             +${annualMatch.toLocaleString()}/yr • Edit details →
                           </p>
                         )}
@@ -735,7 +1024,7 @@ export default function OfferForm() {
                     setActiveTab("advanced");
                     setExpandedSections(prev => ({ ...prev, perks: true }));
                   }}
-                  className="w-full text-left rounded-lg border border-border/50 bg-gradient-to-br from-indigo-500/5 to-transparent p-4 space-y-3 hover:border-indigo-500/30 transition-colors"
+                  className="w-full text-left rounded-lg border border-border/50 bg-gradient-to-br from-indigo-500/5 to-transparent p-3 space-y-3 hover:border-indigo-500/30 transition-colors sm:p-4"
                 >
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium">401k Match Utilization</p>
@@ -775,7 +1064,7 @@ export default function OfferForm() {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Employer match ({Math.round(matchRate * 100)}%)</span>
-                        <span className="font-medium text-indigo-600">${Math.round(actualMatch).toLocaleString()}/yr</span>
+                        <span className="font-medium text-indigo-600 dark:text-indigo-400">${Math.round(actualMatch).toLocaleString()}/yr</span>
                       </div>
                       <div className="flex justify-between text-[10px]">
                         <span className="text-muted-foreground">IRS limit: ${irsLimit.toLocaleString()}</span>
@@ -785,7 +1074,7 @@ export default function OfferForm() {
                   </div>
                   
                   {matchPct < 100 && (
-                    <p className="text-[10px] text-amber-600 bg-amber-500/10 rounded px-2 py-1">
+                    <p className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded px-2 py-1">
                       💡 Contribute {Math.round(matchCapPct * 100)}% (${Math.round(Math.min(base * matchCapPct, irsLimit)).toLocaleString()}) to get full match
                     </p>
                   )}
@@ -795,13 +1084,13 @@ export default function OfferForm() {
           </TabsContent>
 
           {/* EQUITY TAB */}
-          <TabsContent value="equity" className="p-5 space-y-5 mt-0">
+          <TabsContent value="equity" className="p-4 space-y-4 mt-0 sm:p-5 sm:space-y-5">
             {/* Equity Value by Year Visual */}
-            <div className="rounded-lg border border-border/50 bg-gradient-to-br from-amber-500/5 to-transparent p-4 space-y-3">
+            <div className="rounded-lg border border-border/50 bg-gradient-to-br from-amber-500/5 to-transparent p-3 space-y-3 sm:p-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-medium">Equity Vesting Timeline</p>
                 <p className="text-xs text-muted-foreground">
-                  {yearData.length}-year equity: <span className="font-semibold text-amber-600">${Math.round(yearData.reduce((s, r) => s + r.stock, 0)).toLocaleString()}</span>
+                  {yearData.length}-year equity: <span className="font-semibold text-amber-600 dark:text-amber-400">${Math.round(yearData.reduce((s, r) => s + r.stock, 0)).toLocaleString()}</span>
                 </p>
               </div>
               
@@ -848,7 +1137,7 @@ export default function OfferForm() {
               ];
               const maxValue = totalEquity4yr * 1.5;
               return (
-                <div className="rounded-lg border border-border/50 bg-gradient-to-br from-blue-500/5 to-transparent p-4 space-y-3">
+                <div className="rounded-lg border border-border/50 bg-gradient-to-br from-blue-500/5 to-transparent p-3 space-y-3 sm:p-4">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-medium">Stock Price Sensitivity</p>
                     <p className="text-xs text-muted-foreground">
@@ -898,7 +1187,7 @@ export default function OfferForm() {
               <div>
                 <button
                   type="button"
-                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors sm:px-5 sm:py-4"
                   onClick={() => toggleSection("raises")}
                 >
                   <div className="flex items-center gap-3">
@@ -914,7 +1203,7 @@ export default function OfferForm() {
                   </div>
                 </button>
                 {expandedSections.raises && (
-                  <div className="px-5 pb-5 pt-2">
+                  <div className="px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
                     <RaisesEditor />
                   </div>
                 )}
@@ -924,7 +1213,7 @@ export default function OfferForm() {
               <div>
                 <button
                   type="button"
-                  className="w-full flex items-center justify-between px-5 py-4 hover:bg-muted/30 transition-colors"
+                  className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors sm:px-5 sm:py-4"
                   onClick={() => toggleSection("perks")}
                 >
                   <div className="flex items-center gap-3">
@@ -940,7 +1229,7 @@ export default function OfferForm() {
                   </div>
                 </button>
                 {expandedSections.perks && (
-                  <div className="px-5 pb-5 pt-2">
+                  <div className="px-4 pb-4 pt-2 sm:px-5 sm:pb-5">
                     <CashPerksPanel />
                   </div>
                 )}

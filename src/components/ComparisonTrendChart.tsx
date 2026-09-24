@@ -2,14 +2,27 @@
 
 import ReactEChartsCore from 'echarts-for-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMemo } from 'react';
 import { useStore } from '@/state/store';
 import { computeOffer } from '@/core/compute';
 import { formatCurrency } from '@/lib/utils';
-
-const palette = ['#6366f1', '#ec4899', '#14b8a6', '#f97316', '#0ea5e9', '#8b5cf6'];
+import { useDarkMode } from '@/lib/useDarkMode';
+import {
+  categoricalPalette,
+  tooltipStyle,
+  axisStyle,
+  legendStyle,
+  chartAnimation,
+  currencyAxisFormatter,
+} from '@/lib/chartTheme';
+import { useChartHeight } from '@/lib/useIsMobile';
 
 export default function ComparisonTrendChart() {
+  const chartH = useChartHeight(320, 240);
   const { offers } = useStore();
+  const dark = useDarkMode();
+  const palette = useMemo(() => categoricalPalette(dark), [dark]);
+  const axis = useMemo(() => axisStyle(dark), [dark]);
   if (!offers.length) return null;
 
   const rowsPerOffer = offers.map((offer) => computeOffer(offer));
@@ -33,23 +46,27 @@ export default function ComparisonTrendChart() {
   });
 
   const option = {
+    ...chartAnimation,
     tooltip: {
       trigger: 'axis',
+      ...tooltipStyle(dark),
       formatter: (params: Array<{ seriesName: string; value: number }>) =>
         params
           .map((param) => `${param.seriesName}: <b>${formatCurrency(Math.round(param.value ?? 0))}</b>`)
           .join('<br/>'),
     },
-    legend: {
-      type: 'scroll',
-    },
-    grid: { left: 64, right: 16, top: 32, bottom: 24, containLabel: true },
+    legend: legendStyle(dark, { type: 'scroll' as const, top: 0 }),
+    grid: { left: 8, right: 8, top: 36, bottom: 0, containLabel: true },
     xAxis: {
       type: 'category',
       data: years,
+      ...axis,
+      splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
+      ...axis,
+      axisLabel: { ...axis.axisLabel, formatter: currencyAxisFormatter },
     },
     series,
   } as const;
@@ -57,10 +74,10 @@ export default function ComparisonTrendChart() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Total compensation over time</CardTitle>
+        <CardTitle className="text-base sm:text-lg">Total compensation over time</CardTitle>
       </CardHeader>
       <CardContent>
-        <ReactEChartsCore option={option} notMerge style={{ height: 320 }} />
+        <ReactEChartsCore option={option} notMerge style={{ height: chartH }} />
       </CardContent>
     </Card>
   );

@@ -61,3 +61,25 @@ export function formatCOLCurrency(n: number): string {
 export function calculatePurchasingPower(nominalValue: number, colFactor: number): number {
   return nominalValue / (colFactor || 1);
 }
+
+// ---------------------------------------------------------------------------
+// Renter-based COL estimates for new-grad comparison (Sep 2026).
+//
+// These are ESTIMATES, not official indices. They model a single new-grad
+// renter (room in a shared 2BR, car or metro, state income tax on ~$150K
+// gross) rather than a homeowner/family household, which is what most
+// headline COL indices assume. Calibrated Sep 2026 against an actual
+// Ann Arbor data point ($1,100/mo with a roommate in an 850 sq ft apartment),
+// normalized so Ann Arbor = 1.00: Washington DC ~1.20, Sunnyvale ~1.47.
+//
+// Kept separate from CITY_PRESETS so the generic presets stay untouched.
+// ---------------------------------------------------------------------------
+
+export const RENTER_COL_ESTIMATES: CityPreset[] = [
+  { key: 'renter-ann-arbor', name: 'Ann Arbor, MI (renter est.)', factor: 1.0 },
+  { key: 'renter-dc', name: 'Washington, DC (renter est.)', factor: 1.2 },
+  { key: 'renter-sunnyvale', name: 'Sunnyvale, CA (renter est.)', factor: 1.47 },
+];
+
+/** All presets: generic city list plus the renter-based estimates. */
+export const ALL_CITY_PRESETS: CityPreset[] = [...CITY_PRESETS, ...RENTER_COL_ESTIMATES];

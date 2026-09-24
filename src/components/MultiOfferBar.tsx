@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
-import { Plus, Copy, Trash2, Download, Share2, RotateCcw, Upload, Globe, FileText, Check, AlertCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Plus, Copy, Trash2, Download, Share2, RotateCcw, Upload, Globe, FileText, ClipboardPaste } from 'lucide-react';
 import { useStore } from '@/state/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { parseLevelsOfferFromHtml } from '@/lib/levelsImport';
-import { buildShareToken } from '@/lib/share';
-import { Separator } from '@/components/ui/separator';
+import { Offer } from '@/models/types';
+import { buildOfferFromFields, parseOfferLetter } from '@/lib/offerLetterImport';
+import type { ExtractedOfferFields, OfferLetterParseResult } from '@/lib/offerLetterImport';
+import type { TOffer } from '@/models/types';
+import ShareDialog from '@/components/ShareDialog';
+import MobileCollapse from '@/components/MobileCollapse';
 import { cn } from '@/lib/utils';
 
 const scrollGradient = "pointer-events-none absolute inset-y-0 w-6 bg-gradient-to-r from-background/95 to-transparent";
@@ -19,21 +23,8 @@ export default function MultiOfferBar() {
   const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer, resetAll, uiMode } = useStore();
   const [presetKey, setPresetKey] = useState<string | undefined>();
   const [levelsUrl, setLevelsUrl] = useState('');
-  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle');
-
-  useEffect(() => {
-    if (copyState === 'idle') return;
-    const timer = window.setTimeout(() => setCopyState('idle'), 2500);
-    return () => window.clearTimeout(timer);
-  }, [copyState]);
-
-  const shareIcon = useMemo(() => {
-    if (copyState === 'copied') return <Check className="size-4" />;
-    if (copyState === 'error') return <AlertCircle className="size-4" />;
-    return <Share2 className="size-4" />;
-  }, [copyState]);
-
-  const shareLabel = copyState === 'copied' ? 'Link copied' : copyState === 'error' ? 'Copy failed' : 'Share link';
+  const [shareOpen, setShareOpen] = useState(false);
+  const [offerLetterOpen, setOfferLetterOpen] = useState(false);
 
   function exportJSON() {
     const offer = offers[activeIndex];
@@ -56,7 +47,12 @@ export default function MultiOfferBar() {
       reader.onload = () => {
         try {
           const obj = JSON.parse(String(reader.result));
-          addOffer(obj);
+          const parsed = Offer.safeParse(obj);
+          if (!parsed.success) {
+            alert(`Import rejected: ${file.name} is not a valid offer (missing or invalid fields).`);
+          } else {
+            addOffer(parsed.data);
+          }
         } catch {
           alert(`Invalid JSON in ${file.name}`);
         }
@@ -86,14 +82,24 @@ export default function MultiOfferBar() {
 
   async function importAllPresets() {
     try {
-      const [g, f, s] = await Promise.all([
-        fetch('presets/google.json').then((r) => r.json()),
-        fetch('presets/ford.json').then((r) => r.json()),
-        fetch('presets/startup.json').then((r) => r.json()),
-      ]);
-      addOffer(g);
-      addOffer(f);
-      addOffer(s);
+      const files = [
+        'google',
+        'ford',
+        'startup',
+        'meta',
+        'apple',
+        'microsoft',
+        'bloomberg',
+        'stripe',
+        'spacex',
+        'tesla',
+        'anduril',
+        'palantir',
+      ];
+      const offers = await Promise.all(
+        files.map((f) => fetch(`presets/${f}.json`).then((r) => r.json()))
+      );
+      offers.forEach(addOffer);
     } catch {
       alert('Failed to import presets');
     }
@@ -148,48 +154,11 @@ export default function MultiOfferBar() {
     event.currentTarget.value = '';
   }
 
-  async function copyShareUrl() {
-    try {
-      const token = buildShareToken({ offers, activeIndex, uiMode });
-      const url = new URL(window.location.href);
-      url.searchParams.set('share', token);
-      const shareUrl = url.toString();
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        setCopyState('copied');
-      } catch {
-        setCopyState('error');
-        window.prompt('Copy this link', shareUrl);
-      }
-    } catch (err) {
-      console.error('Failed to build share URL', err);
-      setCopyState('error');
-    }
-  }
-
   return (
-    <div className="mb-4 space-y-4 rounded-xl border bg-background/95 px-4 py-3 shadow-sm">
+    <div className="space-y-2 rounded-2xl border border-border/60 bg-background/95 px-3 py-2.5 shadow-sm sm:space-y-3 sm:px-4 sm:py-3">
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Offers</span>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" size="sm" variant="outline" className="gap-2" onClick={exportJSON}>
-              <Download className="size-4" />
-              Export JSON
-            </Button>
-            <Button type="button" size="sm" variant="outline" className="gap-2" onClick={copyShareUrl}>
-              {shareIcon}
-              <span>{shareLabel}</span>
-            </Button>
-            <Button type="button" size="sm" variant="destructive" className="gap-2" onClick={() => { resetAll(); location.reload(); }}>
-              <RotateCcw className="size-4" />
-              Reset all
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="relative flex-1">
+          <div className="relative min-w-0 flex-1">
             <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {offers.map((offer, index) => (
                 <Button
@@ -209,33 +178,48 @@ export default function MultiOfferBar() {
             <div className={cn(scrollGradient, 'right-0 rotate-180')} />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" size="sm" variant="secondary" className="gap-2" onClick={() => addOffer()}>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Button type="button" size="sm" variant="secondary" className="gap-1.5" onClick={() => addOffer()}>
               <Plus className="size-4" />
-              New offer
+              New
             </Button>
-            <Button type="button" size="sm" variant="outline" className="gap-2" onClick={duplicateActiveOffer}>
+            <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={duplicateActiveOffer}>
               <Copy className="size-4" />
               Duplicate
             </Button>
             <Button
               type="button"
               size="sm"
-              variant="ghost-destructive"
-              className="gap-2"
+              variant="ghost"
+              className="gap-1.5 text-destructive hover:text-destructive"
               onClick={() => removeOffer(activeIndex)}
               disabled={offers.length <= 1}
             >
               <Trash2 className="size-4" />
-              Remove
+            </Button>
+            <span className="mx-1 h-5 w-px bg-border/70" />
+            <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={exportJSON}>
+              <Download className="size-4" />
+              <span className="hidden sm:inline">Export</span>
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={() => setShareOpen(true)}>
+              <Share2 className="size-4" />
+              <span className="hidden sm:inline">Share link</span>
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => { resetAll(); location.reload(); }}>
+              <RotateCcw className="size-4" />
             </Button>
           </div>
         </div>
       </div>
 
-      <Separator />
-
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <MobileCollapse
+        variant="plain"
+        title="Import & presets"
+        description="JSON, levels.fyi, offer letters, sample offers"
+        contentClassName="flex flex-col gap-2"
+        desktopClassName="flex flex-col gap-2 border-t border-border/50 pt-3 lg:flex-row lg:items-center lg:justify-between"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <label className={fileInputWrapper}>
             <input type="file" accept="application/json" multiple className={hiddenInput} onChange={importJSON} />
@@ -253,13 +237,23 @@ export default function MultiOfferBar() {
               setPresetKey(undefined);
             }}
           >
-            <SelectTrigger size="sm" className="w-[170px]">
+            <SelectTrigger size="sm" className="w-[150px]">
               <SelectValue placeholder="Import preset" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="google">Google</SelectItem>
               <SelectItem value="ford">Ford</SelectItem>
               <SelectItem value="startup">Startup</SelectItem>
+              <SelectSeparator />
+              <SelectItem value="meta">Meta (illustrative)</SelectItem>
+              <SelectItem value="apple">Apple (illustrative)</SelectItem>
+              <SelectItem value="microsoft">Microsoft (illustrative)</SelectItem>
+              <SelectItem value="bloomberg">Bloomberg (illustrative)</SelectItem>
+              <SelectItem value="stripe">Stripe (illustrative)</SelectItem>
+              <SelectItem value="spacex">SpaceX (illustrative)</SelectItem>
+              <SelectItem value="tesla">Tesla (illustrative)</SelectItem>
+              <SelectItem value="anduril">Anduril (illustrative)</SelectItem>
+              <SelectItem value="palantir">Palantir (illustrative)</SelectItem>
               <SelectSeparator />
               <SelectItem value="all">Import all</SelectItem>
             </SelectContent>
@@ -272,7 +266,7 @@ export default function MultiOfferBar() {
               placeholder="levels.fyi URL"
               value={levelsUrl}
               onChange={(e) => setLevelsUrl(e.target.value)}
-              className="w-52 sm:w-64"
+              className="h-8 w-44 text-xs sm:w-56"
             />
             <Button type="button" size="sm" variant="secondary" className="gap-2" onClick={importFromLevels}>
               <Globe className="size-4" />
@@ -286,7 +280,266 @@ export default function MultiOfferBar() {
               Upload HTML
             </Button>
           </label>
+          <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => setOfferLetterOpen(true)}>
+            <ClipboardPaste className="size-4" />
+            Paste offer letter
+          </Button>
         </div>
+      </MobileCollapse>
+      <ShareDialog
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        offers={offers}
+        activeIndex={activeIndex}
+        uiMode={uiMode}
+      />
+      <OfferLetterDialog
+        open={offerLetterOpen}
+        onClose={() => setOfferLetterOpen(false)}
+        onAdd={(offer) => addOffer(offer)}
+      />
+    </div>
+  );
+}
+
+function NumField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (v: number | null) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <Input
+        type="number"
+        className="mt-1 h-8 text-sm"
+        value={value ?? ''}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+      />
+    </label>
+  );
+}
+
+function TextField({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string | null;
+  onChange: (v: string | null) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <Input
+        type="text"
+        className="mt-1 h-8 text-sm"
+        value={value ?? ''}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value.trim() === '' ? null : e.target.value)}
+      />
+    </label>
+  );
+}
+
+/**
+ * Paste-offer-letter import dialog. Step 1: paste raw text. Step 2: review the
+ * heuristically extracted fields (editable) with an explicit list of what the
+ * parser could not detect. Nothing is added until the user confirms.
+ */
+function OfferLetterDialog({
+  open,
+  onClose,
+  onAdd,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onAdd: (offer: TOffer) => void;
+}) {
+  const [text, setText] = useState('');
+  const [step, setStep] = useState<'paste' | 'review'>('paste');
+  const [result, setResult] = useState<OfferLetterParseResult | null>(null);
+  const [edits, setEdits] = useState<Partial<ExtractedOfferFields>>({});
+
+  // Reset each time the dialog opens.
+  useEffect(() => {
+    if (open) {
+      setText('');
+      setStep('paste');
+      setResult(null);
+      setEdits({});
+    }
+  }, [open ]);
+
+  // Escape to close + lock body scroll while open.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const merged: ExtractedOfferFields | null = result ? { ...result.extracted, ...edits } : null;
+  const equityKind = !merged
+    ? 'none'
+    : merged.optionShares !== null
+      ? 'option'
+      : merged.rsuShares !== null || merged.rsuValue !== null
+        ? 'rsu'
+        : 'none';
+
+  function setField<K extends keyof ExtractedOfferFields>(key: K, value: ExtractedOfferFields[K]) {
+    setEdits((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleParse() {
+    setResult(parseOfferLetter(text));
+    setEdits({});
+    setStep('review');
+  }
+
+  function handleEquityKindChange(kind: string) {
+    if (kind === 'none') {
+      setEdits((prev) => ({ ...prev, rsuShares: null, rsuValue: null, optionShares: null, strikePrice: null }));
+    } else if (kind === 'rsu') {
+      setEdits((prev) => ({ ...prev, optionShares: null, strikePrice: null }));
+    } else {
+      setEdits((prev) => ({ ...prev, rsuShares: null, rsuValue: null }));
+    }
+  }
+
+  function handleAdd() {
+    if (!merged) return;
+    onAdd(buildOfferFromFields(merged));
+    onClose();
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Paste offer letter"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-2xl border border-border bg-background p-4 shadow-xl sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {step === 'paste' ? (
+          <div className="space-y-3">
+            <div>
+              <h2 className="text-base font-semibold">Paste offer letter</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Paste the text of your offer letter. We&apos;ll pull out the numbers — you review them before anything is added.
+              </p>
+            </div>
+            <textarea
+              className="min-h-44 w-full rounded-xl border border-border bg-background p-3 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-primary"
+              placeholder={'Dear Alex,\n\nWe are pleased to offer you the position of Software Engineer at ExampleCo.\nYour starting base salary will be $150,000 per year...\n\n(paste the full letter text here)'}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button type="button" size="sm" disabled={!text.trim()} onClick={handleParse}>
+                Parse letter
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-base font-semibold">Review extracted details</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Heuristic parse — double-check the numbers before adding. Nothing has been saved yet.
+              </p>
+            </div>
+
+            {merged && result!.unparsed.length > 0 && (
+              <div className="rounded-xl bg-amber-500/10 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+                Couldn&apos;t detect: {result!.unparsed.join(', ')}. You can fill these in here or after adding.
+              </div>
+            )}
+
+            {merged && (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <TextField label="Company" value={merged.company} onChange={(v) => setField('company', v)} placeholder="Company" />
+                <TextField label="Start date" value={merged.startDate} onChange={(v) => setField('startDate', v)} placeholder="YYYY-MM-DD" />
+                <TextField label="Location" value={merged.location} onChange={(v) => setField('location', v)} placeholder="City, ST" />
+                <NumField label="Base salary ($)" value={merged.base} onChange={(v) => setField('base', v)} />
+                <NumField label="Signing bonus ($)" value={merged.signingBonus} onChange={(v) => setField('signingBonus', v)} />
+                <NumField label="Relocation ($)" value={merged.relocationBonus} onChange={(v) => setField('relocationBonus', v)} />
+                <NumField
+                  label="Bonus target (%)"
+                  value={merged.targetBonusPercent !== null ? Math.round(merged.targetBonusPercent * 1000) / 10 : null}
+                  onChange={(v) => setField('targetBonusPercent', v === null ? null : v / 100)}
+                />
+                <NumField label="Vest (years)" value={merged.vestYears} onChange={(v) => setField('vestYears', v)} />
+                <NumField label="Cliff (months)" value={merged.cliffMonths} onChange={(v) => setField('cliffMonths', v)} />
+              </div>
+            )}
+
+            {merged && (
+              <div className="space-y-2 rounded-xl border border-border/60 p-3">
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">Equity type</span>
+                  <select
+                    className="mt-1 h-8 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-primary"
+                    value={equityKind}
+                    onChange={(e) => handleEquityKindChange(e.target.value)}
+                  >
+                    <option value="none">No equity</option>
+                    <option value="rsu">RSUs</option>
+                    <option value="option">Stock options</option>
+                  </select>
+                </label>
+                {equityKind === 'rsu' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <NumField label="RSU shares" value={merged.rsuShares} onChange={(v) => setField('rsuShares', v)} />
+                    <NumField label="Grant value ($)" value={merged.rsuValue} onChange={(v) => setField('rsuValue', v)} placeholder="if stated in $" />
+                  </div>
+                )}
+                {equityKind === 'option' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <NumField label="Option shares" value={merged.optionShares} onChange={(v) => setField('optionShares', v)} />
+                    <NumField label="Strike price ($)" value={merged.strikePrice} onChange={(v) => setField('strikePrice', v)} />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setStep('paste')}>
+                Back
+              </Button>
+              <Button type="button" size="sm" onClick={handleAdd}>
+                Add offer
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

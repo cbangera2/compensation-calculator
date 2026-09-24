@@ -6,6 +6,8 @@ import { CurrencyInput } from '@/components/ui/currency-input';
 import { useStore } from '@/state/store';
 import { computeRetirementMatch } from '@/core/compute';
 import { formatCurrency } from '@/lib/utils';
+import EmptyState from '@/components/EmptyState';
+import { PiggyBank, HeartHandshake, ReceiptText } from 'lucide-react';
 
 export default function CashPerksPanel() {
   const { offer, setOffer } = useStore();
@@ -35,7 +37,7 @@ export default function CashPerksPanel() {
                 employeeContributionPercent: 0.06,
                 matchRate: 0.5,
                 matchCapPercentOfSalary: 0.06,
-                employeeContributionCapDollar: 23500,
+                employeeContributionCapDollar: 24500,
                 matchCapMode: 'percentOfSalary',
                 matchCapDollar: 0,
               }
@@ -114,7 +116,7 @@ export default function CashPerksPanel() {
                   value={retirement.employeeContributionCapDollar ?? 0}
                   onValueChange={(v) => setOffer({ ...offer, retirement: { ...retirement, employeeContributionCapDollar: v } })} 
                 />
-                <p className="text-xs text-muted-foreground mt-1">2024: $23,500 / 2025: $23,500</p>
+                <p className="text-xs text-muted-foreground mt-1">2026 IRS elective-deferral limit: $24,500</p>
               </div>
             </div>
             <div className="bg-muted/50 rounded p-3">
@@ -124,9 +126,7 @@ export default function CashPerksPanel() {
             </div>
           </div>
         ) : (
-          <div className="border-2 border-dashed rounded-lg p-6 text-center">
-            <p className="text-sm text-muted-foreground">No retirement plan configured</p>
-          </div>
+          <EmptyState icon={<PiggyBank className="size-4" />} title="No retirement plan configured" hint="Add a 401(k) match above to model employer contributions." />
         )}
       </section>
 
@@ -140,9 +140,7 @@ export default function CashPerksPanel() {
           <Button type="button" size="sm" onClick={() => update('benefits', [...benefits, { name: 'Benefit', annualValue: 1000, enabled: true }])}>+ Add Benefit</Button>
         </div>
         {benefits.length === 0 ? (
-          <div className="border-2 border-dashed rounded-lg p-6 text-center">
-            <p className="text-sm text-muted-foreground">No benefits added yet</p>
-          </div>
+          <EmptyState icon={<HeartHandshake className="size-4" />} title="No benefits added yet" hint="Health insurance, FSA, gym, and other annual benefits live here." />
         ) : (
           <div className="space-y-2">
             {benefits.map((b, i) => (
@@ -203,9 +201,7 @@ export default function CashPerksPanel() {
           <Button type="button" size="sm" onClick={() => update('miscRecurring', [...misc, { name: 'Other', annualValue: 500 }])}>+ Add Item</Button>
         </div>
         {misc.length === 0 ? (
-          <div className="border-2 border-dashed rounded-lg p-6 text-center">
-            <p className="text-sm text-muted-foreground">No miscellaneous items added</p>
-          </div>
+          <EmptyState icon={<ReceiptText className="size-4" />} title="No miscellaneous items added" hint="Stipends, allowances, and other recurring extras." />
         ) : (
           <div className="space-y-2">
             {misc.map((m, i) => (

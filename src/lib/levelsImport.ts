@@ -194,7 +194,9 @@ export function parseLevelsOfferFromHtml(html: string): TOffer {
       ? { kind: 'fixed', value: averageAnnualBonus, expectedPayout: 1 }
       : (targetBonusPercent
         ? { kind: 'percent', value: targetBonusPercent, expectedPayout: 1 }
-        : { kind: 'percent', value: 0.1, expectedPayout: 1 }),
+        // No invented default: when no bonus data is found, the offer has no
+        // performance bonus rather than a silently assumed 10%.
+        : undefined),
     growth: { startingPrice: preferredPrice || 100, yoy: [0, 0, 0, 0] },
     signingBonuses: signing ? [{ amount: signing, payDate: today }] : [],
     relocationBonuses: relocation ? [{ amount: relocation, payDate: today }] : [],

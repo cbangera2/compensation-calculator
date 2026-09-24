@@ -39,7 +39,11 @@ export function expandVesting(
   const cliffPct = Math.max(0, Math.min(1, rawCliffPct > 0 ? rawCliffPct : impliedCliffPct));
 
   const step = freq === 'monthly' ? 1 : freq === 'quarterly' ? 3 : 12;
-  const trancheCount = Math.floor((totalMonths - cliff) / step) + 1; // includes cliff tranche
+  // With no cliff there is no day-0 tranche: vesting starts immediately but the
+  // first payout happens at the end of the first period (month `step`).
+  const trancheCount = cliff <= 0
+    ? Math.floor(totalMonths / step)
+    : Math.floor((totalMonths - cliff) / step) + 1; // includes cliff tranche
 
   // Frontloaded distribution: use a fixed yearly split of 38/32/20/10 for 4-year plans
   // Implementation details:
@@ -90,14 +94,24 @@ export function expandVesting(
   const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
   const tranches: Tranche[] = [];
 
-  // First tranche at cliff
-  const cliffShares = cliffPct > 0 ? totalShares * cliffPct : (weights[0] / weightSum) * totalShares;
-  tranches.push({ date: addMonths(start, cliff).toISOString(), shares: cliffShares });
-  // Remaining tranches evenly spaced
-  // Recompute remaining weights if we forced a cliff percent
-  const remainingTotal = Math.max(0, totalShares - cliffShares);
-  const remainingWeight = weights.slice(1).reduce((a, b) => a + b, 0) || 1;
-  for (let m = cliff + step, idx = 1; m <= totalMonths; m += step, idx++) {
+  // With no cliff, skip the day-0 tranche: the loop below starts at month
+  // `step` and covers exactly trancheCount payouts.
+  let remainingTotal = totalShares;
+  let remainingWeight = weightSum;
+  let firstMonth = step;
+  let firstIdx = 0;
+  if (cliff > 0) {
+    // First tranche at cliff
+    const cliffShares = cliffPct > 0 ? totalShares * cliffPct : (weights[0] / weightSum) * totalShares;
+    tranches.push({ date: addMonths(start, cliff).toISOString(), shares: cliffShares });
+    // Remaining tranches evenly spaced
+    // Recompute remaining weights if we forced a cliff percent
+    remainingTotal = Math.max(0, totalShares - cliffShares);
+    remainingWeight = weights.slice(1).reduce((a, b) => a + b, 0) || 1;
+    firstMonth = cliff + step;
+    firstIdx = 1;
+  }
+  for (let m = firstMonth, idx = firstIdx; m <= totalMonths; m += step, idx++) {
     const portion = remainingTotal * (weights[idx] / remainingWeight);
     tranches.push({ date: addMonths(start, m).toISOString(), shares: portion });
   }

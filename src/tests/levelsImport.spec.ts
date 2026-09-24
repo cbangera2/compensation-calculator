@@ -69,10 +69,19 @@ describe('parseLevelsOfferFromHtml - bonus parsing', () => {
       <p>$10,000</p>
     `;
     const offer = parseLevelsOfferFromHtml(html);
-    // Should fall back to default percent since no annual bonus present
-    expect(offer.performanceBonus).toBeDefined();
-    const pb = offer.performanceBonus!;
-    expect(pb.kind).toBe('percent');
+    // No annual bonus data present -> no bonus at all, never an invented default
+    expect(offer.performanceBonus).toBeUndefined();
+  });
+
+  it('does not invent a 10% bonus when no bonus data is present', () => {
+    const html = `
+      <html><body>
+        <div>Software Engineer</div>
+        <div>Base Salary $150,000</div>
+      </body></html>
+    `;
+    const offer = parseLevelsOfferFromHtml(html);
+    expect(offer.performanceBonus).toBeUndefined();
   });
 
   it('falls back to percent bonus when fixed average annual bonus not present and JSON has target percent', () => {
