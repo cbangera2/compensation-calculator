@@ -88,6 +88,14 @@ jobs:
             ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}-
       - name: Install dependencies
         run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
+      - name: Exclude API routes from static export
+        run: |
+          # GitHub Pages is static hosting: route handlers can't run there, and a
+          # GET handler breaks `output: export` prerendering. The client already
+          # falls back to manual input when /api/* is unavailable, so drop them
+          # for the Pages build only. Server deployments (`next start`) are
+          # unaffected and keep the working API routes.
+          rm -rf src/app/api
       - name: Build with Next.js
         run: ${{ steps.detect-package-manager.outputs.runner }} next build
       - name: Upload artifact
