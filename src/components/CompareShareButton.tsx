@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Share2, X, Copy, Check, ShieldCheck } from 'lucide-react';
+import { Share2, Copy, Check, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import {
   Tooltip,
   TooltipContent,
@@ -90,35 +91,11 @@ export default function CompareShareButton() {
       )}
 
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Share comparison"
-          onClick={() => setOpen(false)}
+        <Modal
+          title="Share this comparison"
+          description={`An anonymized link with the ${comparedIndices.length} offers in this comparison.`}
+          onClose={() => setOpen(false)}
         >
-          <div
-            className="w-full max-w-lg rounded-2xl border border-border bg-background p-4 shadow-xl sm:p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-semibold">Share this comparison</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">
-                  An anonymized link with the {comparedIndices.length} offers in this comparison.
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className="h-8 w-8 p-0"
-                onClick={() => setOpen(false)}
-                aria-label="Close"
-              >
-                <X className="size-4" />
-              </Button>
-            </div>
 
             <p className="mt-4 flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs sm:text-sm">
               <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
@@ -159,8 +136,7 @@ export default function CompareShareButton() {
                 Done
               </Button>
             </div>
-          </div>
-        </div>
+        </Modal>
       )}
     </TooltipProvider>
   );

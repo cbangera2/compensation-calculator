@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { useStore } from '@/state/store';
 import type { TOffer, TStartupEquity, TStartupOptionGrant, TStartupRsuGrant, TValuationScenario } from '@/models/types';
@@ -9,10 +9,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Modal } from '@/components/ui/modal';
 import { Slider } from '@/components/ui/slider';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { cn } from '@/lib/utils';
-import { Plus, Trash2, Sparkles, ChevronDown, FilePlus2, X } from 'lucide-react';
+import { Plus, Trash2, Sparkles, ChevronDown, FilePlus2 } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
 import { CurrencyInput } from '@/components/ui/currency-input';
 
@@ -139,63 +140,12 @@ function GrantAccordion({
   );
 }
 
-/**
- * ModalShell — centered dialog over a dimmed backdrop. Clicking the backdrop
- * or pressing Escape closes it. Matches the ShareDialog pattern.
- */
-function ModalShell({
-  title,
-  description,
-  onClose,
-  children,
-  footer,
-}: {
-  title: string;
-  description?: string;
-  onClose: () => void;
-  children: React.ReactNode;
-  footer?: React.ReactNode;
-}) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
-      onClick={onClose}
-    >
-      <div
-        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-background p-4 shadow-xl sm:p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold">{title}</h2>
-            {description ? (
-              <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
-            ) : null}
-          </div>
-          <Button type="button" size="sm" variant="ghost" className="h-8 w-8 shrink-0 p-0" onClick={onClose} aria-label="Close">
-            <X className="size-4" />
-          </Button>
-        </div>
-        <div className="mt-4">{children}</div>
-        {footer ? <div className="mt-5 flex justify-end gap-2">{footer}</div> : null}
-      </div>
-    </div>
-  );
-}
-
 type NewOptionGrant = Omit<TStartupOptionGrant, 'id'>;
 type NewRsuGrant = Omit<TStartupRsuGrant, 'id'>;
+type GrantKind = 'option' | 'rsu';
+type NewGrantOp =
+  | { kind: 'option'; grant: NewOptionGrant }
+  | { kind: 'rsu'; grant: NewRsuGrant };
 
 /** Form for adding an option or RSU grant via modal. */
 function AddGrantForm({
@@ -367,44 +317,42 @@ export default function StartupPanel() {
     );
   }
 
-  const addOptionGrant = (grant: NewOptionGrant) => {
-    patch((b) => ({
-      ...b,
-      optionGrants: [...b.optionGrants, { ...grant, id: uid('opt') } as TStartupOptionGrant],
-    }));
+  /** Kind-keyed grant operations — options and RSUs share the add/update/remove mechanics. */
+  function addGrant(op: NewGrantOp) {
+    patch((b) =>
+      op.kind === 'option'
+        ? { ...b, optionGrants: [...b.optionGrants, { ...op.grant, id: uid('opt') }] }
+        : { ...b, rsuGrants: [...b.rsuGrants, { ...op.grant, id: uid('rsu') }] }
+    );
     setAddMode(null);
-  };
+  }
 
-  const addRsuGrant = (grant: NewRsuGrant) => {
-    patch((b) => ({
-      ...b,
-      rsuGrants: [...b.rsuGrants, { ...grant, id: uid('rsu') } as TStartupRsuGrant],
-    }));
-    setAddMode(null);
-  };
+  function updateGrant(kind: 'option', index: number, partial: Partial<TStartupOptionGrant>): void;
+  function updateGrant(kind: 'rsu', index: number, partial: Partial<TStartupRsuGrant>): void;
+  function updateGrant(
+    kind: GrantKind,
+    index: number,
+    partial: Partial<TStartupOptionGrant> | Partial<TStartupRsuGrant>,
+  ) {
+    patch((b) =>
+      kind === 'option'
+        ? { ...b, optionGrants: b.optionGrants.map((g, i) => (i === index ? { ...g, ...partial } : g)) }
+        : { ...b, rsuGrants: b.rsuGrants.map((g, i) => (i === index ? { ...g, ...partial } : g)) }
+    );
+  }
 
-  const confirmDelete = () => {
-    if (!deleteTarget) return;
-    const { kind, index } = deleteTarget;
+  const removeGrant = (kind: GrantKind, index: number) =>
     patch((b) =>
       kind === 'option'
         ? { ...b, optionGrants: b.optionGrants.filter((_, i) => i !== index) }
         : { ...b, rsuGrants: b.rsuGrants.filter((_, i) => i !== index) }
     );
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    removeGrant(deleteTarget.kind, deleteTarget.index);
     setDeleteTarget(null);
   };
-
-  const updateOptionGrant = (index: number, partial: Partial<TStartupOptionGrant>) =>
-    patch((b) => ({
-      ...b,
-      optionGrants: b.optionGrants.map((g, i) => (i === index ? { ...g, ...partial } : g)),
-    }));
-
-  const updateRsuGrant = (index: number, partial: Partial<TStartupRsuGrant>) =>
-    patch((b) => ({
-      ...b,
-      rsuGrants: b.rsuGrants.map((g, i) => (i === index ? { ...g, ...partial } : g)),
-    }));
 
   const saveScenario = () => {
     const name = scenarioName.trim();
@@ -645,36 +593,36 @@ export default function StartupPanel() {
                     className="h-9 max-w-64 border-transparent bg-transparent px-2 text-base font-semibold shadow-none focus-visible:border-input focus-visible:bg-background"
                     value={g.label}
                     aria-label="Grant label"
-                    onChange={(e) => updateOptionGrant(i, { label: e.target.value })}
+                    onChange={(e) => updateGrant('option', i, { label: e.target.value })}
                   />
                 }
               >
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
                     <Field label="Quantity">
-                      <Input type="number" min={0} value={g.quantity} onChange={(e) => updateOptionGrant(i, { quantity: Math.max(0, toNumber(e.target.value, g.quantity)) })} />
+                      <Input type="number" min={0} value={g.quantity} onChange={(e) => updateGrant('option', i, { quantity: Math.max(0, toNumber(e.target.value, g.quantity)) })} />
                     </Field>
                     <Field label="Strike">
                       <CurrencyInput
                         decimals={2}
                         value={g.strike}
-                        onValueChange={(v) => updateOptionGrant(i, { strike: Math.max(0, v) })}
+                        onValueChange={(v) => updateGrant('option', i, { strike: Math.max(0, v) })}
                       />
                     </Field>
                     <Field label="FMV at grant">
                       <CurrencyInput
                         decimals={2}
                         value={g.fmvAtGrant}
-                        onValueChange={(v) => updateOptionGrant(i, { fmvAtGrant: Math.max(0, v) })}
+                        onValueChange={(v) => updateGrant('option', i, { fmvAtGrant: Math.max(0, v) })}
                       />
                     </Field>
                     <Field label="Vest years">
-                      <Input type="number" min={0.25} step="0.25" value={g.vestYears} onChange={(e) => updateOptionGrant(i, { vestYears: Math.max(0.25, toNumber(e.target.value, g.vestYears)) })} />
+                      <Input type="number" min={0.25} step="0.25" value={g.vestYears} onChange={(e) => updateGrant('option', i, { vestYears: Math.max(0.25, toNumber(e.target.value, g.vestYears)) })} />
                     </Field>
                     <Field label="Cliff months">
-                      <Input type="number" min={0} step={1} value={g.cliffMonths} onChange={(e) => updateOptionGrant(i, { cliffMonths: Math.max(0, Math.round(toNumber(e.target.value, g.cliffMonths))) })} />
+                      <Input type="number" min={0} step={1} value={g.cliffMonths} onChange={(e) => updateGrant('option', i, { cliffMonths: Math.max(0, Math.round(toNumber(e.target.value, g.cliffMonths))) })} />
                     </Field>
                     <Field label="Grant start">
-                      <Input type="date" value={g.grantStartDate ?? ''} onChange={(e) => updateOptionGrant(i, { grantStartDate: e.target.value || undefined })} />
+                      <Input type="date" value={g.grantStartDate ?? ''} onChange={(e) => updateGrant('option', i, { grantStartDate: e.target.value || undefined })} />
                     </Field>
                   </div>
                   {v && (
@@ -723,36 +671,36 @@ export default function StartupPanel() {
                     className="h-9 max-w-64 border-transparent bg-transparent px-2 text-base font-semibold shadow-none focus-visible:border-input focus-visible:bg-background"
                     value={g.label}
                     aria-label="Grant label"
-                    onChange={(e) => updateRsuGrant(i, { label: e.target.value })}
+                    onChange={(e) => updateGrant('rsu', i, { label: e.target.value })}
                   />
                 }
               >
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
                     <Field label="Shares">
-                      <Input type="number" min={0} value={g.shares} onChange={(e) => updateRsuGrant(i, { shares: Math.max(0, toNumber(e.target.value, g.shares)) })} />
+                      <Input type="number" min={0} value={g.shares} onChange={(e) => updateGrant('rsu', i, { shares: Math.max(0, toNumber(e.target.value, g.shares)) })} />
                     </Field>
                     <Field label="FMV at grant">
                       <CurrencyInput
                         decimals={2}
                         value={g.fmvAtGrant}
-                        onValueChange={(v) => updateRsuGrant(i, { fmvAtGrant: Math.max(0, v) })}
+                        onValueChange={(v) => updateGrant('rsu', i, { fmvAtGrant: Math.max(0, v) })}
                       />
                     </Field>
                     <Field label="Vest years">
-                      <Input type="number" min={0.25} step="0.25" value={g.vestYears} onChange={(e) => updateRsuGrant(i, { vestYears: Math.max(0.25, toNumber(e.target.value, g.vestYears)) })} />
+                      <Input type="number" min={0.25} step="0.25" value={g.vestYears} onChange={(e) => updateGrant('rsu', i, { vestYears: Math.max(0.25, toNumber(e.target.value, g.vestYears)) })} />
                     </Field>
                     <Field label="Double trigger">
                       <select
                         className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                         value={g.doubleTrigger ? 'yes' : 'no'}
-                        onChange={(e) => updateRsuGrant(i, { doubleTrigger: e.target.value === 'yes' })}
+                        onChange={(e) => updateGrant('rsu', i, { doubleTrigger: e.target.value === 'yes' })}
                       >
                         <option value="yes">Yes</option>
                         <option value="no">No</option>
                       </select>
                     </Field>
                     <Field label="Grant start">
-                      <Input type="date" value={g.grantStartDate ?? ''} onChange={(e) => updateRsuGrant(i, { grantStartDate: e.target.value || undefined })} />
+                      <Input type="date" value={g.grantStartDate ?? ''} onChange={(e) => updateGrant('rsu', i, { grantStartDate: e.target.value || undefined })} />
                     </Field>
                   </div>
                   {v && (
@@ -767,7 +715,7 @@ export default function StartupPanel() {
       </section>
 
       {addMode ? (
-        <ModalShell
+        <Modal
           title={addMode === 'option' ? 'Add option grant' : 'Add RSU grant'}
           description={
             addMode === 'option'
@@ -786,15 +734,17 @@ export default function StartupPanel() {
             sharePrice={sharePrice}
             offerStartDate={offer.startDate}
             onSubmit={(grant) => {
-              if (addMode === 'option') addOptionGrant(grant as NewOptionGrant);
-              else addRsuGrant(grant as NewRsuGrant);
+              // The form builds the grant to match its mode; narrow on the
+              // shape (only option grants carry quantity) instead of casting.
+              if ('quantity' in grant) addGrant({ kind: 'option', grant });
+              else addGrant({ kind: 'rsu', grant });
             }}
           />
-        </ModalShell>
+        </Modal>
       ) : null}
 
       {deleteTarget ? (
-        <ModalShell
+        <Modal
           title={`Delete ${deleteTarget.kind === 'option' ? 'option' : 'RSU'} grant?`}
           description={`"${deleteTarget.label}" will be removed. This can't be undone.`}
           onClose={() => setDeleteTarget(null)}
@@ -812,11 +762,11 @@ export default function StartupPanel() {
           <p className="text-sm text-muted-foreground">
             The grant&apos;s vested value will be removed from all totals and charts.
           </p>
-        </ModalShell>
+        </Modal>
       ) : null}
 
       {confirmAction ? (
-        <ModalShell
+        <Modal
           title={confirmAction.kind === 'reload' ? 'Reload sample data?' : 'Disable startup mode?'}
           description={
             confirmAction.kind === 'reload'
@@ -848,7 +798,7 @@ export default function StartupPanel() {
               ? 'Sample data is fictional and for demonstration only.'
               : 'Nothing is deleted — startup equity is only hidden from totals and charts.'}
           </p>
-        </ModalShell>
+        </Modal>
       ) : null}
     </div>
   );

@@ -524,7 +524,7 @@ export default function OfferForm() {
             {benchmarkStrip && (
               <span
                 className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground"
-                title={`Benchmark p50, illustrative public aggregates${
+                title={`Benchmark p50, sourced public aggregates${
                   benchmarkStrip.rolledUpFrom
                     ? ` (rolled up from ${benchmarkStrip.rolledUpFrom})`
                     : ""
@@ -538,7 +538,7 @@ export default function OfferForm() {
                   {benchmarkStrip.pct}% of market
                 </span>
                 <span className="text-[10px] opacity-70">
-                  benchmark p50, illustrative
+                  benchmark p50, sourced
                 </span>
               </span>
             )}
