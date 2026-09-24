@@ -83,3 +83,34 @@ export const RENTER_COL_ESTIMATES: CityPreset[] = [
 
 /** All presets: generic city list plus the renter-based estimates. */
 export const ALL_CITY_PRESETS: CityPreset[] = [...CITY_PRESETS, ...RENTER_COL_ESTIMATES];
+
+/**
+ * Fuzzy city-preset key match for a free-text location string.
+ *
+ * Normalizes by lowercasing and stripping parenthetical suffixes from preset
+ * names (e.g. "Ann Arbor, MI (renter est.)" → "ann arbor, mi"). Matches when
+ * the preset's city token appears in the location string OR the location's
+ * city token appears in the preset name, so:
+ *   "Ann Arbor, MI" → "renter-ann-arbor"
+ *   "San Francisco, CA" → "sf"
+ *   "New York, NY" → "nyc"
+ * Returns null when nothing matches.
+ */
+const stripParenthetical = (s: string): string =>
+  s.replace(/\s*\([^)]*\)/g, '').trim().toLowerCase();
+
+const cityTokenOf = (s: string): string => (s.split(',')[0] ?? '').trim();
+
+export function matchCityPresetKey(location: string | undefined): string | null {
+  if (!location) return null;
+  const loc = stripParenthetical(location);
+  const locCity = cityTokenOf(loc);
+  if (!locCity) return null;
+  for (const preset of ALL_CITY_PRESETS) {
+    const name = stripParenthetical(preset.name);
+    const presetCity = cityTokenOf(name);
+    if (presetCity && loc.includes(presetCity)) return preset.key;
+    if (name.includes(locCity)) return preset.key;
+  }
+  return null;
+}

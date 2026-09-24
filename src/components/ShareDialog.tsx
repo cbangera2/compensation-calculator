@@ -178,7 +178,7 @@ export default function ShareDialog({ open, onClose, offers, activeIndex, uiMode
                   </span>
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">
-                      {anonymize ? companyAlias(aliasPosition.get(index) ?? 0) : (offer.name || `Offer ${index + 1}`)}
+                      {anonymize && checked ? companyAlias(aliasPosition.get(index) ?? 0) : (offer.name || `Offer ${index + 1}`)}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
                       {offer.location ?? 'No location'} · {usd0.format(offer.base.startAnnual)} base

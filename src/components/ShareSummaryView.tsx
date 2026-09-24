@@ -302,7 +302,7 @@ function OfferStatementCard({ offer, anon }: { offer: TOffer; anon: boolean }) {
           <p className="mt-1 text-4xl font-bold tracking-tight tabular-nums sm:text-5xl">
             {usd0.format(Math.round(parts.total))}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">base + bonus + equity + perks per year</p>
+          <p className="mt-1 text-xs text-muted-foreground">base + bonus + equity + perks per year · pre-tax</p>
         </div>
 
         <ComponentBars parts={parts} dark={dark} />

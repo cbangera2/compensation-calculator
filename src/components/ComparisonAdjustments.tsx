@@ -11,7 +11,7 @@ import { computeOffer } from '@/core/compute';
 import { buildPricePath } from '@/core/growth';
 import { cn, formatCurrency } from '@/lib/utils';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { CITY_PRESETS } from '@/lib/col';
+import { ALL_CITY_PRESETS, matchCityPresetKey } from '@/lib/col';
 import { StockGrowthControl, type StockGrowthValue } from '@/components/ui/stock-growth-control';
 
 type Range = { min: number; max: number };
@@ -99,7 +99,7 @@ export default function ComparisonAdjustments() {
   }
 
   function setLocation(index: number, cityKey: string) {
-    const preset = CITY_PRESETS.find(c => c.key === cityKey);
+    const preset = ALL_CITY_PRESETS.find(c => c.key === cityKey);
     const factor = preset?.factor ?? 1;
     const location = preset?.name ?? 'Custom';
     
@@ -187,7 +187,7 @@ export default function ComparisonAdjustments() {
           const location = offer.location || '';
           // Match a city preset by name only: a manually-set factor (via chips, slider,
           // or number input) stays "Custom" even if it numerically equals a city factor.
-          const presetKey = CITY_PRESETS.find(c => c.name === location)?.key ?? 'custom';
+          const presetKey = matchCityPresetKey(location) ?? 'custom';
           const yoy = ensureYoY(offer);
           const startingPrice = offer.growth?.startingPrice ?? offer.equityGrants?.[0]?.fmv ?? 10;
           const preview = pricePreviews[index] ?? [];
@@ -272,7 +272,7 @@ export default function ComparisonAdjustments() {
                         }}
                       >
                         <option value="custom">Custom COL factor...</option>
-                        {CITY_PRESETS.map(c => (
+                        {ALL_CITY_PRESETS.map(c => (
                           <option key={c.key} value={c.key}>{c.name} ({c.factor.toFixed(2)}×)</option>
                         ))}
                       </select>
@@ -318,14 +318,18 @@ export default function ComparisonAdjustments() {
                   </div>
                   <div>
                     <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Starting stock price ($)</Label>
-                    <Input
-                      className="mt-1 h-8 w-24 px-2 text-xs"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={startingPrice}
-                      onChange={(event) => setStartingPrice(index, Number(event.target.value))}
-                    />
+                    {offer.equityGrants?.length ? (
+                      <Input
+                        className="mt-1 h-8 w-24 px-2 text-xs"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={startingPrice}
+                        onChange={(event) => setStartingPrice(index, Number(event.target.value))}
+                      />
+                    ) : (
+                      <p className="mt-1 text-xs text-muted-foreground">No public equity grants — growth n/a</p>
+                    )}
                   </div>
                 </div>
 

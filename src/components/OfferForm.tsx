@@ -650,6 +650,34 @@ export default function OfferForm() {
                   className="h-9"
                 />
               </div>
+              <div className="flex-1 min-w-[140px] space-y-1.5">
+                <Label htmlFor="jobTitle" className="text-xs text-muted-foreground">
+                  Job title
+                </Label>
+                <Input
+                  id="jobTitle"
+                  value={offer.jobTitle ?? ""}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setOffer({ ...offer, jobTitle: e.target.value })
+                  }
+                  className="h-9"
+                  placeholder="Software Engineer"
+                />
+              </div>
+              <div className="w-[120px] space-y-1.5">
+                <Label htmlFor="jobLevel" className="text-xs text-muted-foreground">
+                  Level
+                </Label>
+                <Input
+                  id="jobLevel"
+                  value={offer.jobLevel ?? ""}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                    setOffer({ ...offer, jobLevel: e.target.value })
+                  }
+                  className="h-9"
+                  placeholder="E3 / IC3"
+                />
+              </div>
               <div className="w-[180px] space-y-1.5">
                 <Label
                   htmlFor="location"
@@ -814,13 +842,23 @@ export default function OfferForm() {
                   onValueChange={(amt) => ensureRsuGrant({ targetValue: amt })}
                   className="text-lg font-semibold h-11"
                 />
-                <button
-                  type="button"
-                  className="text-xs text-primary hover:underline"
-                  onClick={() => setActiveTab("equity")}
-                >
-                  Configure grants →
-                </button>
+                {offer.startupEquity?.enabled ? (
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => switchTab("startup")}
+                  >
+                    Manage startup grants →
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline"
+                    onClick={() => setActiveTab("equity")}
+                  >
+                    Configure grants →
+                  </button>
+                )}
               </div>
             </div>
 

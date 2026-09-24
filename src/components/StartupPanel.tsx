@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { useStore } from '@/state/store';
-import type { TOffer, TStartupEquity, TStartupOptionGrant, TStartupRsuGrant } from '@/models/types';
+import type { TOffer, TStartupEquity, TStartupOptionGrant, TStartupRsuGrant, TValuationScenario } from '@/models/types';
 import { impliedSharePrice, valuateStartupEquity, sampleStartupEquity } from '@/core/startup';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,6 +14,7 @@ import { formatCurrency, formatNumber } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { Plus, Trash2, Sparkles, ChevronDown, FilePlus2, X } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
+import { CurrencyInput } from '@/components/ui/currency-input';
 
 const MIN_VALUATION = 1_000_000_000; // $1B
 const MAX_VALUATION = 150_000_000_000; // $150B
@@ -222,12 +223,13 @@ function AddGrantForm({
 
   function submit() {
     const qty = Math.max(0, toNumber(quantity, 0));
+    const round2 = (n: number) => Math.round(n * 100) / 100;
     if (mode === 'option') {
       onSubmit({
         label: label.trim() || defaultLabel,
         quantity: qty,
-        strike: Math.max(0, toNumber(strike, money)),
-        fmvAtGrant: Math.max(0, toNumber(fmvAtGrant, money)),
+        strike: round2(Math.max(0, toNumber(strike, money))),
+        fmvAtGrant: round2(Math.max(0, toNumber(fmvAtGrant, money))),
         vestYears: Math.max(0.25, toNumber(vestYears, 4)),
         cliffMonths: Math.max(0, Math.round(toNumber(cliffMonths, 12))),
         grantStartDate: grantStartDate || undefined,
@@ -236,7 +238,7 @@ function AddGrantForm({
       onSubmit({
         label: label.trim() || defaultLabel,
         shares: qty,
-        fmvAtGrant: Math.max(0, toNumber(fmvAtGrant, money)),
+        fmvAtGrant: round2(Math.max(0, toNumber(fmvAtGrant, money))),
         doubleTrigger,
         vestYears: Math.max(0.25, toNumber(vestYears, 2)),
         grantStartDate: grantStartDate || undefined,
@@ -305,6 +307,8 @@ export default function StartupPanel() {
 
   const [addMode, setAddMode] = useState<'option' | 'rsu' | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'option' | 'rsu'; index: number; label: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ kind: 'reload' } | { kind: 'disable' } | null>(null);
+  const [scenarioName, setScenarioName] = useState('');
 
   const block: TStartupEquity | undefined = offer?.startupEquity;
 
@@ -402,6 +406,33 @@ export default function StartupPanel() {
       rsuGrants: b.rsuGrants.map((g, i) => (i === index ? { ...g, ...partial } : g)),
     }));
 
+  const saveScenario = () => {
+    const name = scenarioName.trim();
+    if (!name) return;
+    patch((b) => {
+      if (b.savedScenarios.some((s) => s.name === name)) return b;
+      return {
+        ...b,
+        savedScenarios: [
+          ...b.savedScenarios,
+          {
+            name,
+            valuation: b.valuation,
+            fullyDilutedShares: b.fullyDilutedShares,
+            savedAt: new Date().toISOString(),
+          } satisfies TValuationScenario,
+        ],
+      };
+    });
+    setScenarioName('');
+  };
+
+  const restoreScenario = (s: TValuationScenario) =>
+    patch((b) => ({ ...b, valuation: s.valuation, fullyDilutedShares: s.fullyDilutedShares }));
+
+  const deleteScenario = (name: string) =>
+    patch((b) => ({ ...b, savedScenarios: b.savedScenarios.filter((s) => s.name !== name) }));
+
   return (
     <div className="space-y-6">
       {/* Valuation hero */}
@@ -423,10 +454,10 @@ export default function StartupPanel() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => patch(() => sampleStartupEquity())}>
+              <Button variant="outline" size="sm" onClick={() => setConfirmAction({ kind: 'reload' })}>
                 Reload sample
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => patch((b) => ({ ...b, enabled: false }))}>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmAction({ kind: 'disable' })}>
                 Disable
               </Button>
             </div>
@@ -479,6 +510,67 @@ export default function StartupPanel() {
             </div>
           </div>
 
+          {/* Saved valuation scenarios */}
+          <div className="mt-4 rounded-xl border border-border/60 bg-background/70 p-3">
+            <p className="text-xs font-semibold text-foreground">Saved scenarios</p>
+            <div className="mt-2 flex gap-2">
+              <Input
+                value={scenarioName}
+                onChange={(e) => setScenarioName(e.target.value)}
+                placeholder="Name this scenario, e.g. Series F"
+                aria-label="Scenario name"
+                className="h-8 text-xs"
+              />
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 shrink-0"
+                disabled={!scenarioName.trim() || block.savedScenarios.some((s) => s.name === scenarioName.trim())}
+                onClick={saveScenario}
+              >
+                Save current
+              </Button>
+            </div>
+            {block.savedScenarios.length > 0 ? (
+              <ul className="mt-2 space-y-1.5">
+                {block.savedScenarios.map((s, idx) => (
+                  <li
+                    key={`${s.name}-${idx}`}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border/50 px-2.5 py-1.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-foreground">{s.name}</p>
+                      <p className="text-[11px] tabular-nums text-muted-foreground">
+                        ${formatNumber(s.valuation / 1_000_000_000, { decimals: 1 })}B ·{' '}
+                        {formatNumber(s.fullyDilutedShares)} shares
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => restoreScenario(s)}
+                      >
+                        Restore
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                        onClick={() => deleteScenario(s.name)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
           <div className="mt-4 grid gap-3 pb-4 sm:mt-6 sm:gap-4 sm:pb-6 md:grid-cols-2">
             <Field label="Company name">
               <Input
@@ -492,7 +584,7 @@ export default function StartupPanel() {
                 type="number"
                 min={1}
                 value={block.fullyDilutedShares}
-                onChange={(e) => patch((b) => ({ ...b, fullyDilutedShares: Math.max(1, toNumber(e.target.value, b.fullyDilutedShares)) }))}
+                onChange={(e) => patch((b) => ({ ...b, fullyDilutedShares: Math.max(1, Math.round(toNumber(e.target.value, b.fullyDilutedShares))) }))}
               />
             </Field>
           </div>
@@ -511,7 +603,7 @@ export default function StartupPanel() {
                 <div className="mt-0.5 text-xs text-muted-foreground">{s.label}</div>
                 {s.label === 'Annualized grant value' && (
                   <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                    Intrinsic value at grant FMV — max(FMV − strike, 0) × quantity — not the headline offer value. At-the-money options show $0. Double-trigger status and cliff timing aren&apos;t modeled; value is spread evenly across vest years.
+                    Net value at the current scenario share price, spread across vest years — moves with the valuation slider. Grant-date FMV values are shown per grant for reference. Double-trigger status and cliff timing aren&apos;t modeled; value is spread evenly.
                   </div>
                 )}
               </div>
@@ -525,7 +617,7 @@ export default function StartupPanel() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-foreground sm:text-base">Option grants</h2>
-            <p className="text-xs text-muted-foreground">Strike price × quantity is the cash cost to exercise. Grant value is intrinsic value at grant FMV, not headline offer value.</p>
+            <p className="text-xs text-muted-foreground">Strike price × quantity is the cash cost to exercise. Per-grant value shown at grant-date FMV for reference; annualized figures use the scenario share price.</p>
           </div>
           <Button size="sm" onClick={() => setAddMode('option')}>
             <Plus className="mr-1 size-4" /> Add option grant
@@ -561,11 +653,19 @@ export default function StartupPanel() {
                     <Field label="Quantity">
                       <Input type="number" min={0} value={g.quantity} onChange={(e) => updateOptionGrant(i, { quantity: Math.max(0, toNumber(e.target.value, g.quantity)) })} />
                     </Field>
-                    <Field label="Strike $">
-                      <Input type="number" min={0} step="0.01" value={g.strike} onChange={(e) => updateOptionGrant(i, { strike: Math.max(0, toNumber(e.target.value, g.strike)) })} />
+                    <Field label="Strike">
+                      <CurrencyInput
+                        decimals={2}
+                        value={g.strike}
+                        onValueChange={(v) => updateOptionGrant(i, { strike: Math.max(0, v) })}
+                      />
                     </Field>
-                    <Field label="FMV at grant $">
-                      <Input type="number" min={0} step="0.01" value={g.fmvAtGrant} onChange={(e) => updateOptionGrant(i, { fmvAtGrant: Math.max(0, toNumber(e.target.value, g.fmvAtGrant)) })} />
+                    <Field label="FMV at grant">
+                      <CurrencyInput
+                        decimals={2}
+                        value={g.fmvAtGrant}
+                        onValueChange={(v) => updateOptionGrant(i, { fmvAtGrant: Math.max(0, v) })}
+                      />
                     </Field>
                     <Field label="Vest years">
                       <Input type="number" min={0.25} step="0.25" value={g.vestYears} onChange={(e) => updateOptionGrant(i, { vestYears: Math.max(0.25, toNumber(e.target.value, g.vestYears)) })} />
@@ -581,6 +681,7 @@ export default function StartupPanel() {
                     <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-border/50 pt-3 text-xs text-muted-foreground">
                       <span>Exercise cost: <span className="font-medium text-foreground">{formatCurrency(v.exerciseCost)}</span></span>
                       <span>Annualized: <span className="font-medium text-foreground">{formatCurrency(v.annualizedGrantValue)}/yr</span></span>
+                      <span>At grant FMV: <span className="font-medium text-foreground">{formatCurrency(v.grantValue)}</span></span>
                     </div>
                   )}
               </GrantAccordion>
@@ -630,8 +731,12 @@ export default function StartupPanel() {
                     <Field label="Shares">
                       <Input type="number" min={0} value={g.shares} onChange={(e) => updateRsuGrant(i, { shares: Math.max(0, toNumber(e.target.value, g.shares)) })} />
                     </Field>
-                    <Field label="FMV at grant $">
-                      <Input type="number" min={0} step="0.01" value={g.fmvAtGrant} onChange={(e) => updateRsuGrant(i, { fmvAtGrant: Math.max(0, toNumber(e.target.value, g.fmvAtGrant)) })} />
+                    <Field label="FMV at grant">
+                      <CurrencyInput
+                        decimals={2}
+                        value={g.fmvAtGrant}
+                        onValueChange={(v) => updateRsuGrant(i, { fmvAtGrant: Math.max(0, v) })}
+                      />
                     </Field>
                     <Field label="Vest years">
                       <Input type="number" min={0.25} step="0.25" value={g.vestYears} onChange={(e) => updateRsuGrant(i, { vestYears: Math.max(0.25, toNumber(e.target.value, g.vestYears)) })} />
@@ -706,6 +811,42 @@ export default function StartupPanel() {
         >
           <p className="text-sm text-muted-foreground">
             The grant&apos;s vested value will be removed from all totals and charts.
+          </p>
+        </ModalShell>
+      ) : null}
+
+      {confirmAction ? (
+        <ModalShell
+          title={confirmAction.kind === 'reload' ? 'Reload sample data?' : 'Disable startup mode?'}
+          description={
+            confirmAction.kind === 'reload'
+              ? "This replaces your current valuation, grants, and saved scenarios with the sample block. This can't be undone."
+              : 'Your grants stay saved but are excluded from all totals and charts until you re-enable.'
+          }
+          onClose={() => setConfirmAction(null)}
+          footer={
+            <>
+              <Button type="button" variant="outline" onClick={() => setConfirmAction(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  if (confirmAction.kind === 'reload') patch(() => sampleStartupEquity());
+                  else patch((b) => ({ ...b, enabled: false }));
+                  setConfirmAction(null);
+                }}
+              >
+                {confirmAction.kind === 'reload' ? 'Reload sample' : 'Disable'}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm text-muted-foreground">
+            {confirmAction.kind === 'reload'
+              ? 'Sample data is fictional and for demonstration only.'
+              : 'Nothing is deleted — startup equity is only hidden from totals and charts.'}
           </p>
         </ModalShell>
       ) : null}

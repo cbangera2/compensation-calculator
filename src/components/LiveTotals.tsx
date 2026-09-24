@@ -26,7 +26,11 @@ export default function LiveTotals() {
   const name = offers[activeIndex]?.name || offer.name || `Offer ${activeIndex + 1}`;
 
   return (
-    <div className="hidden shrink-0 items-center gap-4 md:flex" aria-live="polite">
+    <div
+      className="hidden shrink-0 items-center gap-4 md:flex"
+      aria-live="polite"
+      title="Modeled totals: base + bonus + equity + perks, pre-tax. Includes startup equity when enabled."
+    >
       <span className="max-w-36 truncate text-xs font-medium text-muted-foreground">{name}</span>
       <div className="flex items-baseline gap-1.5">
         <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Base</span>

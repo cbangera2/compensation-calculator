@@ -23,6 +23,7 @@ function block(overrides: Partial<TStartupEquity> = {}): TStartupEquity {
     fullyDilutedShares: 100_509_245, // ~$149.24/share
     optionGrants: [],
     rsuGrants: [],
+    savedScenarios: [],
     ...overrides,
   };
 }
