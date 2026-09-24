@@ -142,6 +142,10 @@ function GrantAccordion({
 
 type NewOptionGrant = Omit<TStartupOptionGrant, 'id'>;
 type NewRsuGrant = Omit<TStartupRsuGrant, 'id'>;
+type GrantKind = 'option' | 'rsu';
+type NewGrantOp =
+  | { kind: 'option'; grant: NewOptionGrant }
+  | { kind: 'rsu'; grant: NewRsuGrant };
 
 /** Form for adding an option or RSU grant via modal. */
 function AddGrantForm({
@@ -313,30 +317,29 @@ export default function StartupPanel() {
     );
   }
 
-  type GrantKind = 'option' | 'rsu';
-
   /** Kind-keyed grant operations — options and RSUs share the add/update/remove mechanics. */
-  function addGrant(kind: 'option', grant: NewOptionGrant): void;
-  function addGrant(kind: 'rsu', grant: NewRsuGrant): void;
-  function addGrant(kind: GrantKind, grant: NewOptionGrant | NewRsuGrant) {
+  function addGrant(op: NewGrantOp) {
     patch((b) =>
-      kind === 'option'
-        ? { ...b, optionGrants: [...b.optionGrants, { ...grant, id: uid('opt') } as TStartupOptionGrant] }
-        : { ...b, rsuGrants: [...b.rsuGrants, { ...grant, id: uid('rsu') } as TStartupRsuGrant] }
+      op.kind === 'option'
+        ? { ...b, optionGrants: [...b.optionGrants, { ...op.grant, id: uid('opt') }] }
+        : { ...b, rsuGrants: [...b.rsuGrants, { ...op.grant, id: uid('rsu') }] }
     );
     setAddMode(null);
   }
 
-  const updateGrant = (
+  function updateGrant(kind: 'option', index: number, partial: Partial<TStartupOptionGrant>): void;
+  function updateGrant(kind: 'rsu', index: number, partial: Partial<TStartupRsuGrant>): void;
+  function updateGrant(
     kind: GrantKind,
     index: number,
     partial: Partial<TStartupOptionGrant> | Partial<TStartupRsuGrant>,
-  ) =>
+  ) {
     patch((b) =>
       kind === 'option'
         ? { ...b, optionGrants: b.optionGrants.map((g, i) => (i === index ? { ...g, ...partial } : g)) }
         : { ...b, rsuGrants: b.rsuGrants.map((g, i) => (i === index ? { ...g, ...partial } : g)) }
     );
+  }
 
   const removeGrant = (kind: GrantKind, index: number) =>
     patch((b) =>
@@ -733,8 +736,8 @@ export default function StartupPanel() {
             onSubmit={(grant) => {
               // The form builds the grant to match its mode; narrow on the
               // shape (only option grants carry quantity) instead of casting.
-              if ('quantity' in grant) addGrant('option', grant);
-              else addGrant('rsu', grant);
+              if ('quantity' in grant) addGrant({ kind: 'option', grant });
+              else addGrant({ kind: 'rsu', grant });
             }}
           />
         </Modal>

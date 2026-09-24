@@ -131,11 +131,11 @@ export default function CompareShareButton() {
               Anyone with this link can read it. It cannot be revoked.
             </p>
 
-          <div className="mt-4 flex justify-end">
-            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
-              Done
-            </Button>
-          </div>
+            <div className="mt-4 flex justify-end">
+              <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
+                Done
+              </Button>
+            </div>
         </Modal>
       )}
     </TooltipProvider>
