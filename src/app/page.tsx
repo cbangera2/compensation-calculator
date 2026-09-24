@@ -19,6 +19,7 @@ import StatCards from '@/components/StatCards';
 import StartupPanel from '@/components/StartupPanel';
 import BenchmarkPanel from '@/components/BenchmarkPanel';
 import LiveTotals from '@/components/LiveTotals';
+import LeaderboardPanel from '@/components/LeaderboardPanel';
 import RaisePlannerPanel from '@/components/RaisePlannerPanel';
 import CityComparePanel from '@/components/CityComparePanel';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -167,6 +168,9 @@ export default function Home() {
             </TabsContent>
             <TabsContent value="benchmarks">
               <BenchmarkPanel />
+            </TabsContent>
+            <TabsContent value="leaderboard">
+              <LeaderboardPanel />
             </TabsContent>
             <TabsContent value="raises">
               <RaisePlannerPanel />

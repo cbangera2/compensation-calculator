@@ -30,6 +30,7 @@ export const TAB_GROUPS = [
     tabs: [
       { value: 'growth', label: 'Stock Growth' },
       { value: 'benchmarks', label: 'Benchmarks' },
+      { value: 'leaderboard', label: 'Leaderboards' },
     ],
   },
   {

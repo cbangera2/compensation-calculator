@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error: `unsupported ticker "${ticker}"`,
-        supported: ['META', 'GOOGL', 'AAPL', 'MSFT', 'TSLA', 'PLTR'],
+        supported: ['META', 'GOOGL', 'AAPL', 'MSFT', 'TSLA', 'PLTR', 'AMZN', 'NFLX', 'ABNB', 'UBER', 'CRM', 'ADBE', 'NVDA'],
         note: 'Private companies (Stripe, SpaceX, Anduril, Bloomberg) have no public price history.',
       },
       { status: 400 },
