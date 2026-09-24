@@ -92,23 +92,11 @@ function firstMoney(s: string | null): number | null {
   return toks.length ? toks[0].value : null;
 }
 
-function lastMoney(s: string | null): number | null {
-  if (!s) return null;
-  const toks = moneyTokens(s);
-  return toks.length ? toks[toks.length - 1].value : null;
-}
-
 function sliceAfter(text: string, label: RegExp, window = 80): string | null {
   const m = label.exec(text);
   if (!m || m.index === undefined) return null;
   const start = m.index + m[0].length;
   return text.slice(start, start + window);
-}
-
-function sliceBefore(text: string, label: RegExp, window = 80): string | null {
-  const m = label.exec(text);
-  if (!m || m.index === undefined) return null;
-  return text.slice(Math.max(0, m.index - window), m.index);
 }
 
 /**

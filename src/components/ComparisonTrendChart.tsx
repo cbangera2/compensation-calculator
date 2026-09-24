@@ -2,7 +2,7 @@
 
 import ReactEChartsCore from 'echarts-for-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useStore } from '@/state/store';
 import { computeOffer } from '@/core/compute';
 import { formatCurrency } from '@/lib/utils';
@@ -21,6 +21,7 @@ export default function ComparisonTrendChart() {
   const chartH = useChartHeight(320, 240);
   const { offers } = useStore();
   const dark = useDarkMode();
+  const [mode, setMode] = useState<'yearly' | 'cumulative'>('yearly');
   const palette = useMemo(() => categoricalPalette(dark), [dark]);
   const axis = useMemo(() => axisStyle(dark), [dark]);
   if (!offers.length) return null;
@@ -33,6 +34,7 @@ export default function ComparisonTrendChart() {
 
   const series = offers.map((offer, index) => {
     const rows = rowsPerOffer[index];
+    let running = 0;
     return {
       name: offer.name || `Offer ${index + 1}`,
       type: 'line' as const,
@@ -41,7 +43,14 @@ export default function ComparisonTrendChart() {
       areaStyle: { opacity: 0.08 },
       lineStyle: { width: 3 },
       color: palette[index % palette.length],
-      data: years.map((_, yearIndex) => Math.round(rows[yearIndex]?.total ?? 0)),
+      data: years.map((_, yearIndex) => {
+        const v = Math.round(rows[yearIndex]?.total ?? 0);
+        if (mode === 'cumulative') {
+          running += v;
+          return running;
+        }
+        return v;
+      }),
     };
   });
 
@@ -73,8 +82,31 @@ export default function ComparisonTrendChart() {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base sm:text-lg">Total compensation over time</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+        <CardTitle className="text-base sm:text-lg">
+          {mode === 'cumulative' ? 'Cumulative earnings over time' : 'Total compensation over time'}
+        </CardTitle>
+        <div
+          className="flex shrink-0 items-center gap-0.5 rounded-full border border-border/60 bg-muted/50 p-1"
+          role="group"
+          aria-label="Trend view"
+        >
+          {(['yearly', 'cumulative'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              aria-pressed={mode === m}
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold capitalize transition-colors ${
+                mode === m
+                  ? 'bg-foreground text-background shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {m}
+            </button>
+          ))}
+        </div>
       </CardHeader>
       <CardContent>
         <ReactEChartsCore option={option} notMerge style={{ height: chartH }} />

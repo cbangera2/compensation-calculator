@@ -5,7 +5,6 @@ import { useStore } from '@/state/store';
 import {
   addYearsToIso,
   compareScenarios,
-  projectTrajectory,
   summarizeScenario,
   type TrajectoryScenario,
 } from '@/core/raisePlanner';

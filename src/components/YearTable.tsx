@@ -2,14 +2,45 @@
 import { useStore } from '@/state/store';
 import { computeOffer } from '@/core/compute';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Download } from 'lucide-react';
 
 export default function YearTable() {
   const { offer } = useStore();
   const rows = computeOffer(offer);
+
+  function exportCsv() {
+    const header = 'Year,Base,Stock,Bonus,Other,Total';
+    const lines = rows.map((r) =>
+      [r.year, Math.round(r.base), Math.round(r.stock), Math.round(r.bonus), Math.round(r.other), Math.round(r.total)].join(',')
+    );
+    const csv = [header, ...lines].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const safeName = (offer.name || 'offer').replace(/[^a-z0-9-_]+/gi, '-').toLowerCase();
+    a.href = url;
+    a.download = `${safeName}-yearly-breakdown.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
         <CardTitle className="text-base sm:text-lg">Yearly Table</CardTitle>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={exportCsv}
+          className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+        >
+          <Download className="size-3.5" />
+          CSV
+        </Button>
       </CardHeader>
       <CardContent className="px-3 sm:px-6">
         <div className="overflow-auto">

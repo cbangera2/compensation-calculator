@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import GrowthYoyEditor from "@/components/GrowthYoyEditor";
+import SimpleGrowthInput from "@/components/SimpleGrowthInput";
 import GrantsPanel from "@/components/GrantsPanel";
 import RaisesEditor from "@/components/RaisesEditor";
 import CashPerksPanel from "@/components/CashPerksPanel";
@@ -46,6 +47,23 @@ const QUICK_PERKS = [
 
 function getCompareCity(key: string): CompareCity | null {
   return COMPARE_CITIES.find((c) => c.key === key) ?? null;
+}
+
+/** Resolve which city preset the Location select should display.
+ *  Name match first: several presets share a factor (Chicago/Austin 1.05,
+ *  Phoenix/Remote 0.95), so the factor fallback must never shadow an exact
+ *  name. Exported for tests. */
+export function resolveLocationPresetKey(
+  location: string | undefined,
+  colFactor: number | undefined
+): string {
+  return (
+    CITY_PRESETS.find((c) => c.name === location)?.key ??
+    (typeof colFactor === "number"
+      ? CITY_PRESETS.find((c) => Math.abs(c.factor - colFactor) < 0.001)?.key
+      : undefined) ??
+    "custom"
+  );
 }
 
 /** Match free-text offer locations to the city-compare dataset. Order matters:
@@ -117,7 +135,7 @@ function switchTab(tab: string) {
 }
 
 export default function OfferForm() {
-  const { offer, setOffer, setBonusValue, undo, redo, addGrant, updateGrant } =
+  const { offer, setOffer, setBonusValue, undo, redo, addGrant, updateGrant, uiMode } =
     useStore();
   const [collapsed, setCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("compensation");
@@ -126,6 +144,14 @@ export default function OfferForm() {
     perks: false,
   });
   const contentId = useId();
+
+  // Simple mode hides the Advanced inner tab (raises, full perks/401k).
+  // If the user was on it when switching down, fall back to compensation.
+  useEffect(() => {
+    if (uiMode === "simple" && activeTab === "advanced") {
+      setActiveTab("compensation");
+    }
+  }, [uiMode, activeTab]);
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -534,25 +560,27 @@ export default function OfferForm() {
           <TabsList className="w-full justify-start gap-0 rounded-none border-b border-border/60 bg-transparent p-0 h-auto">
             <TabsTrigger
               value="compensation"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 py-2.5 text-[13px] sm:px-4 sm:py-3 sm:text-sm"
+              className="h-auto flex-none rounded-none border-0 border-b-2 border-transparent px-3 py-2.5 text-[13px] text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-medium data-[state=active]:text-foreground data-[state=active]:shadow-none sm:px-4 sm:py-3 sm:text-sm"
             >
               <Briefcase className="size-4 mr-1.5" />
               Compensation
             </TabsTrigger>
             <TabsTrigger
               value="equity"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 py-2.5 text-[13px] sm:px-4 sm:py-3 sm:text-sm"
+              className="h-auto flex-none rounded-none border-0 border-b-2 border-transparent px-3 py-2.5 text-[13px] text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-medium data-[state=active]:text-foreground data-[state=active]:shadow-none sm:px-4 sm:py-3 sm:text-sm"
             >
               <TrendingUp className="size-4 mr-1.5" />
               Equity
             </TabsTrigger>
-            <TabsTrigger
-              value="advanced"
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-3 py-2.5 text-[13px] sm:px-4 sm:py-3 sm:text-sm"
-            >
-              <Settings2 className="size-4 mr-1.5" />
-              Advanced
-            </TabsTrigger>
+            {uiMode === "advanced" && (
+              <TabsTrigger
+                value="advanced"
+                className="h-auto flex-none rounded-none border-0 border-b-2 border-transparent px-3 py-2.5 text-[13px] text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-medium data-[state=active]:text-foreground data-[state=active]:shadow-none sm:px-4 sm:py-3 sm:text-sm"
+              >
+                <Settings2 className="size-4 mr-1.5" />
+                Advanced
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* COMPENSATION TAB (merged Essentials + Perks) */}
@@ -600,14 +628,7 @@ export default function OfferForm() {
                 <select
                   id="location"
                   className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  value={
-                    CITY_PRESETS.find(
-                      (c) =>
-                        c.name === offer.location ||
-                        (offer.colFactor &&
-                          Math.abs(c.factor - offer.colFactor) < 0.001)
-                    )?.key ?? "custom"
-                  }
+                  value={resolveLocationPresetKey(offer.location, offer.colFactor)}
                   onChange={(e) => {
                     const key = e.target.value;
                     const preset = CITY_PRESETS.find((c) => c.key === key);
@@ -1172,7 +1193,11 @@ export default function OfferForm() {
 
             <div className="space-y-2">
               <h3 className="font-medium text-sm">Stock Growth Assumptions</h3>
-              <GrowthYoyEditor />
+              {uiMode === "advanced" ? (
+                <GrowthYoyEditor />
+              ) : (
+                <SimpleGrowthInput />
+              )}
             </div>
             <div className="space-y-2">
               <h3 className="font-medium text-sm">All Equity Grants</h3>

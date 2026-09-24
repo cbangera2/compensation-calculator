@@ -365,7 +365,7 @@ export default function StartupPanel() {
                 <div className="mt-0.5 text-xs text-muted-foreground">{s.label}</div>
                 {s.label === 'Annualized grant value' && (
                   <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                    Intrinsic value at grant FMV — max(FMV − strike, 0) × quantity — not the headline offer value. At-the-money options show $0. Double-trigger status and cliff timing aren't modeled; value is spread evenly across vest years.
+                    Intrinsic value at grant FMV — max(FMV − strike, 0) × quantity — not the headline offer value. At-the-money options show $0. Double-trigger status and cliff timing aren&apos;t modeled; value is spread evenly across vest years.
                   </div>
                 )}
               </div>

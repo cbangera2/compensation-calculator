@@ -213,6 +213,9 @@ export default function CityComparePanel() {
             offers={offers}
           />
         </div>
+        <p className="-mt-2 text-[11px] text-muted-foreground">
+          Picking an offer loads its Year 1 total into the shared pay below, plus its city.
+        </p>
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
           <CityPicker

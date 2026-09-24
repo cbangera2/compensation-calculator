@@ -194,6 +194,8 @@ export default function MultiOfferBar() {
               className="gap-1.5 text-destructive hover:text-destructive"
               onClick={() => removeOffer(activeIndex)}
               disabled={offers.length <= 1}
+              aria-label="Delete active offer"
+              title="Delete active offer"
             >
               <Trash2 className="size-4" />
             </Button>

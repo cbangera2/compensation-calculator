@@ -89,7 +89,9 @@ function horizonTotalWithGrowth(offer: TOffer, g: number): number {
   return rows.reduce((s, r) => s + r.total, 0);
 }
 
-function crossoverLine(aName: string, bName: string, cumA: number[], cumB: number[]): string {
+/** Exported for regression tests: the sign of the gap must never leak
+ *  into the rendered copy ("ends $9k ahead", never "ends $-9k ahead"). */
+export function crossoverLine(aName: string, bName: string, cumA: number[], cumB: number[]): string {
   const h = Math.max(cumA.length, cumB.length, 1);
   const A = padTo(cumA, h);
   const B = padTo(cumB, h);
@@ -109,7 +111,7 @@ function crossoverLine(aName: string, bName: string, cumA: number[], cumB: numbe
       : `Dead even over ${h} years.`;
   }
   const leader = gap > 0 ? bName : aName;
-  const ahead = fmtShort(gap);
+  const ahead = fmtShort(Math.abs(gap));
   if (crossYear < 0) {
     return `${leader} stays ahead every year — ends ${ahead} ahead over ${h} years.`;
   }

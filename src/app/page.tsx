@@ -22,6 +22,8 @@ import LiveTotals from '@/components/LiveTotals';
 import RaisePlannerPanel from '@/components/RaisePlannerPanel';
 import CityComparePanel from '@/components/CityComparePanel';
 import ThemeToggle from '@/components/ThemeToggle';
+import UiModeToggle from '@/components/UiModeToggle';
+import OnboardingNudge from '@/components/OnboardingNudge';
 import ActiveOfferStrip, { TAB_GROUPS, isValidTabValue, type TabValue } from '@/components/ActiveOfferStrip';
 
 export default function Home() {
@@ -53,8 +55,13 @@ export default function Home() {
               Compare compensation packages with clarity.
             </h1>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <UiModeToggle />
+            <ThemeToggle />
+          </div>
         </header>
+
+        <OnboardingNudge />
 
         <MultiOfferBar />
 
@@ -63,7 +70,8 @@ export default function Home() {
         <Tabs value={tab} onValueChange={(v) => { if (isValidTabValue(v)) setTab(v); }} className="gap-0">
           <div className="sticky top-0 z-30 -mx-4 border-b border-border/60 bg-background/85 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6">
             <div className="flex items-center justify-between gap-4">
-              <TabsList className="no-scrollbar h-10 flex-1 justify-start gap-1 overflow-x-auto bg-transparent p-0 md:flex-none">
+              {/* Desktop: all groups inline, fits fine at md+ widths */}
+              <TabsList className="no-scrollbar hidden h-10 flex-none items-center gap-1 overflow-x-auto bg-transparent p-0 md:flex">
                 {TAB_GROUPS.map((group, gi) => (
                   <Fragment key={group.label}>
                     {gi > 0 && (
@@ -84,6 +92,41 @@ export default function Home() {
                   </Fragment>
                 ))}
               </TabsList>
+              {/* Mobile: section picker on top, only the active section's
+                  tabs below. No more 7-pill horizontal scroll. */}
+              <div className="min-w-0 flex-1 md:hidden">
+                <div className="flex gap-0.5 rounded-full bg-muted/60 p-1" role="group" aria-label="Sections">
+                  {TAB_GROUPS.map((group) => {
+                    const isActiveGroup = group.tabs.some((t) => t.value === tab);
+                    return (
+                      <button
+                        key={group.label}
+                        type="button"
+                        onClick={() => setTab(group.tabs[0].value)}
+                        aria-pressed={isActiveGroup}
+                        className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold transition-colors ${
+                          isActiveGroup
+                            ? 'bg-foreground text-background shadow-sm'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {group.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <TabsList className="mt-2 flex flex-wrap gap-1.5 bg-transparent p-0" aria-label="Tabs">
+                  {TAB_GROUPS.find((g) => g.tabs.some((t) => t.value === tab))?.tabs.map((t) => (
+                    <TabsTrigger
+                      key={t.value}
+                      value={t.value}
+                      className="rounded-full border border-border/60 px-3.5 py-1.5 text-[13px] font-medium data-[state=active]:border-transparent data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
+                    >
+                      {t.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
               <LiveTotals />
             </div>
             <div className="mt-1.5 border-t border-border/40 pt-1.5 md:hidden">

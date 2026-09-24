@@ -47,7 +47,7 @@ export default function ComparisonChart() {
       const ppY1 = y1Total / colFactor;
       const pp4y = total4y / colFactor;
       return {
-        name: offer.name || `Offer ${idx + 1}`,
+        name: offer.name?.trim() || `Offer ${idx + 1}`,
         location: offer.location || `${colFactor.toFixed(2)}× COL`,
         colFactor,
         nominalY1: y1Total,

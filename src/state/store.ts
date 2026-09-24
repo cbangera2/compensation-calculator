@@ -260,7 +260,7 @@ export const useStore = create<State>()(
     {
       name: 'compcalc-store',
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ offers: s.offers, activeIndex: s.activeIndex, offer: s.offer }),
+      partialize: (s) => ({ offers: s.offers, activeIndex: s.activeIndex, offer: s.offer, uiMode: s.uiMode }),
     }
   )
 );

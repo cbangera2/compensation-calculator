@@ -661,7 +661,7 @@ export default function EquityExplorer() {
             </Button>
             {saveFlash === null && (
               <p className="mt-1.5 text-[11px] text-muted-foreground">
-                Writes this price path into the offer's equity growth assumptions.
+                Writes this price path into the offer&apos;s equity growth assumptions.
               </p>
             )}
           </div>
