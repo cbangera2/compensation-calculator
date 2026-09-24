@@ -6,9 +6,11 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 /**
- * Shared centered dialog: dimmed backdrop, Escape/backdrop-click to close,
- * body scroll locked while open. Replaces the previously hand-rolled copies
- * in ShareDialog, CompareShareButton, MultiOfferBar, and StartupPanel.
+ * Shared centered dialog: dimmed backdrop, Escape/backdrop mousedown to
+ * close, body scroll locked while open, focus moved into the dialog on open,
+ * Tab trapped inside, and focus restored to the trigger on close. Replaces
+ * the previously hand-rolled copies in ShareDialog, CompareShareButton,
+ * MultiOfferBar, and StartupPanel.
  */
 export function Modal({
   title,
@@ -31,9 +33,33 @@ export function Modal({
   // on every parent render when call sites pass inline callbacks.
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const dialogRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
+    const prevFocused = document.activeElement as HTMLElement | null;
+    dialogRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCloseRef.current();
+      if (e.key === 'Escape') {
+        onCloseRef.current();
+        return;
+      }
+      if (e.key !== 'Tab' || !dialogRef.current) return;
+      // Keep Tab cycling inside the dialog.
+      const focusables = dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
     const prevOverflow = document.body.style.overflow;
@@ -41,23 +67,28 @@ export function Modal({
     return () => {
       window.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
+      prevFocused?.focus?.();
     };
   }, []);
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+      ref={dialogRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4 outline-none"
       role="dialog"
       aria-modal="true"
       aria-label={typeof title === 'string' ? title : undefined}
-      onClick={onClose}
+      // Dismiss on mousedown (not click): a text selection that starts inside
+      // the panel and ends on the backdrop shouldn't close the dialog.
+      onMouseDown={onClose}
     >
       <div
         className={cn(
           'max-h-[92dvh] w-full overflow-y-auto rounded-2xl border border-border bg-background p-4 shadow-xl sm:p-6',
           maxWidth,
         )}
-        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-3">
           <div>

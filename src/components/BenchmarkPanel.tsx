@@ -220,9 +220,6 @@ export default function BenchmarkPanel({
   initialMetro = 'Bay Area',
 }: BenchmarkPanelProps) {
   const { offer, addOffer } = useStore();
-  const [company, setCompany] = useState(initialCompany);
-  const [level, setLevel] = useState<TBenchmarkLevel>(initialLevel);
-  const [metro, setMetro] = useState<TBenchmarkMetro>(initialMetro);
 
   /**
    * Pre-select company/level from the active offer: case-insensitive match of
@@ -247,6 +244,12 @@ export default function BenchmarkPanel({
     }
     return initialLevel;
   }, [offer?.jobLevel, initialLevel]);
+
+  // Selectors start from the derived values so the first render already
+  // reflects the active offer (not the raw prop defaults).
+  const [company, setCompany] = useState(derivedCompany);
+  const [level, setLevel] = useState<TBenchmarkLevel>(derivedLevel);
+  const [metro, setMetro] = useState<TBenchmarkMetro>(initialMetro);
 
   // Keep the selectors in sync with the active offer so switching offers
   // re-targets the panel. User edits still win until the offer changes: each
