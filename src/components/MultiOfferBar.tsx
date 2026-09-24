@@ -111,9 +111,9 @@ function ImportMenu({
   const close = () => setOpen(false);
 
   const menuRow =
-    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted';
+    'flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-muted';
   const sectionLabel =
-    'px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
+    'px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground';
 
   return (
     <div ref={menuRef} className="relative">
@@ -125,6 +125,7 @@ function ImportMenu({
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="Import offer"
       >
         <Upload className="size-4" />
         <span className="hidden sm:inline">Import</span>
@@ -134,7 +135,7 @@ function ImportMenu({
         <div
           role="menu"
           aria-label="Import offer"
-          className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-border bg-background p-1.5 shadow-xl"
+          className="absolute right-0 z-50 mt-2 max-h-[70vh] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-background p-1.5 shadow-xl"
         >
           <p className={sectionLabel}>From file</p>
           <label className={cn(fileInputWrapper, 'w-full')}>
