@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { useStore } from '@/state/store';
-import type { TOffer, TStartupEquity, TStartupOptionGrant, TStartupRsuGrant } from '@/models/types';
+import type { TOffer, TStartupEquity, TStartupOptionGrant, TStartupRsuGrant, TValuationScenario } from '@/models/types';
 import { impliedSharePrice, valuateStartupEquity, sampleStartupEquity } from '@/core/startup';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,8 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { formatCurrency, formatNumber } from '@/lib/utils';
 import { cn } from '@/lib/utils';
-import { Plus, Trash2, Sparkles, ChevronDown, FilePlus2 } from 'lucide-react';
+import { Plus, Trash2, Sparkles, ChevronDown, FilePlus2, X } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
+import { CurrencyInput } from '@/components/ui/currency-input';
 
 const MIN_VALUATION = 1_000_000_000; // $1B
 const MAX_VALUATION = 150_000_000_000; // $150B
@@ -138,9 +139,176 @@ function GrantAccordion({
   );
 }
 
+/**
+ * ModalShell — centered dialog over a dimmed backdrop. Clicking the backdrop
+ * or pressing Escape closes it. Matches the ShareDialog pattern.
+ */
+function ModalShell({
+  title,
+  description,
+  onClose,
+  children,
+  footer,
+}: {
+  title: string;
+  description?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-2xl border border-border bg-background p-4 shadow-xl sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">{title}</h2>
+            {description ? (
+              <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+            ) : null}
+          </div>
+          <Button type="button" size="sm" variant="ghost" className="h-8 w-8 shrink-0 p-0" onClick={onClose} aria-label="Close">
+            <X className="size-4" />
+          </Button>
+        </div>
+        <div className="mt-4">{children}</div>
+        {footer ? <div className="mt-5 flex justify-end gap-2">{footer}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+type NewOptionGrant = Omit<TStartupOptionGrant, 'id'>;
+type NewRsuGrant = Omit<TStartupRsuGrant, 'id'>;
+
+/** Form for adding an option or RSU grant via modal. */
+function AddGrantForm({
+  mode,
+  defaultLabel,
+  sharePrice,
+  offerStartDate,
+  onSubmit,
+}: {
+  mode: 'option' | 'rsu';
+  defaultLabel: string;
+  sharePrice: number;
+  offerStartDate: string;
+  onSubmit: (grant: NewOptionGrant | NewRsuGrant) => void;
+}) {
+  const money = Math.round(sharePrice * 100) / 100;
+  const [label, setLabel] = useState(defaultLabel);
+  const [quantity, setQuantity] = useState(mode === 'option' ? '1000' : '250');
+  const [strike, setStrike] = useState(String(money));
+  const [fmvAtGrant, setFmvAtGrant] = useState(String(money));
+  const [vestYears, setVestYears] = useState(mode === 'option' ? '4' : '2');
+  const [cliffMonths, setCliffMonths] = useState('12');
+  const [doubleTrigger, setDoubleTrigger] = useState(true);
+  const [grantStartDate, setGrantStartDate] = useState('');
+
+  function submit() {
+    const qty = Math.max(0, toNumber(quantity, 0));
+    const round2 = (n: number) => Math.round(n * 100) / 100;
+    if (mode === 'option') {
+      onSubmit({
+        label: label.trim() || defaultLabel,
+        quantity: qty,
+        strike: round2(Math.max(0, toNumber(strike, money))),
+        fmvAtGrant: round2(Math.max(0, toNumber(fmvAtGrant, money))),
+        vestYears: Math.max(0.25, toNumber(vestYears, 4)),
+        cliffMonths: Math.max(0, Math.round(toNumber(cliffMonths, 12))),
+        grantStartDate: grantStartDate || undefined,
+      } satisfies NewOptionGrant);
+    } else {
+      onSubmit({
+        label: label.trim() || defaultLabel,
+        shares: qty,
+        fmvAtGrant: round2(Math.max(0, toNumber(fmvAtGrant, money))),
+        doubleTrigger,
+        vestYears: Math.max(0.25, toNumber(vestYears, 2)),
+        grantStartDate: grantStartDate || undefined,
+      } satisfies NewRsuGrant);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+    >
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <Field label="Grant label" className="col-span-2">
+          <Input value={label} onChange={(e) => setLabel(e.target.value)} autoFocus />
+        </Field>
+        <Field label={mode === 'option' ? 'Quantity' : 'Shares'}>
+          <Input type="number" min={0} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+        </Field>
+        {mode === 'option' ? (
+          <Field label="Strike $">
+            <Input type="number" min={0} step={0.01} value={strike} onChange={(e) => setStrike(e.target.value)} />
+          </Field>
+        ) : null}
+        <Field label="FMV at grant $">
+          <Input type="number" min={0} step={0.01} value={fmvAtGrant} onChange={(e) => setFmvAtGrant(e.target.value)} />
+        </Field>
+        <Field label="Vest years">
+          <Input type="number" min={0.25} step={0.25} value={vestYears} onChange={(e) => setVestYears(e.target.value)} />
+        </Field>
+        {mode === 'option' ? (
+          <Field label="Cliff months">
+            <Input type="number" min={0} step={1} value={cliffMonths} onChange={(e) => setCliffMonths(e.target.value)} />
+          </Field>
+        ) : (
+          <Field label="Double trigger">
+            <select
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={doubleTrigger ? 'yes' : 'no'}
+              onChange={(e) => setDoubleTrigger(e.target.value === 'yes')}
+            >
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </Field>
+        )}
+        <Field label="Grant start date" className="col-span-2">
+          <Input type="date" value={grantStartDate} onChange={(e) => setGrantStartDate(e.target.value)} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            When vesting starts. Leave blank to use the offer start date ({offerStartDate}).
+          </p>
+        </Field>
+      </div>
+      <div className="mt-5 flex justify-end gap-2">
+        <Button type="submit">Add grant</Button>
+      </div>
+    </form>
+  );
+}
+
 export default function StartupPanel() {
   const { offers, activeIndex, updateOfferAt } = useStore();
   const offer = offers[activeIndex];
+
+  const [addMode, setAddMode] = useState<'option' | 'rsu' | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'option' | 'rsu'; index: number; label: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ kind: 'reload' } | { kind: 'disable' } | null>(null);
+  const [scenarioName, setScenarioName] = useState('');
 
   const block: TStartupEquity | undefined = offer?.startupEquity;
 
@@ -199,50 +367,32 @@ export default function StartupPanel() {
     );
   }
 
-  const addOptionGrant = () =>
+  const addOptionGrant = (grant: NewOptionGrant) => {
     patch((b) => ({
       ...b,
-      optionGrants: [
-        ...b.optionGrants,
-        {
-          id: uid('opt'),
-          label: `Option grant ${b.optionGrants.length + 1}`,
-          quantity: 1000,
-          strike: Math.round(sharePrice * 100) / 100,
-          fmvAtGrant: Math.round(sharePrice * 100) / 100,
-          vestYears: 4,
-          cliffMonths: 12,
-        } as TStartupOptionGrant,
-      ],
+      optionGrants: [...b.optionGrants, { ...grant, id: uid('opt') } as TStartupOptionGrant],
     }));
+    setAddMode(null);
+  };
 
-  const addRsuGrant = () =>
+  const addRsuGrant = (grant: NewRsuGrant) => {
     patch((b) => ({
       ...b,
-      rsuGrants: [
-        ...b.rsuGrants,
-        {
-          id: uid('rsu'),
-          label: `RSU grant ${b.rsuGrants.length + 1}`,
-          shares: 250,
-          fmvAtGrant: Math.round(sharePrice * 100) / 100,
-          doubleTrigger: true,
-          vestYears: 2,
-        } as TStartupRsuGrant,
-      ],
+      rsuGrants: [...b.rsuGrants, { ...grant, id: uid('rsu') } as TStartupRsuGrant],
     }));
+    setAddMode(null);
+  };
 
-  const removeOptionGrant = (id?: string, index?: number) =>
-    patch((b) => ({
-      ...b,
-      optionGrants: b.optionGrants.filter((g, i) => (id ? g.id !== id : i !== index)),
-    }));
-
-  const removeRsuGrant = (id?: string, index?: number) =>
-    patch((b) => ({
-      ...b,
-      rsuGrants: b.rsuGrants.filter((g, i) => (id ? g.id !== id : i !== index)),
-    }));
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    const { kind, index } = deleteTarget;
+    patch((b) =>
+      kind === 'option'
+        ? { ...b, optionGrants: b.optionGrants.filter((_, i) => i !== index) }
+        : { ...b, rsuGrants: b.rsuGrants.filter((_, i) => i !== index) }
+    );
+    setDeleteTarget(null);
+  };
 
   const updateOptionGrant = (index: number, partial: Partial<TStartupOptionGrant>) =>
     patch((b) => ({
@@ -255,6 +405,33 @@ export default function StartupPanel() {
       ...b,
       rsuGrants: b.rsuGrants.map((g, i) => (i === index ? { ...g, ...partial } : g)),
     }));
+
+  const saveScenario = () => {
+    const name = scenarioName.trim();
+    if (!name) return;
+    patch((b) => {
+      if (b.savedScenarios.some((s) => s.name === name)) return b;
+      return {
+        ...b,
+        savedScenarios: [
+          ...b.savedScenarios,
+          {
+            name,
+            valuation: b.valuation,
+            fullyDilutedShares: b.fullyDilutedShares,
+            savedAt: new Date().toISOString(),
+          } satisfies TValuationScenario,
+        ],
+      };
+    });
+    setScenarioName('');
+  };
+
+  const restoreScenario = (s: TValuationScenario) =>
+    patch((b) => ({ ...b, valuation: s.valuation, fullyDilutedShares: s.fullyDilutedShares }));
+
+  const deleteScenario = (name: string) =>
+    patch((b) => ({ ...b, savedScenarios: b.savedScenarios.filter((s) => s.name !== name) }));
 
   return (
     <div className="space-y-6">
@@ -277,10 +454,10 @@ export default function StartupPanel() {
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => patch(() => sampleStartupEquity())}>
+              <Button variant="outline" size="sm" onClick={() => setConfirmAction({ kind: 'reload' })}>
                 Reload sample
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => patch((b) => ({ ...b, enabled: false }))}>
+              <Button variant="ghost" size="sm" onClick={() => setConfirmAction({ kind: 'disable' })}>
                 Disable
               </Button>
             </div>
@@ -333,6 +510,67 @@ export default function StartupPanel() {
             </div>
           </div>
 
+          {/* Saved valuation scenarios */}
+          <div className="mt-4 rounded-xl border border-border/60 bg-background/70 p-3">
+            <p className="text-xs font-semibold text-foreground">Saved scenarios</p>
+            <div className="mt-2 flex gap-2">
+              <Input
+                value={scenarioName}
+                onChange={(e) => setScenarioName(e.target.value)}
+                placeholder="Name this scenario, e.g. Series F"
+                aria-label="Scenario name"
+                className="h-8 text-xs"
+              />
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 shrink-0"
+                disabled={!scenarioName.trim() || block.savedScenarios.some((s) => s.name === scenarioName.trim())}
+                onClick={saveScenario}
+              >
+                Save current
+              </Button>
+            </div>
+            {block.savedScenarios.length > 0 ? (
+              <ul className="mt-2 space-y-1.5">
+                {block.savedScenarios.map((s, idx) => (
+                  <li
+                    key={`${s.name}-${idx}`}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border/50 px-2.5 py-1.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-foreground">{s.name}</p>
+                      <p className="text-[11px] tabular-nums text-muted-foreground">
+                        ${formatNumber(s.valuation / 1_000_000_000, { decimals: 1 })}B ·{' '}
+                        {formatNumber(s.fullyDilutedShares)} shares
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => restoreScenario(s)}
+                      >
+                        Restore
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                        onClick={() => deleteScenario(s.name)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+
           <div className="mt-4 grid gap-3 pb-4 sm:mt-6 sm:gap-4 sm:pb-6 md:grid-cols-2">
             <Field label="Company name">
               <Input
@@ -346,7 +584,7 @@ export default function StartupPanel() {
                 type="number"
                 min={1}
                 value={block.fullyDilutedShares}
-                onChange={(e) => patch((b) => ({ ...b, fullyDilutedShares: Math.max(1, toNumber(e.target.value, b.fullyDilutedShares)) }))}
+                onChange={(e) => patch((b) => ({ ...b, fullyDilutedShares: Math.max(1, Math.round(toNumber(e.target.value, b.fullyDilutedShares))) }))}
               />
             </Field>
           </div>
@@ -365,7 +603,7 @@ export default function StartupPanel() {
                 <div className="mt-0.5 text-xs text-muted-foreground">{s.label}</div>
                 {s.label === 'Annualized grant value' && (
                   <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
-                    Intrinsic value at grant FMV — max(FMV − strike, 0) × quantity — not the headline offer value. At-the-money options show $0. Double-trigger status and cliff timing aren&apos;t modeled; value is spread evenly across vest years.
+                    Net value at the current scenario share price, spread across vest years — moves with the valuation slider. Grant-date FMV values are shown per grant for reference. Double-trigger status and cliff timing aren&apos;t modeled; value is spread evenly.
                   </div>
                 )}
               </div>
@@ -379,9 +617,9 @@ export default function StartupPanel() {
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-foreground sm:text-base">Option grants</h2>
-            <p className="text-xs text-muted-foreground">Strike price × quantity is the cash cost to exercise. Grant value is intrinsic value at grant FMV, not headline offer value.</p>
+            <p className="text-xs text-muted-foreground">Strike price × quantity is the cash cost to exercise. Per-grant value shown at grant-date FMV for reference; annualized figures use the scenario share price.</p>
           </div>
-          <Button size="sm" onClick={addOptionGrant}>
+          <Button size="sm" onClick={() => setAddMode('option')}>
             <Plus className="mr-1 size-4" /> Add option grant
           </Button>
         </div>
@@ -400,7 +638,7 @@ export default function StartupPanel() {
                 key={g.id ?? i}
                 label={g.label}
                 netValue={v ? formatCurrency(v.netValue) : null}
-                onRemove={() => removeOptionGrant(g.id, i)}
+                onRemove={() => setDeleteTarget({ kind: 'option', index: i, label: g.label })}
                 removeLabel="Remove option grant"
                 labelInput={
                   <Input
@@ -415,11 +653,19 @@ export default function StartupPanel() {
                     <Field label="Quantity">
                       <Input type="number" min={0} value={g.quantity} onChange={(e) => updateOptionGrant(i, { quantity: Math.max(0, toNumber(e.target.value, g.quantity)) })} />
                     </Field>
-                    <Field label="Strike $">
-                      <Input type="number" min={0} step="0.01" value={g.strike} onChange={(e) => updateOptionGrant(i, { strike: Math.max(0, toNumber(e.target.value, g.strike)) })} />
+                    <Field label="Strike">
+                      <CurrencyInput
+                        decimals={2}
+                        value={g.strike}
+                        onValueChange={(v) => updateOptionGrant(i, { strike: Math.max(0, v) })}
+                      />
                     </Field>
-                    <Field label="FMV at grant $">
-                      <Input type="number" min={0} step="0.01" value={g.fmvAtGrant} onChange={(e) => updateOptionGrant(i, { fmvAtGrant: Math.max(0, toNumber(e.target.value, g.fmvAtGrant)) })} />
+                    <Field label="FMV at grant">
+                      <CurrencyInput
+                        decimals={2}
+                        value={g.fmvAtGrant}
+                        onValueChange={(v) => updateOptionGrant(i, { fmvAtGrant: Math.max(0, v) })}
+                      />
                     </Field>
                     <Field label="Vest years">
                       <Input type="number" min={0.25} step="0.25" value={g.vestYears} onChange={(e) => updateOptionGrant(i, { vestYears: Math.max(0.25, toNumber(e.target.value, g.vestYears)) })} />
@@ -427,11 +673,15 @@ export default function StartupPanel() {
                     <Field label="Cliff months">
                       <Input type="number" min={0} step={1} value={g.cliffMonths} onChange={(e) => updateOptionGrant(i, { cliffMonths: Math.max(0, Math.round(toNumber(e.target.value, g.cliffMonths))) })} />
                     </Field>
+                    <Field label="Grant start">
+                      <Input type="date" value={g.grantStartDate ?? ''} onChange={(e) => updateOptionGrant(i, { grantStartDate: e.target.value || undefined })} />
+                    </Field>
                   </div>
                   {v && (
                     <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-border/50 pt-3 text-xs text-muted-foreground">
                       <span>Exercise cost: <span className="font-medium text-foreground">{formatCurrency(v.exerciseCost)}</span></span>
                       <span>Annualized: <span className="font-medium text-foreground">{formatCurrency(v.annualizedGrantValue)}/yr</span></span>
+                      <span>At grant FMV: <span className="font-medium text-foreground">{formatCurrency(v.grantValue)}</span></span>
                     </div>
                   )}
               </GrantAccordion>
@@ -447,7 +697,7 @@ export default function StartupPanel() {
             <h2 className="text-sm font-semibold text-foreground sm:text-base">RSU grants</h2>
             <p className="text-xs text-muted-foreground">No strike — double-trigger RSUs convert at a liquidity event.</p>
           </div>
-          <Button size="sm" onClick={addRsuGrant}>
+          <Button size="sm" onClick={() => setAddMode('rsu')}>
             <Plus className="mr-1 size-4" /> Add RSU grant
           </Button>
         </div>
@@ -466,7 +716,7 @@ export default function StartupPanel() {
                 key={g.id ?? i}
                 label={g.label}
                 netValue={v ? formatCurrency(v.netValue) : null}
-                onRemove={() => removeRsuGrant(g.id, i)}
+                onRemove={() => setDeleteTarget({ kind: 'rsu', index: i, label: g.label })}
                 removeLabel="Remove RSU grant"
                 labelInput={
                   <Input
@@ -481,8 +731,12 @@ export default function StartupPanel() {
                     <Field label="Shares">
                       <Input type="number" min={0} value={g.shares} onChange={(e) => updateRsuGrant(i, { shares: Math.max(0, toNumber(e.target.value, g.shares)) })} />
                     </Field>
-                    <Field label="FMV at grant $">
-                      <Input type="number" min={0} step="0.01" value={g.fmvAtGrant} onChange={(e) => updateRsuGrant(i, { fmvAtGrant: Math.max(0, toNumber(e.target.value, g.fmvAtGrant)) })} />
+                    <Field label="FMV at grant">
+                      <CurrencyInput
+                        decimals={2}
+                        value={g.fmvAtGrant}
+                        onValueChange={(v) => updateRsuGrant(i, { fmvAtGrant: Math.max(0, v) })}
+                      />
                     </Field>
                     <Field label="Vest years">
                       <Input type="number" min={0.25} step="0.25" value={g.vestYears} onChange={(e) => updateRsuGrant(i, { vestYears: Math.max(0.25, toNumber(e.target.value, g.vestYears)) })} />
@@ -497,6 +751,9 @@ export default function StartupPanel() {
                         <option value="no">No</option>
                       </select>
                     </Field>
+                    <Field label="Grant start">
+                      <Input type="date" value={g.grantStartDate ?? ''} onChange={(e) => updateRsuGrant(i, { grantStartDate: e.target.value || undefined })} />
+                    </Field>
                   </div>
                   {v && (
                     <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 border-t border-border/50 pt-3 text-xs text-muted-foreground">
@@ -508,6 +765,91 @@ export default function StartupPanel() {
           })}
         </div>
       </section>
+
+      {addMode ? (
+        <ModalShell
+          title={addMode === 'option' ? 'Add option grant' : 'Add RSU grant'}
+          description={
+            addMode === 'option'
+              ? 'Options are valued at the scenario share price minus the strike.'
+              : 'RSUs convert to shares at the scenario share price.'
+          }
+          onClose={() => setAddMode(null)}
+        >
+          <AddGrantForm
+            mode={addMode}
+            defaultLabel={
+              addMode === 'option'
+                ? `Option grant ${(block?.optionGrants.length ?? 0) + 1}`
+                : `RSU grant ${(block?.rsuGrants.length ?? 0) + 1}`
+            }
+            sharePrice={sharePrice}
+            offerStartDate={offer.startDate}
+            onSubmit={(grant) => {
+              if (addMode === 'option') addOptionGrant(grant as NewOptionGrant);
+              else addRsuGrant(grant as NewRsuGrant);
+            }}
+          />
+        </ModalShell>
+      ) : null}
+
+      {deleteTarget ? (
+        <ModalShell
+          title={`Delete ${deleteTarget.kind === 'option' ? 'option' : 'RSU'} grant?`}
+          description={`"${deleteTarget.label}" will be removed. This can't be undone.`}
+          onClose={() => setDeleteTarget(null)}
+          footer={
+            <>
+              <Button type="button" variant="outline" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </Button>
+              <Button type="button" variant="destructive" onClick={confirmDelete}>
+                Delete grant
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm text-muted-foreground">
+            The grant&apos;s vested value will be removed from all totals and charts.
+          </p>
+        </ModalShell>
+      ) : null}
+
+      {confirmAction ? (
+        <ModalShell
+          title={confirmAction.kind === 'reload' ? 'Reload sample data?' : 'Disable startup mode?'}
+          description={
+            confirmAction.kind === 'reload'
+              ? "This replaces your current valuation, grants, and saved scenarios with the sample block. This can't be undone."
+              : 'Your grants stay saved but are excluded from all totals and charts until you re-enable.'
+          }
+          onClose={() => setConfirmAction(null)}
+          footer={
+            <>
+              <Button type="button" variant="outline" onClick={() => setConfirmAction(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  if (confirmAction.kind === 'reload') patch(() => sampleStartupEquity());
+                  else patch((b) => ({ ...b, enabled: false }));
+                  setConfirmAction(null);
+                }}
+              >
+                {confirmAction.kind === 'reload' ? 'Reload sample' : 'Disable'}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm text-muted-foreground">
+            {confirmAction.kind === 'reload'
+              ? 'Sample data is fictional and for demonstration only.'
+              : 'Nothing is deleted — startup equity is only hidden from totals and charts.'}
+          </p>
+        </ModalShell>
+      ) : null}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import OfferForm from '@/components/OfferForm';
 import YearChart from '@/components/YearChart';
 import YearTable from '@/components/YearTable';
@@ -18,14 +18,16 @@ import DecisionHelpers from '@/components/DecisionHelpers';
 import StatCards from '@/components/StatCards';
 import StartupPanel from '@/components/StartupPanel';
 import BenchmarkPanel from '@/components/BenchmarkPanel';
-import LiveTotals from '@/components/LiveTotals';
 import LeaderboardPanel from '@/components/LeaderboardPanel';
+import LiveTotals from '@/components/LiveTotals';
 import RaisePlannerPanel from '@/components/RaisePlannerPanel';
 import CityComparePanel from '@/components/CityComparePanel';
 import ThemeToggle from '@/components/ThemeToggle';
 import UiModeToggle from '@/components/UiModeToggle';
 import OnboardingNudge from '@/components/OnboardingNudge';
-import ActiveOfferStrip, { TAB_GROUPS, isValidTabValue, type TabValue } from '@/components/ActiveOfferStrip';
+import SidebarNav from '@/components/SidebarNav';
+import ActiveOfferStrip, { isValidTabValue, type TabValue } from '@/components/ActiveOfferStrip';
+import { TAB_GROUPS } from '@/lib/tabs';
 
 export default function Home() {
   const [tab, setTab] = useState<TabValue>('calc');
@@ -46,141 +48,125 @@ export default function Home() {
       <Suspense fallback={null}>
         <ShareHydrator />
       </Suspense>
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-8 pt-6 sm:gap-6 sm:px-6 sm:pb-12 sm:pt-8">
-        <header className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
-              Model your offers
-            </p>
-            <h1 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Compare compensation packages with clarity.
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <UiModeToggle />
-            <ThemeToggle />
-          </div>
-        </header>
-
-        <OnboardingNudge />
-
-        <MultiOfferBar />
-
-        <StatCards />
-
-        <Tabs value={tab} onValueChange={(v) => { if (isValidTabValue(v)) setTab(v); }} className="gap-0">
-          <div className="sticky top-0 z-30 -mx-4 border-b border-border/60 bg-background/85 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6">
-            <div className="flex items-center justify-between gap-4">
-              {/* Desktop: all groups inline, fits fine at md+ widths */}
-              <TabsList className="no-scrollbar hidden h-10 min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto bg-transparent p-0 md:flex">
-                {TAB_GROUPS.map((group, gi) => (
-                  <Fragment key={group.label}>
-                    {gi > 0 && (
-                      <span aria-hidden="true" className="mx-1 h-5 w-px shrink-0 self-center bg-border/70" />
-                    )}
-                    <span className="shrink-0 self-center pr-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/60">
+      <Tabs value={tab} onValueChange={(v) => { if (isValidTabValue(v)) setTab(v); }} className="gap-0 md:flex-row">
+        <SidebarNav />
+        <div className="min-w-0 flex-1">
+          {/* Slim sticky top bar: live totals on desktop, section picker on mobile */}
+          <div className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-md">
+            <div className="hidden md:block">
+              <div className="flex justify-end px-6 py-2">
+                <LiveTotals />
+              </div>
+            </div>
+            {/* Mobile: section picker on top, only the active section's
+                tabs below. No more 7-pill horizontal scroll. */}
+            <div className="px-4 py-2 md:hidden">
+              <div className="flex gap-0.5 rounded-full bg-muted/60 p-1" role="group" aria-label="Sections">
+                {TAB_GROUPS.map((group) => {
+                  const isActiveGroup = group.tabs.some((t) => t.value === tab);
+                  return (
+                    <button
+                      key={group.label}
+                      type="button"
+                      onClick={() => setTab(group.tabs[0].value)}
+                      aria-pressed={isActiveGroup}
+                      className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold transition-colors ${
+                        isActiveGroup
+                          ? 'bg-foreground text-background shadow-sm'
+                          : 'text-muted-foreground'
+                      }`}
+                    >
                       {group.label}
-                    </span>
-                    {group.tabs.map((t) => (
-                      <TabsTrigger
-                        key={t.value}
-                        value={t.value}
-                        className="shrink-0 rounded-full px-4 py-2 text-sm data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
-                      >
-                        {t.label}
-                      </TabsTrigger>
-                    ))}
-                  </Fragment>
+                    </button>
+                  );
+                })}
+              </div>
+              <TabsList className="mt-2 flex flex-wrap gap-1.5 bg-transparent p-0" aria-label="Tabs">
+                {TAB_GROUPS.find((g) => g.tabs.some((t) => t.value === tab))?.tabs.map((t) => (
+                  <TabsTrigger
+                    key={t.value}
+                    value={t.value}
+                    className="rounded-full border border-border/60 px-3.5 py-1.5 text-[13px] font-medium data-[state=active]:border-transparent data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
+                  >
+                    {t.label}
+                  </TabsTrigger>
                 ))}
               </TabsList>
-              {/* Mobile: section picker on top, only the active section's
-                  tabs below. No more 7-pill horizontal scroll. */}
-              <div className="min-w-0 flex-1 md:hidden">
-                <div className="flex gap-0.5 rounded-full bg-muted/60 p-1" role="group" aria-label="Sections">
-                  {TAB_GROUPS.map((group) => {
-                    const isActiveGroup = group.tabs.some((t) => t.value === tab);
-                    return (
-                      <button
-                        key={group.label}
-                        type="button"
-                        onClick={() => setTab(group.tabs[0].value)}
-                        aria-pressed={isActiveGroup}
-                        className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold transition-colors ${
-                          isActiveGroup
-                            ? 'bg-foreground text-background shadow-sm'
-                            : 'text-muted-foreground'
-                        }`}
-                      >
-                        {group.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <TabsList className="mt-2 flex flex-wrap gap-1.5 bg-transparent p-0" aria-label="Tabs">
-                  {TAB_GROUPS.find((g) => g.tabs.some((t) => t.value === tab))?.tabs.map((t) => (
-                    <TabsTrigger
-                      key={t.value}
-                      value={t.value}
-                      className="rounded-full border border-border/60 px-3.5 py-1.5 text-[13px] font-medium data-[state=active]:border-transparent data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
-                    >
-                      {t.label}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
+              <div className="mt-1.5 border-t border-border/40 pt-1.5">
+                <ActiveOfferStrip />
               </div>
-              <LiveTotals />
-            </div>
-            <div className="mt-1.5 border-t border-border/40 pt-1.5 md:hidden">
-              <ActiveOfferStrip />
             </div>
           </div>
 
-          <div className="pt-4 sm:pt-6">
-            <TabsContent value="calc" className="space-y-5 sm:space-y-8">
-              <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] xl:items-start">
-                <div className="order-2 xl:order-1">
-                  <OfferForm />
+          <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 pb-8 pt-6 sm:gap-6 sm:px-6 sm:pb-12 sm:pt-8">
+            <header className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/80">
+                  Model your offers
+                </p>
+                <h1 className="mt-1 text-xl font-bold tracking-tight text-foreground sm:text-3xl">
+                  Compare compensation packages with clarity.
+                </h1>
+              </div>
+              <div className="flex items-center gap-2">
+                <UiModeToggle />
+                <ThemeToggle />
+              </div>
+            </header>
+
+            <OnboardingNudge />
+
+            <MultiOfferBar />
+
+            <StatCards />
+
+            <div className="pt-4 sm:pt-6">
+              <TabsContent value="calc" className="space-y-5 sm:space-y-8">
+                <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] xl:items-start">
+                  <div className="order-2 xl:order-1">
+                    <OfferForm />
+                  </div>
+                  <div className="order-1 flex flex-col gap-4 sm:gap-6 xl:order-2">
+                    <YearChart />
+                    <YearExtras />
+                  </div>
                 </div>
-                <div className="order-1 flex flex-col gap-4 sm:gap-6 xl:order-2">
-                  <YearChart />
-                  <YearExtras />
+                <YearTable />
+              </TabsContent>
+              <TabsContent value="compare" className="space-y-4 sm:space-y-6">
+                <div className="flex justify-end">
+                  <CompareShareButton />
                 </div>
-              </div>
-              <YearTable />
-            </TabsContent>
-            <TabsContent value="compare" className="space-y-4 sm:space-y-6">
-              <div className="flex justify-end">
-                <CompareShareButton />
-              </div>
-              <ComparisonChart />
-              <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-                <ComparisonTrendChart />
-                <ComparisonStockChart />
-              </div>
-              <ComparisonAdjustments />
-              <DecisionHelpers />
-            </TabsContent>
-            <TabsContent value="growth">
-              <EquityExplorer />
-            </TabsContent>
-            <TabsContent value="startup">
-              <StartupPanel />
-            </TabsContent>
-            <TabsContent value="benchmarks">
-              <BenchmarkPanel />
-            </TabsContent>
-            <TabsContent value="leaderboard">
-              <LeaderboardPanel />
-            </TabsContent>
-            <TabsContent value="raises">
-              <RaisePlannerPanel />
-            </TabsContent>
-            <TabsContent value="cities">
-              <CityComparePanel />
-            </TabsContent>
+                <ComparisonChart />
+                <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+                  <ComparisonTrendChart />
+                  <ComparisonStockChart />
+                </div>
+                <ComparisonAdjustments />
+                <DecisionHelpers />
+              </TabsContent>
+              <TabsContent value="growth">
+                <EquityExplorer />
+              </TabsContent>
+              <TabsContent value="startup">
+                <StartupPanel />
+              </TabsContent>
+              <TabsContent value="benchmarks">
+                <BenchmarkPanel />
+              </TabsContent>
+              <TabsContent value="leaderboard">
+                <LeaderboardPanel />
+              </TabsContent>
+              <TabsContent value="raises">
+                <RaisePlannerPanel />
+              </TabsContent>
+              <TabsContent value="cities">
+                <CityComparePanel />
+              </TabsContent>
+            </div>
           </div>
-        </Tabs>
-      </div>
+        </div>
+      </Tabs>
     </main>
   );
 }

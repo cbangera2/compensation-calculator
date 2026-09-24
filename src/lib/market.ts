@@ -23,21 +23,7 @@ export interface HistoryStats {
 
 /** Public tickers we serve. Private names (Stripe, SpaceX, Anduril, Bloomberg)
  *  have no public price history and are intentionally excluded. */
-export const SUPPORTED_TICKERS = [
-  'META',
-  'GOOGL',
-  'AAPL',
-  'MSFT',
-  'TSLA',
-  'PLTR',
-  'AMZN',
-  'NFLX',
-  'ABNB',
-  'UBER',
-  'CRM',
-  'ADBE',
-  'NVDA',
-] as const;
+export const SUPPORTED_TICKERS = ['META', 'GOOGL', 'AAPL', 'MSFT', 'TSLA', 'PLTR'] as const;
 
 export function isSupportedTicker(t: string): boolean {
   return (SUPPORTED_TICKERS as readonly string[]).includes(t.toUpperCase());

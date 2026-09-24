@@ -22,6 +22,7 @@ import {
   currencyAxisFormatter,
 } from '@/lib/chartTheme';
 import HistoricalGrowth from '@/components/HistoricalGrowth';
+import { impliedSharePrice } from '@/core/startup';
 import { useChartHeight } from '@/lib/useIsMobile';
 import {
   SUPPORTED_TICKERS,
@@ -107,8 +108,17 @@ export default function EquityExplorer() {
   const { offer, setOffer } = useStore();
   const dark = useDarkMode();
 
-  // Initialize from offer growth price or first grant FMV as a fallback
+  const round2 = (x: number) => Math.round(x * 100) / 100;
+  // When startup equity is enabled, seed the current price from the Startup
+  // lab valuation (implied share price) instead of grant FMV.
+  const startupBlock = offer.startupEquity?.enabled ? offer.startupEquity : undefined;
+  const startupSeedPrice = startupBlock
+    ? round2(impliedSharePrice(startupBlock.valuation, startupBlock.fullyDilutedShares))
+    : undefined;
+  const seededFromStartup = offer.growth?.startingPrice == null && startupSeedPrice != null;
+  // Initialize from offer growth price, the startup-implied price, or first grant FMV as a fallback
   const initialPrice = offer.growth?.startingPrice
+    ?? startupSeedPrice
     ?? offer.equityGrants?.[0]?.fmv
     ?? 10;
   const [currentPrice, setCurrentPrice] = useState<number>(initialPrice);
@@ -134,7 +144,6 @@ export default function EquityExplorer() {
   const [compareSeries, setCompareSeries] = useState<Record<string, HistoryStats>>({});
   const [compareError, setCompareError] = useState<string | null>(null);
 
-  const round2 = (x: number) => Math.round(x * 100) / 100;
   const growthPct = currentPrice > 0 ? ((targetPrice / currentPrice) - 1) * 100 : 0;
   const sliderValue = isFinite(growthPct) ? Math.max(-90, Math.min(500, Math.round(growthPct))) : 0;
   const isPositiveGrowth = growthPct >= 0;
@@ -537,6 +546,11 @@ export default function EquityExplorer() {
             {/* Current price */}
             <div className="space-y-2">
               <Label className="text-sm font-medium text-muted-foreground">Current Stock Price</Label>
+              {seededFromStartup && (
+                <p className="text-xs text-muted-foreground">
+                  Startup scenario — seeded from the Startup lab valuation (${startupSeedPrice!.toFixed(2)}/share)
+                </p>
+              )}
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg text-muted-foreground sm:text-xl">$</span>
                 <input
@@ -667,11 +681,20 @@ export default function EquityExplorer() {
           </div>
         </div>
 
-        <HistoricalGrowth onApplyCagr={applyHistoricalCagr} />
-        <p className="text-xs text-muted-foreground">
-          Apply 5y CAGR compounds the realized 5-year annual rate over your{' '}
-          {offer.assumptions?.horizonYears ?? 4}-year projection horizon.
-        </p>
+        {offer.startupEquity?.enabled ? (
+          <p className="text-xs text-muted-foreground">
+            Historical ticker data doesn&apos;t apply to private shares — this scenario grows the
+            Startup lab valuation instead.
+          </p>
+        ) : (
+          <>
+            <HistoricalGrowth onApplyCagr={applyHistoricalCagr} />
+            <p className="text-xs text-muted-foreground">
+              Apply 5y CAGR compounds the realized 5-year annual rate over your{' '}
+              {offer.assumptions?.horizonYears ?? 4}-year projection horizon.
+            </p>
+          </>
+        )}
 
         {/* Results summary cards */}
         <div className="grid grid-cols-2 gap-2.5 sm:gap-4 lg:grid-cols-4">

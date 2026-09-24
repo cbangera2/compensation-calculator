@@ -343,6 +343,8 @@ export function anonymizeOffer(offer: TOffer, index: number): TOffer {
     const se = { ...clone.startupEquity };
     se.companyName = alias;
     se.valuation = roundSig(se.valuation);
+    // Saved valuation scenarios are private what-if analysis; never shared.
+    delete (se as Record<string, unknown>).savedScenarios;
     se.optionGrants = (se.optionGrants ?? []).map((grant) => {
       const g = { ...grant } as Record<string, unknown>;
       delete g.id;

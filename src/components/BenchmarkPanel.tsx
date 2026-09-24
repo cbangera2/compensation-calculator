@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useStore } from '@/state/store';
 import { computeOffer } from '@/core/compute';
 import {
@@ -18,6 +18,8 @@ import {
   isCellStale,
 } from '@/core/benchmarks';
 import {
+  BENCHMARK_COMPANIES,
+  BENCHMARK_LEVELS,
   freshnessLabel,
   type TBenchmarkCell,
   type TBenchmarkLevel,
@@ -230,6 +232,44 @@ export default function BenchmarkPanel({
   const [company, setCompany] = useState(initialCompany);
   const [level, setLevel] = useState<TBenchmarkLevel>(initialLevel);
   const [metro, setMetro] = useState<TBenchmarkMetro>(initialMetro);
+
+  /**
+   * Pre-select company/level from the active offer: case-insensitive match of
+   * the offer name against the benchmark companies and of the offer's job
+   * level against the benchmark level labels. Falls back to the props when
+   * there is no match.
+   */
+  const derivedCompany = useMemo(() => {
+    const name = offer?.name?.trim();
+    if (name) {
+      const hit = BENCHMARK_COMPANIES.find((c) => c.toLowerCase() === name.toLowerCase());
+      if (hit) return hit;
+    }
+    return initialCompany;
+  }, [offer?.name, initialCompany]);
+
+  const derivedLevel = useMemo(() => {
+    const jobLevel = offer?.jobLevel?.trim();
+    if (jobLevel) {
+      const hit = BENCHMARK_LEVELS.find((l) => l.toLowerCase() === jobLevel.toLowerCase());
+      if (hit) return hit;
+    }
+    return initialLevel;
+  }, [offer?.jobLevel, initialLevel]);
+
+  // Keep the selectors in sync with the active offer so switching offers
+  // re-targets the panel. User edits still win until the offer changes.
+  useEffect(() => {
+    setCompany(derivedCompany);
+  }, [derivedCompany]);
+
+  useEffect(() => {
+    setLevel(derivedLevel);
+  }, [derivedLevel]);
+
+  useEffect(() => {
+    setMetro(initialMetro);
+  }, [initialMetro]);
 
   const { baseValue, totalValue } = useMemo(() => {
     if (!offer) return { baseValue: 0, totalValue: 0 };

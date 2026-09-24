@@ -220,6 +220,7 @@ describe("anonymizeOffer sig-fig rounding", () => {
         fullyDilutedShares: 80_000_000,
         optionGrants: [],
         rsuGrants: [],
+        savedScenarios: [],
       },
     });
     const anon = anonymizeOffer(offer, 0);
@@ -247,6 +248,7 @@ describe("anonymizeOffer sig-fig rounding", () => {
         fullyDilutedShares: 80_000_000,
         optionGrants: [],
         rsuGrants: [],
+        savedScenarios: [],
       },
     });
     const anon = anonymizeOffer(offer, 0);

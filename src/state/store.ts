@@ -24,6 +24,8 @@ type State = {
   removeRaise: (index: number) => void;
   uiMode: 'simple' | 'advanced';
   setUiMode: (m: 'simple' | 'advanced') => void;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (c: boolean) => void;
   setBonusKind: (kind: 'percent' | 'fixed') => void;
   setBonusValue: (value: number) => void;
   updateOfferAt: (index: number, updater: (offer: TOffer) => TOffer, options?: { recordHistory?: boolean }) => void;
@@ -89,6 +91,7 @@ export const useStore = create<State>()(
       past: [],
       future: [],
       uiMode: 'simple',
+      sidebarCollapsed: false,
       resetAll: () => set(() => {
         try { localStorage.removeItem('compcalc-store'); } catch {}
         // Reset to initial defaults
@@ -182,6 +185,7 @@ export const useStore = create<State>()(
         return { offer: nextOffer, offers, past: [...state.past, state.offer], future: [] };
       }),
       setUiMode: (m) => set({ uiMode: m }),
+      setSidebarCollapsed: (c) => set({ sidebarCollapsed: c }),
       setBonusKind: (kind) => set((state) => {
         const nextOffer = {
           ...state.offer,
@@ -260,7 +264,7 @@ export const useStore = create<State>()(
     {
       name: 'compcalc-store',
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ offers: s.offers, activeIndex: s.activeIndex, offer: s.offer, uiMode: s.uiMode }),
+      partialize: (s) => ({ offers: s.offers, activeIndex: s.activeIndex, offer: s.offer, uiMode: s.uiMode, sidebarCollapsed: s.sidebarCollapsed }),
     }
   )
 );
