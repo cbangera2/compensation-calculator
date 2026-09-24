@@ -115,3 +115,222 @@ describe('leaderboard realized-value math', () => {
     expect(priceAtDate([], '2024-08-01')).toBeNull();
   });
 });
+
+describe('startup leaderboard dataset', () => {
+  it('has 14 entries and every entry parses the schema', async () => {
+    const { STARTUP_LEADERBOARD, StartupEntry } = await import('@/data/startupLeaderboard2024');
+    expect(STARTUP_LEADERBOARD.length).toBe(14);
+    for (const e of STARTUP_LEADERBOARD) {
+      expect(() => StartupEntry.parse(e)).not.toThrow();
+    }
+  });
+
+  it('every entry carries a valid company group', async () => {
+    const { STARTUP_LEADERBOARD } = await import('@/data/startupLeaderboard2024');
+    const { CompanyGroup, COMPANY_GROUPS, COMPANY_GROUP_LABELS } = await import('@/data/companyGroups');
+    for (const e of [...LEADERBOARD_2024, ...STARTUP_LEADERBOARD]) {
+      expect(CompanyGroup.safeParse(e.group).success).toBe(true);
+    }
+    for (const g of COMPANY_GROUPS) {
+      expect(COMPANY_GROUP_LABELS[g].length).toBeGreaterThan(0);
+    }
+  });
+
+  it('all valuations are positive and latest >= anchor when anchored', async () => {
+    const { STARTUP_LEADERBOARD } = await import('@/data/startupLeaderboard2024');
+    for (const e of STARTUP_LEADERBOARD) {
+      expect(e.latestValuationUsd).toBeGreaterThan(0);
+      if (e.valuationAug2024Usd !== null) {
+        expect(e.valuationAug2024Usd).toBeGreaterThan(0);
+        expect(e.latestValuationUsd).toBeGreaterThanOrEqual(e.valuationAug2024Usd);
+      }
+    }
+  });
+
+  it('computes valuation growth since 2024 as latest/anchor - 1', async () => {
+    const { STARTUP_LEADERBOARD } = await import('@/data/startupLeaderboard2024');
+    const { valuationGrowthSince2024, valuationGrowthMultiple } = await import('@/lib/leaderboard');
+    const stripe = STARTUP_LEADERBOARD.find((e) => e.company === 'Stripe')!;
+    expect(valuationGrowthSince2024(stripe)).toBeCloseTo(159 / 70 - 1, 10);
+    expect(valuationGrowthMultiple(stripe)).toBeCloseTo(159 / 70, 10);
+  });
+
+  it('returns null growth for entries without a 2024 anchor', async () => {
+    const { STARTUP_LEADERBOARD } = await import('@/data/startupLeaderboard2024');
+    const { valuationGrowthSince2024, startupTcPerYearWithGrowth } = await import('@/lib/leaderboard');
+    const discord = STARTUP_LEADERBOARD.find((e) => e.company === 'Discord')!;
+    expect(discord.valuationAug2024Usd).toBeNull();
+    expect(valuationGrowthSince2024(discord)).toBeNull();
+    expect(startupTcPerYearWithGrowth(discord)).toBeNull();
+  });
+
+  it('annualizes one-time signing bonuses instead of counting them as recurring cash', async () => {
+    const { STARTUP_LEADERBOARD } = await import('@/data/startupLeaderboard2024');
+    const { startupTcPerYearWithGrowth } = await import('@/lib/leaderboard');
+    const stripe = STARTUP_LEADERBOARD.find((e) => e.company === 'Stripe')!;
+    // base + signing/4 + one year of stock × growth multiple
+    expect(startupTcPerYearWithGrowth(stripe)).toBeCloseTo(165000 + 25000 / 4 + 25000 * (159 / 70), 6);
+    const databricks = STARTUP_LEADERBOARD.find((e) => e.company === 'Databricks')!;
+    expect(startupTcPerYearWithGrowth(databricks)).toBeCloseTo(175000 + 35000 / 4 + 37500 * (190 / 43), 6);
+  });
+
+  it('Applied Intuition uses only public figures and leaves Sunnyvale offer data blank', async () => {
+    const { STARTUP_LEADERBOARD } = await import('@/data/startupLeaderboard2024');
+    const { startupTcPerYearWithGrowth } = await import('@/lib/leaderboard');
+    const ai = STARTUP_LEADERBOARD.find((e) => e.company === 'Applied Intuition')!;
+    const haystack = JSON.stringify(ai).toLowerCase();
+    // No private/internal numbers: share prices, strikes, personal identifiers, private URLs.
+    for (const leak of ['136.39', '149.24', '31.09', '37.50', 'chirag', 'bangera', 'token=']) {
+      expect(haystack).not.toContain(leak);
+    }
+    // No Sunnyvale-specific public new-grad figure exists (levels.fyi only
+    // publishes a US-wide aggregate), so the offer fields stay blank and no
+    // annual TC can be computed.
+    expect(ai.ngOfferTc2024).toBeNull();
+    expect(ai.ngStockPerYearAtGrant).toBeNull();
+    expect(startupTcPerYearWithGrowth(ai)).toBeNull();
+    // Valuations are still the public press-covered anchors.
+    expect(ai.latestValuationUsd).toBe(15e9);
+    expect(ai.valuationAug2024Usd).toBe(6e9);
+  });
+
+  it('rejects startup entries whose breakdown does not sum to the offer TC', async () => {
+    const { STARTUP_LEADERBOARD, StartupEntry } = await import('@/data/startupLeaderboard2024');
+    const stripe = STARTUP_LEADERBOARD.find((e) => e.company === 'Stripe')!;
+    expect(() => StartupEntry.parse({ ...stripe, ngBase2024: 1 })).toThrow();
+    expect(() => StartupEntry.parse({ ...stripe, ngOfferTc2024: 100000 })).toThrow();
+  });
+});
+
+describe('leaderboard null-offer handling (Palantir)', () => {
+  const palantir = () => LEADERBOARD_2024.find((e) => e.company === 'Palantir')!;
+
+  it('Palantir has null offer components with confidence unavailable', () => {
+    const p = palantir();
+    expect(p.ticker).toBe('PLTR');
+    expect(p.base).toBeNull();
+    expect(p.signingBonus).toBeNull();
+    expect(p.stockGrantTotal4yr).toBeNull();
+    expect(p.confidence).toBe('unavailable');
+  });
+
+  it('null offers produce no offer-derived values but keep the stock move', async () => {
+    const { tcPerYearWithGrowth, stockGrowthSinceGrant } = await import('@/lib/leaderboard');
+    const p = palantir();
+    expect(offerTcAtGrant(p)).toBeNull();
+    expect(realized4yr(p, prices)).toBeNull();
+    expect(tcPerYearWithGrowth(realized4yr(p, prices))).toBeNull();
+    expect(stockGrowthSinceGrant(prices)).toBeCloseTo(0.5, 10);
+  });
+
+  it('rejects partially-null offer fields and nulls without unavailable confidence', () => {
+    const meta = LEADERBOARD_2024.find((e) => e.company === 'Meta')!;
+    expect(() => LeaderboardEntry.parse({ ...meta, base: null })).toThrow();
+    expect(() => LeaderboardEntry.parse({ ...meta, base: null, signingBonus: null, stockGrantTotal4yr: null })).toThrow();
+    expect(() => LeaderboardEntry.parse({ ...palantir(), confidence: 'sourced' })).toThrow();
+    expect(() => LeaderboardEntry.parse({ ...palantir(), base: 100000, signingBonus: 0, stockGrantTotal4yr: 0 })).toThrow();
+  });
+
+  it('allows null signing alone when the source aggregate does not report it', () => {
+    const snap = LEADERBOARD_2024.find((e) => e.company === 'Snap')!;
+    expect(snap.signingBonus).toBeNull();
+    expect(snap.base).toBe(137000);
+    expect(snap.stockGrantTotal4yr).toBe(218000);
+    expect(() => LeaderboardEntry.parse(snap)).not.toThrow();
+    // Unknown signing is counted as $0 in TC math, disclosed in method.
+    expect(offerTcAtGrant(snap)).toBe(137000 + 0 + 218000 / 4);
+    expect(snap.method.toLowerCase()).toContain('unknown, not zero');
+  });
+
+  it('new research-backed entries parse with honest estimate labeling', () => {
+    for (const name of ['Roblox', 'Arm', 'Apple', 'Snap', 'Snowflake', 'Pinterest', 'LinkedIn', 'ByteDance']) {
+      const e = LEADERBOARD_2024.find((x) => x.company === name);
+      expect(e, name).toBeDefined();
+      expect(() => LeaderboardEntry.parse(e)).not.toThrow();
+    }
+    const roblox = LEADERBOARD_2024.find((e) => e.company === 'Roblox')!;
+    expect(roblox.confidence).toBe('sourced');
+    for (const name of ['Arm', 'Apple', 'Snap', 'Snowflake', 'Pinterest', 'LinkedIn', 'ByteDance']) {
+      const e = LEADERBOARD_2024.find((x) => x.company === name)!;
+      expect(e.confidence).toBe('estimate');
+      expect(e.method.toLowerCase()).toContain('estimate');
+    }
+    // Null-ticker private/subsidiary entries cannot make growth claims.
+    for (const name of ['LinkedIn', 'ByteDance']) {
+      const e = LEADERBOARD_2024.find((x) => x.company === name)!;
+      expect(e.ticker).toBeNull();
+      expect(realized4yr(e, prices)).toBeNull();
+    }
+    // Tesla, AMD, Broadcom were researched and left out: no honest 2024 figure.
+    for (const name of ['Tesla', 'AMD', 'Broadcom']) {
+      expect(LEADERBOARD_2024.find((x) => x.company === name)).toBeUndefined();
+    }
+  });
+});
+
+describe('tcPerYearWithGrowth', () => {
+  it('annualizes the realized 4-year value', async () => {
+    const { tcPerYearWithGrowth } = await import('@/lib/leaderboard');
+    expect(tcPerYearWithGrowth(1020000)).toBe(255000);
+    expect(tcPerYearWithGrowth(0)).toBe(0);
+    expect(tcPerYearWithGrowth(null)).toBeNull();
+  });
+});
+
+describe('leaderboard COL adjustment', () => {
+  it('Ann Arbor is the 1.00 base and conversion scales by base/Bay-Area factors', async () => {
+    const { ALL_CITY_PRESETS } = await import('@/lib/col');
+    const byKey = (key: string) => ALL_CITY_PRESETS.find((c) => c.key === key);
+    const annArbor = byKey('renter-ann-arbor');
+    expect(annArbor?.factor).toBe(1.0);
+    const bayAreaFactor = 1.4;
+    // Same formula the panel applies: nominal / BAY_AREA_FACTOR * base.factor
+    expect(200000 * (annArbor!.factor / bayAreaFactor)).toBeCloseTo(142857.14, 1);
+    const sunnyvale = byKey('renter-sunnyvale');
+    expect(200000 * (sunnyvale!.factor / bayAreaFactor)).toBeCloseTo(210000, 0);
+    expect(byKey('nope')).toBeUndefined();
+  });
+});
+
+describe('leaderboard group filters', () => {
+  it('each group selects the expected companies across both tables', async () => {
+    const { STARTUP_LEADERBOARD } = await import('@/data/startupLeaderboard2024');
+    const inGroups = (groups: string[]) => ({
+      public: LEADERBOARD_2024.filter((e) => groups.includes(e.group)).map((e) => e.company),
+      startups: STARTUP_LEADERBOARD.filter((e) => groups.includes(e.group)).map((e) => e.company),
+    });
+    const ai = inGroups(['ai']);
+    expect(ai.public).toEqual(['Databricks']);
+    expect(ai.startups).toEqual(expect.arrayContaining(['Anthropic', 'OpenAI', 'Perplexity']));
+    const defense = inGroups(['defense']);
+    expect(defense.public).toEqual(['Palantir']);
+    expect(defense.startups).toEqual(['Anduril']);
+    // Unchecking everything but big-tech hides every startup row.
+    const bigTechOnly = inGroups(['big-tech']);
+    expect(bigTechOnly.startups).toEqual([]);
+    expect(bigTechOnly.public).toEqual(
+      expect.arrayContaining(['Meta', 'Google', 'Amazon', 'Microsoft', 'Netflix', 'Nvidia', 'Apple', 'Arm', 'LinkedIn'])
+    );
+    // New research-backed companies land in the right groups.
+    const consumer = inGroups(['consumer']);
+    expect(consumer.public).toEqual(expect.arrayContaining(['Airbnb', 'Uber', 'Roblox', 'Snap', 'Pinterest', 'ByteDance']));
+    expect(inGroups(['enterprise']).public).toEqual(expect.arrayContaining(['Salesforce', 'Adobe', 'Snowflake']));
+  });
+});
+
+describe('no illustrative wording in leaderboard data or UI', () => {
+  it('leaderboard datasets, lib, and panel contain no "illustrative"', async () => {
+    const { readFileSync } = await import('node:fs');
+    const files = [
+      '../data/leaderboard2024.ts',
+      '../data/startupLeaderboard2024.ts',
+      '../data/companyGroups.ts',
+      '../lib/leaderboard.ts',
+      '../components/LeaderboardPanel.tsx',
+    ];
+    for (const f of files) {
+      const text = readFileSync(new URL(f, import.meta.url), 'utf8').toLowerCase();
+      expect(text, f).not.toContain('illustrative');
+    }
+  });
+});
