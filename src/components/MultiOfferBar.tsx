@@ -84,6 +84,14 @@ function ImportMenu({
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // On mobile the menu is fixed-positioned to the viewport (the toolbar
+  // trigger sits too far left for a right-anchored dropdown), so capture
+  // the trigger's viewport position when opening.
+  const [menuTop, setMenuTop] = useState<number | null>(null);
+  // True when the menu should anchor to the viewport (mobile) rather than
+  // the trigger (desktop sm+).
+  const [viewportAnchored, setViewportAnchored] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -118,11 +126,20 @@ function ImportMenu({
   return (
     <div ref={menuRef} className="relative">
       <Button
+        ref={triggerRef}
         type="button"
         size="sm"
         variant="outline"
         className="gap-1.5"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!open) {
+            const rect = triggerRef.current?.getBoundingClientRect();
+            const mobile = window.matchMedia('(max-width: 639px)').matches;
+            setViewportAnchored(mobile);
+            setMenuTop(mobile && rect ? Math.round(rect.bottom + 8) : null);
+          }
+          setOpen((o) => !o);
+        }}
         aria-expanded={open}
         aria-haspopup="menu"
         aria-label="Import offer"
@@ -135,7 +152,8 @@ function ImportMenu({
         <div
           role="menu"
           aria-label="Import offer"
-          className="absolute right-0 z-50 mt-2 max-h-[70vh] w-[min(21rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-border bg-background p-1.5 shadow-xl"
+          style={viewportAnchored && menuTop != null ? { top: menuTop } : undefined}
+          className="fixed inset-x-3 z-50 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-background p-1.5 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-80"
         >
           <p className={sectionLabel}>From file</p>
           <label className={cn(fileInputWrapper, 'w-full')}>
