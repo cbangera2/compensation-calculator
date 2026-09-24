@@ -6,6 +6,10 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Required by @opennextjs/cloudflare (Cloudflare Workers deploy).
+  // The GitHub Pages workflow overrides this with `output: 'export'`
+  // via actions/configure-pages at build time.
+  output: "standalone",
 };
 
 export default nextConfig;

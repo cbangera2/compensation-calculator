@@ -71,7 +71,7 @@ export default function Home() {
           <div className="sticky top-0 z-30 -mx-4 border-b border-border/60 bg-background/85 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6">
             <div className="flex items-center justify-between gap-4">
               {/* Desktop: all groups inline, fits fine at md+ widths */}
-              <TabsList className="no-scrollbar hidden h-10 flex-none items-center gap-1 overflow-x-auto bg-transparent p-0 md:flex">
+              <TabsList className="no-scrollbar hidden h-10 min-w-0 flex-1 items-center justify-start gap-1 overflow-x-auto bg-transparent p-0 md:flex">
                 {TAB_GROUPS.map((group, gi) => (
                   <Fragment key={group.label}>
                     {gi > 0 && (
