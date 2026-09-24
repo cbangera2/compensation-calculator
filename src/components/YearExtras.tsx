@@ -3,7 +3,7 @@ import React, { useMemo } from 'react';
 import ReactEChartsCore from 'echarts-for-react';
 import { CardTitle } from '@/components/ui/card';
 import { useStore } from '@/state/store';
-import { computeOffer } from '@/core/compute';
+import { computeOffer, computeStartupVesting } from '@/core/compute';
 import { formatCurrency } from '@/lib/utils';
 import { useDarkMode } from '@/lib/useDarkMode';
 import {
@@ -37,6 +37,35 @@ export default function YearExtras() {
   }, [rows]);
 
   const fmt = (n: number) => formatCurrency(Math.round(n));
+
+  const startupVesting = useMemo(() => computeStartupVesting(offer), [offer]);
+  const activeStartupGrants = useMemo(
+    () => startupVesting.filter((g) => g.yearly.some((v) => v > 0.5)),
+    [startupVesting]
+  );
+
+  const optionVest = {
+    ...chartAnimation,
+    tooltip: { trigger: 'axis', valueFormatter: (v: number) => fmt(v), ...tooltipStyle(dark) },
+    legend: { data: activeStartupGrants.map((g) => g.label), ...legendStyle(dark, { top: 0 }) },
+    grid: { left: 8, right: 8, top: 36, bottom: 0, containLabel: true },
+    xAxis: { type: 'category', data: cats, ...axis, splitLine: { show: false } },
+    yAxis: {
+      type: 'value',
+      ...axis,
+      axisLabel: { ...axis.axisLabel, formatter: currencyAxisFormatter },
+    },
+    series: activeStartupGrants.map((g, i) => ({
+      name: g.label,
+      type: 'bar',
+      stack: 'vest',
+      data: g.yearly.map((v) => Math.round(v)),
+      itemStyle: i === activeStartupGrants.length - 1
+        ? { color: catPalette[i % catPalette.length], ...barItemStyle }
+        : { color: catPalette[i % catPalette.length], borderRadius: 0 },
+      barWidth: '52%',
+    })),
+  } as const;
 
   const optionCum = {
     ...chartAnimation,
@@ -81,7 +110,7 @@ export default function YearExtras() {
   return (
     <MobileCollapse
       title="More insights"
-      description="Cumulative totals and yearly mix"
+      description="Cumulative totals, yearly mix, and vesting by grant"
       header={<CardTitle className="text-sm font-semibold">More insights</CardTitle>}
       contentClassName="space-y-6"
     >
@@ -93,6 +122,12 @@ export default function YearExtras() {
           <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Composition per year (100%)</div>
           <ReactEChartsCore option={option100} style={{ height: chartH }} />
         </div>
+        {activeStartupGrants.length > 0 && (
+          <div>
+            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Equity vesting by grant</div>
+            <ReactEChartsCore option={optionVest} style={{ height: chartH }} />
+          </div>
+        )}
     </MobileCollapse>
   );
 }

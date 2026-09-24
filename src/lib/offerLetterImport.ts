@@ -266,7 +266,7 @@ function toIso(y: number, mo: number, d: number): string | null {
 
 function extractStartDate(text: string): string | null {
   const monthNames = Object.keys(MONTHS).join('|');
-  // "start date ... July 15, 2024"
+  // "start date ... August 1, 2024"
   const withContext = new RegExp(
     `(?:start|commence|begin|join|onboard|effective)[^\\n]{0,100}?\\b(${monthNames})\\w*\\s+(\\d{1,2})(?:st|nd|rd|th)?,?\\s+(\\d{4})`,
     'i',
@@ -276,13 +276,13 @@ function extractStartDate(text: string): string | null {
     const iso = toIso(Number(m[3]), MONTHS[m[1].toLowerCase()], Number(m[2]));
     if (iso) return iso;
   }
-  // ISO anywhere: 2024-07-15
+  // ISO anywhere: 2024-08-01
   m = /(\d{4})-(\d{1,2})-(\d{1,2})/.exec(text);
   if (m) {
     const iso = toIso(Number(m[1]), Number(m[2]), Number(m[3]));
     if (iso) return iso;
   }
-  // US numeric near a start-date mention: 07/15/2024
+  // US numeric near a start-date mention: 08/01/2024
   const usSlice = sliceAfter(text, /start(?:ing)?\s+date/i, 80) ?? sliceAfter(text, /\bstart\b/i, 80);
   if (usSlice) {
     const um = /(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(usSlice);

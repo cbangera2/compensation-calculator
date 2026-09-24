@@ -13,7 +13,7 @@ Your annual bonus target will be 15% of your base salary, based on company and i
 
 You will be granted 1,200 RSUs, vesting over 4 years with a one-year cliff.
 
-We look forward to you joining us. Your start date will be July 15, 2024.
+We look forward to you joining us. Your start date will be August 1, 2024.
 You will be based in Mountain View, CA.
 
 Sincerely,
@@ -29,7 +29,7 @@ describe('parseOfferLetter', () => {
     expect(r.extracted.rsuShares).toBe(1200);
     expect(r.extracted.vestYears).toBe(4);
     expect(r.extracted.cliffMonths).toBe(12);
-    expect(r.extracted.startDate).toBe('2024-07-15');
+    expect(r.extracted.startDate).toBe('2024-08-01');
     expect(r.extracted.company).toBe('Google');
     expect(r.extracted.location).toBe('Mountain View, CA');
     expect(r.unparsed).not.toContain('base salary');
@@ -40,7 +40,7 @@ describe('parseOfferLetter', () => {
     const r = parseOfferLetter(FULL_LETTER);
     expect(r.offer.name).toBe('Google');
     expect(r.offer.base.startAnnual).toBe(165_000);
-    expect(r.offer.signingBonuses).toEqual([{ amount: 25_000, payDate: '2024-07-15' }]);
+    expect(r.offer.signingBonuses).toEqual([{ amount: 25_000, payDate: '2024-08-01' }]);
     expect(r.offer.performanceBonus).toEqual({ kind: 'percent', value: 0.15, expectedPayout: 1 });
     expect(r.offer.equityGrants).toHaveLength(1);
     expect(r.offer.equityGrants[0].type).toBe('RSU');
@@ -117,8 +117,8 @@ describe('parseOfferLetter', () => {
   });
 
   it('parses US numeric start dates near a start-date mention', () => {
-    const r = parseOfferLetter('Base salary $100,000. Start date: 07/15/2024.');
-    expect(r.extracted.startDate).toBe('2024-07-15');
+    const r = parseOfferLetter('Base salary $100,000. Start date: 08/01/2024.');
+    expect(r.extracted.startDate).toBe('2024-08-01');
   });
 
   it('parses vesting with explicit cliff years', () => {
@@ -170,7 +170,7 @@ describe('parseOfferLetter', () => {
     expect(edited.base.startAnnual).toBe(180_000);
     expect(edited.name).toBe('EditedCo');
     // untouched fields survive
-    expect(edited.signingBonuses).toEqual([{ amount: 25_000, payDate: '2024-07-15' }]);
+    expect(edited.signingBonuses).toEqual([{ amount: 25_000, payDate: '2024-08-01' }]);
   });
 
   it('flags vesting schedule as unparsed when absent', () => {

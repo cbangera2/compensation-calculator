@@ -60,6 +60,7 @@ export const StartupOptionGrant = z.object({
   fmvAtGrant: z.number().nonnegative(),
   vestYears: z.number().positive(),
   cliffMonths: z.number().int().nonnegative().default(12),
+  grantStartDate: z.string().optional(),
 });
 
 export const StartupRsuGrant = z.object({
@@ -69,6 +70,7 @@ export const StartupRsuGrant = z.object({
   fmvAtGrant: z.number().nonnegative(),
   doubleTrigger: z.boolean().default(true),
   vestYears: z.number().positive(),
+  grantStartDate: z.string().optional(),
 });
 
 export const StartupEquity = z.object({
