@@ -10,6 +10,7 @@ import {
   PiggyBank,
   Rocket,
   TrendingUp,
+  Trophy,
   type LucideIcon,
 } from 'lucide-react';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,6 +24,7 @@ const TAB_ICONS: Record<TabValue, LucideIcon> = {
   startup: Rocket,
   growth: TrendingUp,
   benchmarks: BarChart3,
+  leaderboard: Trophy,
   compare: ArrowLeftRight,
   raises: PiggyBank,
   cities: MapPin,
