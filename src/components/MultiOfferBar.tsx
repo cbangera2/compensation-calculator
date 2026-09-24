@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { Plus, Copy, Trash2, Download, Share2, RotateCcw, Upload, Globe, FileText, ClipboardPaste } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Plus, Copy, Trash2, Download, Share2, RotateCcw, Upload, Globe, FileText, ClipboardPaste, ChevronDown } from 'lucide-react';
 import { useStore } from '@/state/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,6 @@ import { buildOfferFromFields, parseOfferLetter } from '@/lib/offerLetterImport'
 import type { ExtractedOfferFields, OfferLetterParseResult } from '@/lib/offerLetterImport';
 import type { TOffer } from '@/models/types';
 import ShareDialog from '@/components/ShareDialog';
-import MobileCollapse from '@/components/MobileCollapse';
 import { cn } from '@/lib/utils';
 
 const scrollGradient = "pointer-events-none absolute inset-y-0 w-6 bg-gradient-to-r from-background/95 to-transparent";
@@ -56,6 +55,171 @@ export function equityKindEdits(
     rsuValue: null,
     optionShares: merged?.optionShares ?? 0,
   };
+}
+
+/**
+ * ImportMenu — single dropdown consolidating every import path (JSON file,
+ * levels.fyi URL, Levels HTML upload, offer-letter paste, sample presets).
+ * Closes on outside click or Escape.
+ */
+function ImportMenu({
+  levelsUrl,
+  setLevelsUrl,
+  onImportLevels,
+  onImportJsonFile,
+  onImportHtmlFile,
+  presetKey,
+  onPresetSelect,
+  onPasteOfferLetter,
+}: {
+  levelsUrl: string;
+  setLevelsUrl: (v: string) => void;
+  onImportLevels: () => void;
+  onImportJsonFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onImportHtmlFile: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  presetKey: string | undefined;
+  onPresetSelect: (value: string) => void;
+  onPasteOfferLetter: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open ]);
+
+  const close = () => setOpen(false);
+
+  const menuRow =
+    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted';
+  const sectionLabel =
+    'px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
+
+  return (
+    <div ref={menuRef} className="relative">
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        className="gap-1.5"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-haspopup="menu"
+      >
+        <Upload className="size-4" />
+        <span className="hidden sm:inline">Import</span>
+        <ChevronDown className={cn('size-3.5 transition-transform', open && 'rotate-180')} />
+      </Button>
+      {open && (
+        <div
+          role="menu"
+          aria-label="Import offer"
+          className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-border bg-background p-1.5 shadow-xl"
+        >
+          <p className={sectionLabel}>From file</p>
+          <label className={cn(fileInputWrapper, 'w-full')}>
+            <input type="file" accept="application/json" multiple className={hiddenInput} onChange={(e) => { onImportJsonFile(e); close(); }} />
+            <span role="menuitem" className={cn(menuRow, 'pointer-events-none')}>
+              <Upload className="size-4 shrink-0 text-muted-foreground" />
+              Import JSON
+            </span>
+          </label>
+          <label className={cn(fileInputWrapper, 'w-full')}>
+            <input type="file" accept="text/html,.html" className={hiddenInput} onChange={(e) => { onImportHtmlFile(e); close(); }} />
+            <span role="menuitem" className={cn(menuRow, 'pointer-events-none')}>
+              <FileText className="size-4 shrink-0 text-muted-foreground" />
+              Upload Levels HTML
+            </span>
+          </label>
+
+          <p className={sectionLabel}>From levels.fyi</p>
+          <div className="px-1.5 pb-1">
+            <div className="flex items-center gap-1.5">
+              <Input
+                placeholder="levels.fyi URL"
+                value={levelsUrl}
+                onChange={(e) => setLevelsUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    onImportLevels();
+                    close();
+                  }
+                }}
+                className="h-8 text-xs"
+                aria-label="levels.fyi URL"
+              />
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="shrink-0 gap-1.5"
+                disabled={!levelsUrl.trim()}
+                onClick={() => {
+                  onImportLevels();
+                  close();
+                }}
+              >
+                <Globe className="size-4" />
+                Go
+              </Button>
+            </div>
+          </div>
+
+          <p className={sectionLabel}>From offer letter</p>
+          <button
+            type="button"
+            role="menuitem"
+            className={menuRow}
+            onClick={() => {
+              onPasteOfferLetter();
+              close();
+            }}
+          >
+            <ClipboardPaste className="size-4 shrink-0 text-muted-foreground" />
+            Paste offer letter
+          </button>
+
+          <p className={sectionLabel}>Sample presets</p>
+          <div className="px-1.5 pb-1.5">
+            <Select value={presetKey} onValueChange={(v) => { onPresetSelect(v); close(); }}>
+              <SelectTrigger size="sm" className="w-full">
+                <SelectValue placeholder="Import preset" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="google">Google</SelectItem>
+                <SelectItem value="ford">Ford</SelectItem>
+                <SelectItem value="startup">Startup</SelectItem>
+                <SelectSeparator />
+                <SelectItem value="meta">Meta (illustrative)</SelectItem>
+                <SelectItem value="apple">Apple (illustrative)</SelectItem>
+                <SelectItem value="microsoft">Microsoft (illustrative)</SelectItem>
+                <SelectItem value="bloomberg">Bloomberg (illustrative)</SelectItem>
+                <SelectItem value="stripe">Stripe (illustrative)</SelectItem>
+                <SelectItem value="spacex">SpaceX (illustrative)</SelectItem>
+                <SelectItem value="tesla">Tesla (illustrative)</SelectItem>
+                <SelectItem value="anduril">Anduril (illustrative)</SelectItem>
+                <SelectItem value="palantir">Palantir (illustrative)</SelectItem>
+                <SelectSeparator />
+                <SelectItem value="all">Import all</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function MultiOfferBar() {
@@ -193,140 +357,89 @@ export default function MultiOfferBar() {
     event.currentTarget.value = '';
   }
 
+  async function handlePresetSelect(value: string) {
+    setPresetKey(value);
+    if (value === 'all') await importAllPresets();
+    else if (value) await importPreset(`presets/${value}.json`);
+    setPresetKey(undefined);
+  }
+
   return (
-    <div className="space-y-2 rounded-2xl border border-border/60 bg-background/95 px-3 py-2.5 shadow-sm sm:space-y-3 sm:px-4 sm:py-3">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="relative min-w-0 flex-1">
-            <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {offers.map((offer, index) => (
-                <Button
-                  key={index}
-                  type="button"
-                  variant="chip"
-                  size="pill"
-                  data-active={index === activeIndex}
-                  className={cn('snap-start font-medium', 'max-w-[180px] truncate')}
-                  onClick={() => setActiveIndex(index)}
-                >
-                  {offer.name || `Offer ${index + 1}`}
-                </Button>
-              ))}
-            </div>
-            <div className={cn(scrollGradient, 'left-0')} />
-            <div className={cn(scrollGradient, 'right-0 rotate-180')} />
+    <div className="rounded-2xl border border-border/60 bg-background/95 px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="relative min-w-0 flex-1">
+          <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {offers.map((offer, index) => (
+              <Button
+                key={index}
+                type="button"
+                variant="chip"
+                size="pill"
+                data-active={index === activeIndex}
+                className={cn('snap-start font-medium', 'max-w-[180px] truncate')}
+                onClick={() => setActiveIndex(index)}
+              >
+                {offer.name || `Offer ${index + 1}`}
+              </Button>
+            ))}
           </div>
-
-          <div className="flex flex-wrap items-center gap-1.5">
-            <Button type="button" size="sm" variant="secondary" className="gap-1.5" onClick={() => addOffer()}>
-              <Plus className="size-4" />
-              New
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={duplicateActiveOffer}>
-              <Copy className="size-4" />
-              Duplicate
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="gap-1.5 text-destructive hover:text-destructive"
-              onClick={() => removeOffer(activeIndex)}
-              disabled={offers.length <= 1}
-              aria-label="Delete active offer"
-              title="Delete active offer"
-            >
-              <Trash2 className="size-4" />
-            </Button>
-            <span className="mx-1 h-5 w-px bg-border/70" />
-            <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={exportJSON}>
-              <Download className="size-4" />
-              <span className="hidden sm:inline">Export</span>
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={() => setShareOpen(true)}>
-              <Share2 className="size-4" />
-              <span className="hidden sm:inline">Share link</span>
-            </Button>
-            <Button type="button" size="sm" variant="ghost" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => { resetAll(); location.reload(); }}>
-              <RotateCcw className="size-4" />
-            </Button>
-          </div>
+          <div className={cn(scrollGradient, 'left-0')} />
+          <div className={cn(scrollGradient, 'right-0 rotate-180')} />
         </div>
-      </div>
 
-      <MobileCollapse
-        variant="plain"
-        title="Import & presets"
-        description="JSON, levels.fyi, offer letters, sample offers"
-        contentClassName="flex flex-col gap-2"
-        desktopClassName="flex flex-col gap-2 border-t border-border/50 pt-3 lg:flex-row lg:items-center lg:justify-between"
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          <label className={fileInputWrapper}>
-            <input type="file" accept="application/json" multiple className={hiddenInput} onChange={importJSON} />
-            <Button type="button" variant="outline" size="sm" className="pointer-events-none gap-2">
-              <Upload className="size-4" />
-              Import JSON
-            </Button>
-          </label>
-          <Select
-            value={presetKey}
-            onValueChange={async (value) => {
-              setPresetKey(value);
-              if (value === 'all') await importAllPresets();
-              else if (value) await importPreset(`presets/${value}.json`);
-              setPresetKey(undefined);
-            }}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button type="button" size="sm" variant="secondary" className="gap-1.5" onClick={() => addOffer()}>
+            <Plus className="size-4" />
+            New
+          </Button>
+          <ImportMenu
+            levelsUrl={levelsUrl}
+            setLevelsUrl={setLevelsUrl}
+            onImportLevels={importFromLevels}
+            onImportJsonFile={importJSON}
+            onImportHtmlFile={importLevelsHtmlFile}
+            presetKey={presetKey}
+            onPresetSelect={handlePresetSelect}
+            onPasteOfferLetter={() => setOfferLetterOpen(true)}
+          />
+          <Button type="button" size="sm" variant="secondary" className="gap-1.5" onClick={() => setShareOpen(true)}>
+            <Share2 className="size-4" />
+            <span className="hidden sm:inline">Share link</span>
+          </Button>
+          <span className="mx-1 h-5 w-px bg-border/70" aria-hidden="true" />
+          <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={duplicateActiveOffer} title="Duplicate active offer">
+            <Copy className="size-4" />
+            <span className="hidden sm:inline">Duplicate</span>
+          </Button>
+          <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={exportJSON} title="Export active offer as JSON">
+            <Download className="size-4" />
+            <span className="hidden sm:inline">Export</span>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="gap-1.5 text-destructive hover:text-destructive"
+            onClick={() => removeOffer(activeIndex)}
+            disabled={offers.length <= 1}
+            aria-label="Delete active offer"
+            title="Delete active offer"
           >
-            <SelectTrigger size="sm" className="w-[150px]">
-              <SelectValue placeholder="Import preset" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="google">Google</SelectItem>
-              <SelectItem value="ford">Ford</SelectItem>
-              <SelectItem value="startup">Startup</SelectItem>
-              <SelectSeparator />
-              <SelectItem value="meta">Meta (illustrative)</SelectItem>
-              <SelectItem value="apple">Apple (illustrative)</SelectItem>
-              <SelectItem value="microsoft">Microsoft (illustrative)</SelectItem>
-              <SelectItem value="bloomberg">Bloomberg (illustrative)</SelectItem>
-              <SelectItem value="stripe">Stripe (illustrative)</SelectItem>
-              <SelectItem value="spacex">SpaceX (illustrative)</SelectItem>
-              <SelectItem value="tesla">Tesla (illustrative)</SelectItem>
-              <SelectItem value="anduril">Anduril (illustrative)</SelectItem>
-              <SelectItem value="palantir">Palantir (illustrative)</SelectItem>
-              <SelectSeparator />
-              <SelectItem value="all">Import all</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2">
-            <Input
-              placeholder="levels.fyi URL"
-              value={levelsUrl}
-              onChange={(e) => setLevelsUrl(e.target.value)}
-              className="h-8 w-44 text-xs sm:w-56"
-            />
-            <Button type="button" size="sm" variant="secondary" className="gap-2" onClick={importFromLevels}>
-              <Globe className="size-4" />
-              Import URL
-            </Button>
-          </div>
-          <label className={fileInputWrapper}>
-            <input type="file" accept="text/html,.html" className={hiddenInput} onChange={importLevelsHtmlFile} />
-            <Button type="button" variant="outline" size="sm" className="pointer-events-none gap-2">
-              <FileText className="size-4" />
-              Upload HTML
-            </Button>
-          </label>
-          <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => setOfferLetterOpen(true)}>
-            <ClipboardPaste className="size-4" />
-            Paste offer letter
+            <Trash2 className="size-4" />
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="gap-1.5 text-destructive hover:text-destructive"
+            onClick={() => { resetAll(); location.reload(); }}
+            aria-label="Reset all offers"
+            title="Reset all offers"
+          >
+            <RotateCcw className="size-4" />
           </Button>
         </div>
-      </MobileCollapse>
+      </div>
       <ShareDialog
         open={shareOpen}
         onClose={() => setShareOpen(false)}
