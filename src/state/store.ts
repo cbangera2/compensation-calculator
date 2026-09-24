@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { TOffer, TEquityGrant } from '@/models/types';
-import { MAX_COMPARE_OFFERS, remapCompareSelectionAfterRemove } from '@/lib/compare';
+import { remapCompareSelectionAfterRemove, sanitizeCompareSelection } from '@/lib/compare';
 
 type State = {
   offer: TOffer; // mirrors offers[activeIndex] for backward-compat
@@ -96,17 +96,9 @@ export const useStore = create<State>()(
       uiMode: 'simple',
       sidebarCollapsed: false,
       compareSelection: [],
-      setCompareSelection: (indices) => set((state) => {
-        const seen = new Set<number>();
-        const clean: number[] = [];
-        for (const i of indices) {
-          if (!Number.isInteger(i) || i < 0 || i >= state.offers.length || seen.has(i)) continue;
-          seen.add(i);
-          clean.push(i);
-          if (clean.length >= MAX_COMPARE_OFFERS) break;
-        }
-        return { compareSelection: clean };
-      }),
+      setCompareSelection: (indices) => set((state) => ({
+        compareSelection: sanitizeCompareSelection(indices, state.offers.length),
+      })),
       resetAll: () => set(() => {
         try { localStorage.removeItem('compcalc-store'); } catch {}
         // Reset to initial defaults
