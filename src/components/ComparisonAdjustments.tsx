@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { useStore } from '@/state/store';
+import { useComparedOffers } from '@/lib/useComparedOffers';
 import { computeOffer } from '@/core/compute';
 import { buildPricePath } from '@/core/growth';
 import { cn, formatCurrency } from '@/lib/utils';
@@ -54,7 +55,12 @@ function clampToRange(value: number, range: Range) {
 }
 
 export default function ComparisonAdjustments() {
-  const { offers, activeIndex, updateOfferAt, applyToOffers } = useStore();
+  const { activeIndex, updateOfferAt, applyToOffers } = useStore();
+  // Compare tab renders at most MAX_COMPARE_OFFERS offers. `compared` pairs
+  // each offer with its original store index so updateOfferAt hits the
+  // right offer; stats/pricePreviews stay positional over the filtered list.
+  const compared = useComparedOffers();
+  const offers = useMemo(() => compared.map((p) => p.offer), [compared]);
   const [syncCol, setSyncCol] = useState(false);
   const [syncGrowth, setSyncGrowth] = useState(false);
   const [expandedOffer, setExpandedOffer] = useState<number | null>(null);
@@ -182,7 +188,7 @@ export default function ComparisonAdjustments() {
       </CardHeader>
       <CardContent>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {offers.map((offer, index) => {
+        {compared.map(({ offer, index }, pos) => {
           const colFactor = coerceNumber(offer.colFactor ?? 1, 1);
           const location = offer.location || '';
           // Match a city preset by name only: a manually-set factor (via chips, slider,
@@ -190,8 +196,8 @@ export default function ComparisonAdjustments() {
           const presetKey = matchCityPresetKey(location) ?? 'custom';
           const yoy = ensureYoY(offer);
           const startingPrice = offer.growth?.startingPrice ?? offer.equityGrants?.[0]?.fmv ?? 10;
-          const preview = pricePreviews[index] ?? [];
-          const stat = stats[index];
+          const preview = pricePreviews[pos] ?? [];
+          const stat = stats[pos];
           const years = offer.assumptions?.horizonYears ?? yoy.length;
           const isExpanded = expandedOffer === index;
           const previewLabels = preview.map((price, idx) => (idx === 0 ? `Start $${price}` : `Y${idx} $${price}`));

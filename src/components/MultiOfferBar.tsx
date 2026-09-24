@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Copy, Trash2, Download, Share2, RotateCcw, Upload, Globe, FileText, ClipboardPaste, ChevronDown } from 'lucide-react';
 import { useStore } from '@/state/store';
+import { splitOfferBarIndices } from '@/lib/compare';
+import { useIsMobile } from '@/lib/useIsMobile';
 import { Button } from '@/components/ui/button';
 import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
@@ -15,7 +17,6 @@ import type { TOffer } from '@/models/types';
 import ShareDialog from '@/components/ShareDialog';
 import { cn } from '@/lib/utils';
 
-const scrollGradient = "pointer-events-none absolute inset-y-0 w-6 bg-gradient-to-r from-background/95 to-transparent";
 const fileInputWrapper = "relative inline-flex";
 const hiddenInput = "absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0";
 
@@ -225,6 +226,14 @@ function ImportMenu({
 
 export default function MultiOfferBar() {
   const { offers, activeIndex, setActiveIndex, addOffer, duplicateActiveOffer, removeOffer, resetAll, uiMode } = useStore();
+  const isMobile = useIsMobile();
+  // Pills for the first few offers; the rest tuck behind a "+N more" menu.
+  // The active offer is always kept visible. No horizontal scroll trap.
+  const { visible: visibleOfferIndices, overflow: overflowOfferIndices } = splitOfferBarIndices(
+    offers.length,
+    activeIndex,
+    isMobile ? 3 : 5,
+  );
   const [presetKey, setPresetKey] = useState<string | undefined>();
   const [levelsUrl, setLevelsUrl] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
@@ -368,24 +377,47 @@ export default function MultiOfferBar() {
   return (
     <div className="rounded-2xl border border-border/60 bg-background/95 px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="relative min-w-0 flex-1">
-          <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {offers.map((offer, index) => (
-              <Button
-                key={index}
-                type="button"
-                variant="chip"
-                size="pill"
-                data-active={index === activeIndex}
-                className={cn('snap-start font-medium', 'max-w-[180px] truncate')}
-                onClick={() => setActiveIndex(index)}
-              >
-                {offer.name || `Offer ${index + 1}`}
-              </Button>
-            ))}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {visibleOfferIndices.map((index) => {
+              const offer = offers[index]!;
+              return (
+                <Button
+                  key={index}
+                  type="button"
+                  variant="chip"
+                  size="pill"
+                  data-active={index === activeIndex}
+                  className={cn('min-w-0 font-medium', 'max-w-[180px] truncate')}
+                  onClick={() => setActiveIndex(index)}
+                >
+                  {offer.name || `Offer ${index + 1}`}
+                </Button>
+              );
+            })}
+            {overflowOfferIndices.length > 0 && (
+              // Controlled with a constant empty value so the trigger always
+              // reads "+N more" (it acts as a menu, not a value display).
+              <Select value="" onValueChange={(v) => setActiveIndex(Number(v))}>
+                <SelectTrigger
+                  aria-label={`${overflowOfferIndices.length} more offers`}
+                  className="h-8 w-auto gap-1 rounded-full border-dashed px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
+                >
+                  <SelectValue placeholder={`+${overflowOfferIndices.length} more`} />
+                </SelectTrigger>
+                <SelectContent>
+                  {overflowOfferIndices.map((index) => {
+                    const offer = offers[index]!;
+                    return (
+                      <SelectItem key={index} value={String(index)}>
+                        <span className="max-w-[220px] truncate">{offer.name || `Offer ${index + 1}`}</span>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            )}
           </div>
-          <div className={cn(scrollGradient, 'left-0')} />
-          <div className={cn(scrollGradient, 'right-0 rotate-180')} />
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">

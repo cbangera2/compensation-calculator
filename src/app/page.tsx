@@ -14,6 +14,7 @@ import ComparisonAdjustments from '@/components/ComparisonAdjustments';
 import ComparisonTrendChart from '@/components/ComparisonTrendChart';
 import ComparisonStockChart from '@/components/ComparisonStockChart';
 import CompareShareButton from '@/components/CompareShareButton';
+import ComparePicker from '@/components/ComparePicker';
 import DecisionHelpers from '@/components/DecisionHelpers';
 import StatCards from '@/components/StatCards';
 import StartupPanel from '@/components/StartupPanel';
@@ -137,6 +138,7 @@ export default function Home() {
                 <div className="flex justify-end">
                   <CompareShareButton />
                 </div>
+                <ComparePicker />
                 <ComparisonChart />
                 <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
                   <ComparisonTrendChart />
