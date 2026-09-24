@@ -2,6 +2,8 @@
 import { useStore } from '@/state/store';
 import type { TVestingSchedule, TEquityGrant, TOffer } from '@/models/types';
 import { Input } from '@/components/ui/input';
+import EmptyState from '@/components/EmptyState';
+import { TrendingUp } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useMemo, useState } from 'react';
@@ -538,14 +540,11 @@ export default function GrantsPanel() {
             );
           })}
         {grants.length === 0 && (
-          <div className="border-2 border-dashed rounded-lg p-8 text-center">
-            <p className="text-sm text-muted-foreground mb-2">
-              No equity grants configured yet
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Use the quick add section above to create a refresher grant, or set your initial grant in Simple mode first.
-            </p>
-          </div>
+          <EmptyState
+              icon={<TrendingUp className="size-4" />}
+              title="No equity grants configured yet"
+              hint="Use the quick add section above to create a refresher grant, or set your initial grant in Simple mode first."
+            />
         )}
       </div>
     </div>

@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { computeOffer } from '@/core/compute';
 import type { TOffer } from '@/models/types';
 
-function baseOffer(partial: Partial<TOffer>): TOffer {
+function baseOffer(partial: Omit<Partial<TOffer>, 'assumptions'> & {
+  assumptions?: { horizonYears?: number; colAdjust?: number; presentValueRate?: number };
+}): TOffer {
+  const { assumptions, ...rest } = partial;
   return {
     name: 'Test', currency: 'USD', startDate: '2025-01-01',
     base: { startAnnual: 100_000 },
@@ -11,8 +14,8 @@ function baseOffer(partial: Partial<TOffer>): TOffer {
     benefits: [], miscRecurring: [], equityGrants: [],
     growth: { startingPrice: 10, yoy: [0,0,0,0] },
     retirement: undefined,
-    assumptions: { horizonYears: 4 },
-    ...partial,
+    assumptions: { horizonYears: 4, colAdjust: 1, ...assumptions },
+    ...rest,
   } as unknown as TOffer;
 }
 

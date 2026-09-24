@@ -18,6 +18,10 @@ type Range = { min: number; max: number };
 
 const INITIAL_COL_RANGE: Range = { min: 0.6, max: 2.0 };
 
+// One-tap COL factors for compare-time correction (e.g. from location auto-suggest
+// or the renter-model ratios), alongside the custom slider/input.
+const COL_FACTOR_PRESETS = [0.85, 1.0, 1.25, 1.47];
+
 function ensureYoY(offer: ReturnType<typeof useStore.getState>['offers'][number]) {
   const years = offer.assumptions?.horizonYears ?? 4;
   const existing = offer.growth?.yoy ?? [];
@@ -155,7 +159,7 @@ export default function ComparisonAdjustments() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Scenario adjustments</CardTitle>
+        <CardTitle className="text-base sm:text-lg">Scenario adjustments</CardTitle>
         <CardDescription>Tune cost of living and stock growth to see how each offer responds.</CardDescription>
         <div className="flex flex-wrap gap-2 pt-2">
           <Button
@@ -181,7 +185,9 @@ export default function ComparisonAdjustments() {
         {offers.map((offer, index) => {
           const colFactor = coerceNumber(offer.colFactor ?? 1, 1);
           const location = offer.location || '';
-          const presetKey = CITY_PRESETS.find(c => c.name === location || Math.abs(c.factor - colFactor) < 0.001)?.key ?? 'custom';
+          // Match a city preset by name only: a manually-set factor (via chips, slider,
+          // or number input) stays "Custom" even if it numerically equals a city factor.
+          const presetKey = CITY_PRESETS.find(c => c.name === location)?.key ?? 'custom';
           const yoy = ensureYoY(offer);
           const startingPrice = offer.growth?.startingPrice ?? offer.equityGrants?.[0]?.fmv ?? 10;
           const preview = pricePreviews[index] ?? [];
@@ -198,7 +204,7 @@ export default function ComparisonAdjustments() {
             <div
               key={index}
               className={cn(
-                'rounded-md border bg-background/85 px-4 py-3 shadow-sm transition',
+                'rounded-xl border bg-background/85 px-4 py-3 shadow-sm transition',
                 index === activeIndex ? 'border-primary/50 ring-2 ring-primary/10' : 'border-border'
               )}
             >
@@ -221,17 +227,17 @@ export default function ComparisonAdjustments() {
                 </Button>
               </div>
 
-              <div className="mt-2 grid grid-cols-1 gap-2 text-[11px] text-muted-foreground sm:grid-cols-3">
+              <div className="mt-2 grid grid-cols-3 gap-2 text-[11px] text-muted-foreground">
                 <div className="rounded-md border border-muted bg-muted/30 px-3 py-2">
-                  <div className="text-xs font-medium text-foreground">{formatCurrency(Math.round(stat?.year1Total ?? 0))}</div>
+                  <div className="text-xs font-medium tabular-nums text-foreground">{formatCurrency(Math.round(stat?.year1Total ?? 0))}</div>
                   <div>Year 1 total</div>
                 </div>
                 <div className="rounded-md border border-muted bg-muted/30 px-3 py-2">
-                  <div className="text-xs font-medium text-foreground">{formatCurrency(Math.round(stat?.year1Stock ?? 0))}</div>
+                  <div className="text-xs font-medium tabular-nums text-foreground">{formatCurrency(Math.round(stat?.year1Stock ?? 0))}</div>
                   <div>Year 1 stock</div>
                 </div>
                 <div className="rounded-md border border-muted bg-muted/30 px-3 py-2">
-                  <div className="text-xs font-medium text-foreground">{formatCurrency(Math.round(stat?.total4y ?? 0))}</div>
+                  <div className="text-xs font-medium tabular-nums text-foreground">{formatCurrency(Math.round(stat?.total4y ?? 0))}</div>
                   <div>4-year total</div>
                 </div>
               </div>
@@ -271,22 +277,42 @@ export default function ComparisonAdjustments() {
                         ))}
                       </select>
                       {presetKey === 'custom' && (
-                        <div className="flex items-center gap-2">
-                          <Slider
-                            value={[clampToRange(colFactor, colRange)]}
-                            min={colRange.min}
-                            max={colRange.max}
-                            step={0.01}
-                            onValueChange={(values) => setColAdjust(index, values[0] ?? colFactor)}
-                          />
-                          <Input
-                            className="h-8 w-20 px-2 text-xs"
-                            type="number"
-                            step="0.05"
-                            value={colFactor.toFixed(2)}
-                            onChange={(event) => setColAdjust(index, Number(event.target.value))}
-                          />
-                        </div>
+                        <>
+                          <div className="flex flex-wrap gap-1">
+                            {COL_FACTOR_PRESETS.map((factor) => (
+                              <button
+                                key={factor}
+                                type="button"
+                                onClick={() => setColAdjust(index, factor)}
+                                aria-pressed={Math.abs(colFactor - factor) < 0.001}
+                                className={cn(
+                                  'rounded-full border px-2 py-0.5 text-[11px] tabular-nums transition',
+                                  Math.abs(colFactor - factor) < 0.001
+                                    ? 'border-primary bg-primary/10 font-semibold text-foreground'
+                                    : 'border-muted bg-muted/30 text-muted-foreground hover:text-foreground'
+                                )}
+                              >
+                                {factor.toFixed(2)}×
+                              </button>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Slider
+                              value={[clampToRange(colFactor, colRange)]}
+                              min={colRange.min}
+                              max={colRange.max}
+                              step={0.01}
+                              onValueChange={(values) => setColAdjust(index, values[0] ?? colFactor)}
+                            />
+                            <Input
+                              className="h-8 w-20 px-2 text-xs"
+                              type="number"
+                              step="0.05"
+                              value={colFactor.toFixed(2)}
+                              onChange={(event) => setColAdjust(index, Number(event.target.value))}
+                            />
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>

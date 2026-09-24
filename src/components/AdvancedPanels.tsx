@@ -7,6 +7,7 @@ import { useStore } from '@/state/store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
+import { Offer } from '@/models/types';
 
 export default function AdvancedPanels() {
   const { uiMode } = useStore();
@@ -29,7 +30,7 @@ export default function AdvancedPanels() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Advanced Settings</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Advanced Settings</CardTitle>
             <div className="text-sm text-muted-foreground">
               Configure detailed scenarios & assumptions
             </div>
@@ -150,9 +151,13 @@ function PersistencePanel() {
     reader.onload = () => {
       try {
         const obj = JSON.parse(String(reader.result));
-        // Basic shape guard: rely on zod at form submit, here we accept and let UI reflect
-        setOffer(obj);
-        alert(`Successfully imported offer: ${obj.name || 'Unnamed Offer'}`);
+        const parsed = Offer.safeParse(obj);
+        if (!parsed.success) {
+          alert('Import rejected: file is not a valid offer (missing or invalid fields).');
+          return;
+        }
+        setOffer(parsed.data);
+        alert(`Successfully imported offer: ${parsed.data.name || 'Unnamed Offer'}`);
       } catch {
         alert('Invalid JSON file. Please check the file format and try again.');
       }

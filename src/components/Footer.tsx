@@ -1,6 +1,6 @@
 export default function Footer() {
   return (
-    <footer id="footer" className="text-center text-slate-400 text-xs pb-10">
+    <footer id="footer" className="text-center text-muted-foreground text-xs pb-10">
       <br />
       © {new Date().getFullYear()} Chirag Bangera • Built with Next.js and Tailwind •{" "}
       <a

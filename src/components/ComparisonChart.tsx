@@ -4,12 +4,33 @@ import ReactEChartsCore from 'echarts-for-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useStore } from '@/state/store';
 import { computeOffer } from '@/core/compute';
-import { formatCurrency } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
+import { cn, formatCurrency } from '@/lib/utils';
+import { X } from 'lucide-react';
+import { useDarkMode } from '@/lib/useDarkMode';
+import {
+  compColors,
+  tooltipStyle,
+  axisStyle,
+  legendStyle,
+  chartAnimation,
+  barItemStyle,
+  currencyAxisFormatter,
+} from '@/lib/chartTheme';
+import { useChartHeight } from '@/lib/useIsMobile';
 
 export default function ComparisonChart() {
+  const chartH = useChartHeight(360, 260);
   const { offers, activeIndex } = useStore();
   const [showPurchasingPower, setShowPurchasingPower] = useState(false);
+  const [ppNudgeDismissed, setPpNudgeDismissed] = useState(false);
+  const [ppEverEnabled, setPpEverEnabled] = useState(false);
+  const setMode = (pp: boolean) => {
+    setShowPurchasingPower(pp);
+    if (pp) setPpEverEnabled(true);
+  };
+  const dark = useDarkMode();
+  const colors = useMemo(() => compColors(dark), [dark]);
+  const axis = useMemo(() => axisStyle(dark), [dark]);
 
   const rowsPerOffer = useMemo(() => 
     (offers || []).map((o) => computeOffer(o)),
@@ -26,7 +47,7 @@ export default function ComparisonChart() {
       const ppY1 = y1Total / colFactor;
       const pp4y = total4y / colFactor;
       return {
-        name: offer.name || `Offer ${idx + 1}`,
+        name: offer.name?.trim() || `Offer ${idx + 1}`,
         location: offer.location || `${colFactor.toFixed(2)}× COL`,
         colFactor,
         nominalY1: y1Total,
@@ -43,6 +64,15 @@ export default function ComparisonChart() {
     [...ppData].sort((a, b) => b.ppY1 - a.ppY1),
     [ppData]
   );
+
+  // Nudge toward purchasing power when offers span different cost-of-living areas.
+  // One-time: never auto-switches, dismissed or once-enabled it stays gone.
+  const colSpread = useMemo(() => {
+    const factors = (offers || []).map((o) => Math.max(o.colFactor ?? 1, 0.01));
+    if (factors.length < 2) return 0;
+    return Math.max(...factors) / Math.min(...factors) - 1;
+  }, [offers]);
+  const showNudge = colSpread > 0.05 && !showPurchasingPower && !ppNudgeDismissed && !ppEverEnabled;
   
   if (!offers || offers.length < 2) return null;
 
@@ -69,17 +99,16 @@ export default function ComparisonChart() {
 
   const maxPP = Math.max(...ppData.map(o => o.ppY1), 1);
 
-  const colors: Record<string, string> = {
-    Base: '#60a5fa',   // blue-400
-    Bonus: '#34d399',  // emerald-400
-    Stock: '#f59e0b',  // amber-500
-    Other: '#a78bfa',  // violet-400
-  };
 
   type LabelFormatterParam = { dataIndex: number };
   const makeTotalLabel = (offerIdx: number) => ({
     show: true,
     position: 'top' as const,
+    distance: 8,
+    fontSize: 11,
+    fontWeight: 600,
+    fontFamily: 'inherit',
+    color: axis.axisLabel.color,
     formatter: (p: LabelFormatterParam) => fmt(byOffer[offerIdx].total[p.dataIndex] || 0),
   });
 
@@ -87,28 +116,29 @@ export default function ComparisonChart() {
     {
       id: `offer-${i}-base`,
       name: 'Base', type: 'bar' as const, stack: `offer-${i}`,
-      itemStyle: { color: colors.Base },
+      itemStyle: { color: colors.Base, borderRadius: 0 },
+      barWidth: '52%',
       emphasis: { focus: 'series' as const },
       data: byOffer[i].base,
     },
     {
       id: `offer-${i}-bonus`,
       name: 'Bonus', type: 'bar' as const, stack: `offer-${i}`,
-      itemStyle: { color: colors.Bonus },
+      itemStyle: { color: colors.Bonus, borderRadius: 0 },
       emphasis: { focus: 'series' as const },
       data: byOffer[i].bonus,
     },
     {
       id: `offer-${i}-stock`,
       name: 'Stock', type: 'bar' as const, stack: `offer-${i}`,
-      itemStyle: { color: colors.Stock },
+      itemStyle: { color: colors.Stock, borderRadius: 0 },
       emphasis: { focus: 'series' as const },
       data: byOffer[i].stock,
     },
     {
       id: `offer-${i}-other`,
       name: 'Other', type: 'bar' as const, stack: `offer-${i}`,
-      itemStyle: { color: colors.Other },
+      itemStyle: { color: colors.Other, ...barItemStyle },
       emphasis: { focus: 'series' as const },
       label: makeTotalLabel(i),
       data: byOffer[i].other,
@@ -116,9 +146,10 @@ export default function ComparisonChart() {
   ]));
 
   const option = {
+    ...chartAnimation,
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'shadow' },
+      ...tooltipStyle(dark),
       formatter: (params: Array<{ seriesName: 'Base' | 'Bonus' | 'Stock' | 'Other'; value: number; axisValueLabel: string; seriesId?: string; dataIndex: number }>) => {
         const year = params[0]?.axisValueLabel ?? '';
         const dataIndex = params[0]?.dataIndex ?? 0;
@@ -151,10 +182,14 @@ export default function ComparisonChart() {
         return lines.join('');
       },
     },
-    legend: { data: ['Base', 'Bonus', 'Stock', 'Other'] },
-    xAxis: { type: 'category', data: years },
-    yAxis: { type: 'value' },
-    grid: { left: 40, right: 16, top: 28, bottom: 24 },
+    legend: { data: ['Base', 'Bonus', 'Stock', 'Other'], ...legendStyle(dark, { top: 0 }) },
+    xAxis: { type: 'category', data: years, ...axis, splitLine: { show: false } },
+    yAxis: {
+      type: 'value',
+      ...axis,
+      axisLabel: { ...axis.axisLabel, formatter: currencyAxisFormatter },
+    },
+    grid: { left: 8, right: 8, top: 36, bottom: 0, containLabel: true },
     series: stackedSeries,
   } as const;
 
@@ -164,23 +199,62 @@ export default function ComparisonChart() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <CardTitle>Offer Comparison</CardTitle>
+            <CardTitle className="text-base sm:text-lg">Offer Comparison</CardTitle>
             <CardDescription className="mt-1">
               {showPurchasingPower 
-                ? 'Showing purchasing power (adjusted for cost of living)'
-                : 'Showing nominal compensation'}
+                ? 'Purchasing power · adjusted for cost of living'
+                : 'Nominal compensation'}
             </CardDescription>
           </div>
-          <Button 
-            variant={showPurchasingPower ? 'default' : 'outline'} 
-            size="sm"
-            onClick={() => setShowPurchasingPower(v => !v)}
-          >
-            {showPurchasingPower ? '💰 Purchasing Power' : '💵 Show Purchasing Power'}
-          </Button>
+          <div className="flex rounded-full border border-input bg-muted/40 p-0.5 text-xs font-medium" role="group" aria-label="Comparison units">
+            <button
+              type="button"
+              onClick={() => setMode(false)}
+              aria-pressed={!showPurchasingPower}
+              className={cn(
+                'rounded-full px-3 py-1.5 transition',
+                !showPurchasingPower ? 'bg-foreground text-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Nominal
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode(true)}
+              aria-pressed={showPurchasingPower}
+              className={cn(
+                'rounded-full px-3 py-1.5 transition',
+                showPurchasingPower ? 'bg-foreground text-background shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Purchasing power
+            </button>
+          </div>
         </div>
+        {showNudge && (
+          <div className="mt-3 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs">
+            <p className="flex-1 text-amber-900 dark:text-amber-200">
+              These offers span different cost-of-living areas — view in purchasing power?
+            </p>
+            <button
+              type="button"
+              onClick={() => setMode(true)}
+              className="shrink-0 rounded-full bg-foreground px-3 py-1 font-medium text-background"
+            >
+              Enable
+            </button>
+            <button
+              type="button"
+              onClick={() => setPpNudgeDismissed(true)}
+              aria-label="Dismiss purchasing power suggestion"
+              className="shrink-0 rounded-full p-1 text-muted-foreground hover:text-foreground"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        )}
         <div className="text-sm text-muted-foreground flex flex-wrap gap-4 mt-2">
           {offers.map((o, i) => (
             <div key={i} className={i === activeIndex ? 'font-medium' : ''}>
@@ -191,12 +265,12 @@ export default function ComparisonChart() {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
-        <ReactEChartsCore key={chartKey} option={option} notMerge style={{ height: 360 }} />
+        <ReactEChartsCore key={chartKey} option={option} notMerge style={{ height: chartH }} />
         
         {/* Purchasing Power Ranking */}
-        <div className="rounded-lg border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30 p-4">
-          <h4 className="text-sm font-semibold text-green-800 dark:text-green-200 mb-3">
-            🏆 Purchasing Power Ranking (Year 1)
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
+          <h4 className="mb-3 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+            Purchasing power ranking · Year 1
           </h4>
           <div className="space-y-2">
             {ranked.map((data, rank) => {
@@ -207,14 +281,14 @@ export default function ComparisonChart() {
                 <div key={data.index} className="space-y-1">
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-2">
-                      <span className={`font-bold ${rank === 0 ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                      <span className={`font-bold ${rank === 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground'}`}>
                         #{rank + 1}
                       </span>
                       <span className="font-medium">{data.name}</span>
                       <span className="text-xs text-muted-foreground">({data.location})</span>
                     </span>
                     <div className="text-right">
-                      <span className={`font-semibold ${rank === 0 ? 'text-green-600 dark:text-green-400' : ''}`}>
+                      <span className={`font-semibold tabular-nums ${rank === 0 ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
                         {fmt(data.ppY1)}
                       </span>
                       <span className="text-xs text-muted-foreground ml-2">
@@ -223,14 +297,14 @@ export default function ComparisonChart() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full rounded-full ${rank === 0 ? 'bg-green-500' : 'bg-gray-400'}`}
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full ${rank === 0 ? 'bg-emerald-500' : 'bg-muted-foreground/40'}`}
                         style={{ width: `${pctOfMax}%` }}
                       />
                     </div>
                     {rank > 0 && (
-                      <span className="text-xs text-red-500 w-20 text-right">
+                      <span className="w-20 text-right text-xs tabular-nums text-destructive">
                         -{fmt(Math.abs(diff))}
                       </span>
                     )}
@@ -243,9 +317,9 @@ export default function ComparisonChart() {
           
           {/* Insight callout */}
           {hasInsight && (
-            <div className="mt-4 pt-3 border-t border-green-200 dark:border-green-800">
-              <p className="text-sm text-green-800 dark:text-green-200">
-                <span className="font-semibold">💡 Insight:</span> Even though{' '}
+            <div className="mt-4 border-t border-emerald-500/25 pt-3">
+              <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                <span className="font-semibold">Insight:</span> Even though{' '}
                 <strong>{ranked[0].name}</strong> has a lower nominal salary ({fmt(ranked[0].nominalY1)}) 
                 than <strong>{ranked[ranked.length - 1].name}</strong> ({fmt(ranked[ranked.length - 1].nominalY1)}), 
                 it provides <strong>{fmt(ranked[0].ppY1 - ranked[ranked.length - 1].ppY1)} more</strong> in 

@@ -1,4 +1,4 @@
-import { addYears, differenceInCalendarDays, max as maxDate, min as minDate } from 'date-fns';
+import { addYears, differenceInCalendarDays, differenceInCalendarMonths, max as maxDate, min as minDate } from 'date-fns';
 import { TOffer, TEquityGrant } from '@/models/types';
 import { expandVesting } from './vesting';
 import { priceAtVest } from './growth';
@@ -86,6 +86,12 @@ function computeBonusForYear(offer: TOffer, proratedBase: number): number {
   return pb.value * (pb.expectedPayout ?? 1);
 }
 
+/** Year index for stock growth, by elapsed time rather than calendar year: a
+ *  tranche vesting 6 months after a July start gets 0 full years of growth. */
+function growthYearIndex(d: Date, offerStart: Date): number {
+  return Math.max(0, Math.floor(differenceInCalendarMonths(d, offerStart) / 12));
+}
+
 function grantValueForYear(offer: TOffer, grant: TEquityGrant, yearIndex: number): number {
   // If grant has a targetValue, compute implied shares first (back-calc)
   let shares = grant.shares;
@@ -97,7 +103,7 @@ function grantValueForYear(offer: TOffer, grant: TEquityGrant, yearIndex: number
     const unitTranches = expandVesting(grant.vesting, grant.grantStartDate ?? offer.startDate, 1);
     const trancheInfos = unitTranches.map((t) => {
       const d = new Date(t.date);
-      const y = Math.max(0, d.getFullYear() - offerStart.getFullYear());
+      const y = growthYearIndex(d, offerStart);
       const p = priceAtVest(startingPrice, yoy, y);
       // If strike is blank, fall back to FMV or starting price
       const strikeFallback = (grant.strike ?? grant.fmv ?? startingPrice);
@@ -131,7 +137,7 @@ function grantValueForYear(offer: TOffer, grant: TEquityGrant, yearIndex: number
     // Use (start, end] window so boundary vests (e.g., 12-month cliff) count in the earlier year
     if (d > yStart && d <= yEnd) {
       // compute year index relative to offer start to apply YoY growth
-      const yearsFromStart = Math.max(0, d.getFullYear() - offerStart.getFullYear());
+      const yearsFromStart = growthYearIndex(d, offerStart);
       const price = priceAtVest(startingPrice, yoy, yearsFromStart);
       if (grant.type === 'RSU') {
         value += t.shares * price;

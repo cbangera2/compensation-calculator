@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useStore } from '@/state/store';
+import EmptyState from '@/components/EmptyState';
+import { ArrowUpRight } from 'lucide-react';
 
 export default function RaisesEditor() {
   const { offer, addRaise, updateRaise, removeRaise } = useStore();
@@ -34,15 +36,11 @@ export default function RaisesEditor() {
       </div>
 
       {raises.length === 0 ? (
-        <div className="border-2 border-dashed rounded-lg p-8 text-center">
-          <p className="text-sm text-muted-foreground mb-2">
-            No raises configured yet
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Add a percentage or fixed dollar raise to model salary changes over time.
-            Changes are automatically prorated within the affected year.
-          </p>
-        </div>
+        <EmptyState
+          icon={<ArrowUpRight className="size-4" />}
+          title="No raises configured yet"
+          hint="Add a percentage or fixed dollar raise to model salary changes over time. Changes are automatically prorated within the affected year."
+        />
       ) : (
         <div className="space-y-3">
           {raises.map((r, i) => (
