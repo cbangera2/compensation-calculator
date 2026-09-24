@@ -88,7 +88,14 @@ function ImportMenu({
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+      if (!menuRef.current || menuRef.current.contains(e.target as Node)) return;
+      // The nested preset Select renders its options in a body-level radix
+      // portal, outside the menu element. Treat pointerdowns there as inside
+      // the menu — otherwise picking a preset closes the menu on pointerdown
+      // and unmounts the Select before the selection registers.
+      const target = e.target as Element | null;
+      if (target?.closest?.('[data-radix-popper-content-wrapper]')) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -301,7 +308,7 @@ export default function MultiOfferBar() {
         'palantir',
       ];
       const offers = await Promise.all(
-        files.map((f) => fetch(`presets/${f}.json`).then((r) => r.json()))
+        files.map((f) => fetch(`/presets/${f}.json`).then((r) => r.json()))
       );
       offers.forEach(addOffer);
     } catch {
@@ -361,7 +368,7 @@ export default function MultiOfferBar() {
   async function handlePresetSelect(value: string) {
     setPresetKey(value);
     if (value === 'all') await importAllPresets();
-    else if (value) await importPreset(`presets/${value}.json`);
+    else if (value) await importPreset(`/presets/${value}.json`);
     setPresetKey(undefined);
   }
 
