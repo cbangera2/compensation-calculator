@@ -425,6 +425,28 @@ const RAW: TStartupEntry[] = [
       'Estimate from levels.fyi L1 entry-level aggregate (average), 84 submissions, read 2026-09-24: $134K base + $14.6K/yr stock. Signing bonus not reported by levels.fyi; counted as $0 (unknown, not zero). Private company RSU: equity is illiquid paper. US aggregate - no Bay Area entry-level page exists.',
     confidence: 'estimate',
   },
+  {
+    company: 'Waymo',
+    city: 'United States',
+    group: 'ai',
+    latestValuationUsd: 126e9,
+    latestValuationDate: '2026-02-02',
+    latestValuationEvent: '$16B round at $126B (Dragoneer/DST/Sequoia led)',
+    valuationAug2024Usd: 45e9,
+    valuationAug2024Date: '2024-10-01',
+    valuationAug2024Event: 'Series C $5.6B at $45B',
+    ngOfferTc2024: null,
+    ngStockPerYearAtGrant: null,
+    ngBase2024: null,
+    ngSigning2024: null,
+    source: 'press',
+    sourceUrl:
+      'https://techietory.com/waymo-raises-historic-16-billion-at-126-billion-valuation/',
+    accessDate: ACCESS,
+    method:
+      'Valuations are public press facts: Series C Oct 2024, $5.6B at $45B; $16B round Feb 2026 at $126B post-money (Dragoneer Investment Group, DST Global, Sequoia Capital led). Growth = 126/45 - 1 = +180%. No sourced 2024 new-grad offer figure, so offer TC columns are null.',
+    confidence: 'sourced',
+  },
 ];
 
 /** The validated dataset. Throws at import time if any entry is malformed. */

@@ -123,9 +123,9 @@ describe('leaderboard realized-value math', () => {
 });
 
 describe('startup leaderboard dataset', () => {
-  it('has 14 entries and every entry parses the schema', async () => {
+  it('has 15 entries and every entry parses the schema', async () => {
     const { STARTUP_LEADERBOARD, StartupEntry } = await import('@/data/startupLeaderboard2024');
-    expect(STARTUP_LEADERBOARD.length).toBe(14);
+    expect(STARTUP_LEADERBOARD.length).toBe(15);
     for (const e of STARTUP_LEADERBOARD) {
       expect(() => StartupEntry.parse(e)).not.toThrow();
     }
