@@ -8,7 +8,7 @@ import YearTable from '@/components/YearTable';
 import MultiOfferBar from '@/components/MultiOfferBar';
 import ComparisonChart from '@/components/ComparisonChart';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import EquityExplorer from '@/components/EquityExplorer';
+import EquityPanel from '@/components/EquityPanel';
 import YearExtras from '@/components/YearExtras';
 import ShareHydrator from '@/components/ShareHydrator';
 import ComparisonAdjustments from '@/components/ComparisonAdjustments';
@@ -18,7 +18,6 @@ import CompareShareButton from '@/components/CompareShareButton';
 import ComparePicker from '@/components/ComparePicker';
 import DecisionHelpers from '@/components/DecisionHelpers';
 import StatCards from '@/components/StatCards';
-import StartupPanel from '@/components/StartupPanel';
 import BenchmarkPanel from '@/components/BenchmarkPanel';
 import LeaderboardPanel from '@/components/LeaderboardPanel';
 import LiveTotals from '@/components/LiveTotals';
@@ -177,11 +176,8 @@ function HomeContent() {
                 <ComparisonAdjustments />
                 <DecisionHelpers />
               </TabsContent>
-              <TabsContent value="growth">
-                <EquityExplorer />
-              </TabsContent>
-              <TabsContent value="startup">
-                <StartupPanel />
+              <TabsContent value="equity">
+                <EquityPanel />
               </TabsContent>
               <TabsContent value="benchmarks">
                 <BenchmarkPanel />

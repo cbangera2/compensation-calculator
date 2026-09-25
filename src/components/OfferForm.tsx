@@ -486,16 +486,16 @@ export default function OfferForm() {
             {hasGrowth && offer.growth?.yoy && (
               <button
                 type="button"
-                onClick={() => switchTab("growth")}
+                onClick={() => switchTab("equity")}
                 className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                title="Edit in Stock Growth"
+                title="Edit in Equity tab"
               >
                 <TrendingUp className="size-3 shrink-0" />
                 <span>
                   Equity growth{" "}
                   {(offer.growth.yoy[0] ?? 0) >= 0 ? "+" : ""}
                   {((offer.growth.yoy[0] ?? 0) * 100).toFixed(1)}%/yr · set in
-                  Stock Growth
+                  Equity tab
                 </span>
                 <span className="underline underline-offset-2">edit</span>
               </button>
@@ -546,14 +546,14 @@ export default function OfferForm() {
             {hasStartup && offer.startupEquity && (
               <button
                 type="button"
-                onClick={() => switchTab("startup")}
+                onClick={() => switchTab("equity")}
                 className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
-                title="Edit in Startup lab"
+                title="Edit in Equity tab"
               >
                 <Rocket className="size-3 shrink-0" />
                 <span>
                   Valuation {fmtValuation(offer.startupEquity.valuation)} · set
-                  in Startup lab
+                  in Equity tab
                 </span>
                 <span className="underline underline-offset-2">edit</span>
               </button>
@@ -1286,7 +1286,7 @@ export default function OfferForm() {
             })()}
 
             <div className="space-y-2">
-              <h3 className="font-medium text-sm">Stock Growth Assumptions</h3>
+              <h3 className="font-medium text-sm">Equity Growth Assumptions</h3>
               {uiMode === "advanced" ? (
                 <GrowthYoyEditor />
               ) : (

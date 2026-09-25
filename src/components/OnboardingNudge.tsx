@@ -5,7 +5,7 @@ import { X, Calculator, TrendingUp, GitCompareArrows } from 'lucide-react';
 
 const STEPS = [
   { icon: Calculator, title: 'Enter your offer', text: 'Base, bonus, equity on the Calculator tab' },
-  { icon: TrendingUp, title: 'Tune scenarios', text: 'Stock growth, startup value, raises' },
+  { icon: TrendingUp, title: 'Tune scenarios', text: 'Equity growth, startup value, raises' },
   { icon: GitCompareArrows, title: 'Compare', text: 'Stack offers side by side and share' },
 ];
 

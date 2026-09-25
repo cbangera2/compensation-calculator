@@ -90,10 +90,10 @@ function StartupScenarioControl({ offer, index }: { offer: TOffer; index: number
   };
 
   const tuneInLab = () => {
-    // The Startup lab always edits the active offer, so make this offer
-    // active first — otherwise the lab would open on a different offer.
+    // The Equity tab always edits the active offer, so make this offer
+    // active first — otherwise the tab would open on a different offer.
     setActiveIndex(index);
-    window.dispatchEvent(new CustomEvent('compcalc:switch-tab', { detail: 'startup' }));
+    window.dispatchEvent(new CustomEvent('compcalc:switch-tab', { detail: 'equity' }));
   };
 
   return (
@@ -129,7 +129,7 @@ function StartupScenarioControl({ offer, index }: { offer: TOffer; index: number
         onClick={tuneInLab}
         className="ml-auto text-[11px] font-medium text-primary hover:underline"
       >
-        Tune in Startup lab →
+        Tune in Equity tab →
       </button>
     </div>
   );

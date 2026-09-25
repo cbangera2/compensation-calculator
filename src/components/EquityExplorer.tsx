@@ -109,8 +109,8 @@ export default function EquityExplorer() {
   const dark = useDarkMode();
 
   const round2 = (x: number) => Math.round(x * 100) / 100;
-  // When startup equity is enabled, seed the current price from the Startup
-  // lab valuation (implied share price) instead of grant FMV.
+  // When startup equity is enabled, seed the current price from the Equity
+  // tab valuation (implied share price) instead of grant FMV.
   const startupBlock = offer.startupEquity?.enabled ? offer.startupEquity : undefined;
   const startupSeedPrice = startupBlock
     ? round2(impliedSharePrice(startupBlock.valuation, startupBlock.fullyDilutedShares))
@@ -389,7 +389,7 @@ export default function EquityExplorer() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <TrendingUp className="size-5 text-primary" />
-          Stock Growth Explorer
+          Equity Growth Explorer
         </CardTitle>
         <CardDescription>
           See how stock price changes affect your total compensation
@@ -548,7 +548,7 @@ export default function EquityExplorer() {
               <Label className="text-sm font-medium text-muted-foreground">Current Stock Price</Label>
               {seededFromStartup && (
                 <p className="text-xs text-muted-foreground">
-                  Startup scenario — seeded from the Startup lab valuation (${startupSeedPrice!.toFixed(2)}/share)
+                  Startup scenario — seeded from the Equity tab valuation (${startupSeedPrice!.toFixed(2)}/share)
                 </p>
               )}
               <div className="relative">
@@ -684,7 +684,7 @@ export default function EquityExplorer() {
         {offer.startupEquity?.enabled ? (
           <p className="text-xs text-muted-foreground">
             Historical ticker data doesn&apos;t apply to private shares — this scenario grows the
-            Startup lab valuation instead.
+            Equity tab valuation instead.
           </p>
         ) : (
           <>

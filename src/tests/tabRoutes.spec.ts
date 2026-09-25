@@ -6,7 +6,7 @@ import { impliedSharePrice } from '@/core/startup';
 
 describe('tab URL param validation', () => {
   it('accepts all valid tab values from URL params', () => {
-    for (const tab of ['calc', 'startup', 'growth', 'benchmarks', 'leaderboard', 'compare', 'raises', 'cities']) {
+    for (const tab of ['calc', 'equity', 'benchmarks', 'leaderboard', 'compare', 'raises', 'cities']) {
       expect(isValidTabValue(tab)).toBe(true);
     }
   });
@@ -23,8 +23,9 @@ describe('tab URL param validation', () => {
   it('resolves initial tab from URL param with calc fallback', () => {
     const resolveTab = (param: string | null) =>
       isValidTabValue(param) ? param : 'calc';
-    expect(resolveTab('startup')).toBe('startup');
+    expect(resolveTab('equity')).toBe('equity');
     expect(resolveTab('compare')).toBe('compare');
+    expect(resolveTab('startup')).toBe('calc'); // removed in the Equity merge
     expect(resolveTab(null)).toBe('calc');
     expect(resolveTab('bogus')).toBe('calc');
   });

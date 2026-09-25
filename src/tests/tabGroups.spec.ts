@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { TAB_GROUPS, isValidTabValue } from '@/components/ActiveOfferStrip';
 
 describe('tab groups', () => {
-  it('covers all eight tabs exactly once', () => {
+  it('covers all seven tabs exactly once', () => {
     const values = TAB_GROUPS.flatMap((g) => g.tabs.map((t) => t.value));
-    expect(values).toHaveLength(8);
-    expect(new Set(values).size).toBe(8);
+    expect(values).toHaveLength(7);
+    expect(new Set(values).size).toBe(7);
     expect(values).toEqual(
-      expect.arrayContaining(['calc', 'compare', 'growth', 'startup', 'benchmarks', 'leaderboard', 'raises', 'cities']),
+      expect.arrayContaining(['calc', 'compare', 'equity', 'benchmarks', 'leaderboard', 'raises', 'cities']),
     );
   });
 
@@ -16,16 +16,19 @@ describe('tab groups', () => {
     const byGroup = Object.fromEntries(
       TAB_GROUPS.map((g) => [g.label, g.tabs.map((t) => t.value)]),
     );
-    expect(byGroup['Capture']).toEqual(['calc', 'startup']);
-    expect(byGroup['Understand']).toEqual(['growth', 'benchmarks', 'leaderboard']);
+    expect(byGroup['Capture']).toEqual(['calc', 'equity']);
+    expect(byGroup['Understand']).toEqual(['benchmarks', 'leaderboard']);
     expect(byGroup['Decide']).toEqual(['compare', 'raises', 'cities']);
   });
 
   it('validates compcalc:switch-tab event details', () => {
     expect(isValidTabValue('calc')).toBe(true);
+    expect(isValidTabValue('equity')).toBe(true);
     expect(isValidTabValue('cities')).toBe(true);
     expect(isValidTabValue('benchmarks')).toBe(true);
     expect(isValidTabValue('leaderboard')).toBe(true);
+    expect(isValidTabValue('startup')).toBe(false);
+    expect(isValidTabValue('growth')).toBe(false);
     expect(isValidTabValue('nope')).toBe(false);
     expect(isValidTabValue('')).toBe(false);
     expect(isValidTabValue(undefined)).toBe(false);
