@@ -13,6 +13,7 @@ type Stat = {
   delta?: {
     label: string;
     tone: 'positive' | 'negative' | 'neutral';
+    title?: string;
   };
   icon: typeof PiggyBank;
 };
@@ -40,12 +41,18 @@ export default function StatCards() {
 		const deltaCash = yearTwo ? (yearTwo.base + yearTwo.bonus + yearTwo.other) - cashYearOne : 0;
 
 		const formatDelta = (value: number): Stat['delta'] => {
-			if (Math.abs(value) < 1) return { label: 'Matches Y2', tone: 'neutral' };
+			if (Math.abs(value) < 1)
+				return {
+					label: 'Same as Y2',
+					tone: 'neutral',
+					title: 'Year 1 total matches Year 2 — your comp is flat across the first two years.',
+				};
 			const tone = value < 0 ? 'positive' : 'negative';
 			const formatted = formatCurrency(Math.abs(value));
 			return {
 				label: `${value < 0 ? '+' : '-'}${formatted} vs Y2`,
 				tone,
+				title: `Year 1 total is ${formatted} ${value < 0 ? 'above' : 'below'} the Year 2 total.`,
 			};
 		};
 
@@ -96,7 +103,7 @@ export default function StatCards() {
 							<span className="line-clamp-2 font-semibold text-foreground">{stat.label}</span>
 						</div>
 						{stat.delta ? (
-							<span className={cn('hidden shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors sm:inline-flex', toneClass[stat.delta.tone])}>
+							<span title={stat.delta.title} className={cn('hidden shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors sm:inline-flex', toneClass[stat.delta.tone])}>
 								{stat.delta.label}
 							</span>
 						) : null}
@@ -105,7 +112,7 @@ export default function StatCards() {
 						<div className="flex flex-wrap items-center gap-x-2 gap-y-1">
 							<p className="text-lg font-semibold tracking-tight text-foreground tabular-nums sm:text-2xl">{stat.value}</p>
 							{stat.delta ? (
-								<span className={cn('inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors sm:hidden', toneClass[stat.delta.tone])}>
+								<span title={stat.delta.title} className={cn('inline-flex shrink-0 rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-colors sm:hidden', toneClass[stat.delta.tone])}>
 									{stat.delta.label}
 								</span>
 							) : null}

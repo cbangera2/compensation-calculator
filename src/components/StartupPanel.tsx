@@ -39,6 +39,16 @@ function sliderTToVal(t: number): number {
   return Math.pow(10, Math.log10(MIN_VALUATION) + f * (Math.log10(MAX_VALUATION) - Math.log10(MIN_VALUATION)));
 }
 
+/**
+ * Saved valuation scenarios for a startup-equity block, normalized to [].
+ * The field can be missing on offers imported from anonymized share links
+ * (stripped for privacy) or from older persisted state — every consumer
+ * must go through this so the Startup tab can't crash on the missing field.
+ */
+export function savedScenariosOf(block: TStartupEquity | undefined): TValuationScenario[] {
+  return block?.savedScenarios ?? [];
+}
+
 function toNumber(value: string, fallback: number): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -266,6 +276,10 @@ export default function StartupPanel() {
   const [sharePriceDraft, setSharePriceDraft] = useState<string | null>(null);
 
   const block: TStartupEquity | undefined = offer?.startupEquity;
+  // savedScenarios can be missing on offers imported from anonymized share
+  // links (the field is stripped for privacy) or from older persisted state.
+  // Normalize to [] so the tab never crashes on the missing field.
+  const savedScenarios = savedScenariosOf(block);
 
   const patch = (fn: (b: TStartupEquity) => TStartupEquity) => {
     if (!offer) return;
@@ -383,11 +397,11 @@ export default function StartupPanel() {
     const name = scenarioName.trim();
     if (!name) return;
     patch((b) => {
-      if (b.savedScenarios.some((s) => s.name === name)) return b;
+      if (savedScenariosOf(b).some((s) => s.name === name)) return b;
       return {
         ...b,
         savedScenarios: [
-          ...b.savedScenarios,
+          ...savedScenariosOf(b),
           {
             name,
             valuation: b.valuation,
@@ -404,7 +418,7 @@ export default function StartupPanel() {
     patch((b) => ({ ...b, valuation: s.valuation, fullyDilutedShares: s.fullyDilutedShares }));
 
   const deleteScenario = (name: string) =>
-    patch((b) => ({ ...b, savedScenarios: b.savedScenarios.filter((s) => s.name !== name) }));
+    patch((b) => ({ ...b, savedScenarios: savedScenariosOf(b).filter((s) => s.name !== name) }));
 
   return (
     <div className="space-y-6">
@@ -536,15 +550,15 @@ export default function StartupPanel() {
                 type="button"
                 size="sm"
                 className="h-8 shrink-0"
-                disabled={!scenarioName.trim() || block.savedScenarios.some((s) => s.name === scenarioName.trim())}
+                disabled={!scenarioName.trim() || savedScenarios.some((s) => s.name === scenarioName.trim())}
                 onClick={saveScenario}
               >
                 Save current
               </Button>
             </div>
-            {block.savedScenarios.length > 0 ? (
+            {savedScenarios.length > 0 ? (
               <ul className="mt-2 space-y-1.5">
-                {block.savedScenarios.map((s, idx) => (
+                {savedScenarios.map((s, idx) => (
                   <li
                     key={`${s.name}-${idx}`}
                     className="flex items-center justify-between gap-2 rounded-lg border border-border/50 px-2.5 py-1.5"

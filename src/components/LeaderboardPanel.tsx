@@ -38,7 +38,7 @@ import {
   type TCompanyGroup,
 } from '@/data/companyGroups';
 import { ALL_CITY_PRESETS, matchCityPresetKey } from '@/lib/col';
-import { offerToLeaderboardEntry } from '@/lib/userLeaderboard';
+import { offerToLeaderboardEntry, type TUserLeaderboardEntry } from '@/lib/userLeaderboard';
 import { useStore } from '@/state/store';
 import {
   offerTcAtGrant,
@@ -76,6 +76,10 @@ interface Row {
   realized: number | null;
   tcPerYear: number | null;
   rank: number | null;
+  /** True for rows converted from the user's own offers (highlighted). */
+  isUserOffer: boolean;
+  /** Source offer id for user rows (stable React key); null for sourced rows. */
+  offerId: string | null;
 }
 
 interface StartupRow {
@@ -118,6 +122,25 @@ export default function LeaderboardPanel() {
   const [year, setYear] = useState<TLeaderboardYear>('2024');
 
   const entries = LEADERBOARD_BY_YEAR[year];
+
+  const { offers } = useStore();
+
+  /**
+   * The user's own offers, converted to leaderboard rows so they can see
+   * where they stand. Conversion failures (shouldn't happen — inputs are
+   * sanitized) are skipped rather than crashing the tab.
+   */
+  const userEntries: TUserLeaderboardEntry[] = useMemo(() => {
+    const out: TUserLeaderboardEntry[] = [];
+    for (const offer of offers) {
+      try {
+        out.push(offerToLeaderboardEntry(offer, year));
+      } catch {
+        // skip — the sourced table still renders
+      }
+    }
+    return out;
+  }, [offers, year]);
 
   /** Growth/realized columns are only computed for the 2024 class. */
   const growthNa = year !== '2024';
@@ -196,20 +219,23 @@ export default function LeaderboardPanel() {
 
   const groupCounts = useMemo(() => {
     const map = new Map<TCompanyGroup, Set<string>>();
-    for (const e of [...LEADERBOARD_BY_YEAR[year], ...STARTUP_LEADERBOARD]) {
+    for (const e of [...LEADERBOARD_BY_YEAR[year], ...STARTUP_LEADERBOARD, ...userEntries]) {
       if (!map.has(e.group)) map.set(e.group, new Set());
       map.get(e.group)!.add(e.company);
     }
     return map;
-  }, [year]);
+  }, [year, userEntries]);
 
   const toggleGroup = (g: TCompanyGroup) => {
     setActiveGroups((prev) => (prev.includes(g) ? prev.filter((x) => x !== g) : [...prev, g]));
   };
 
   const rows: Row[] = useMemo(() => {
-    const visible = entries.filter((e) => activeGroups.includes(e.group));
+    const allEntries: TLeaderboardEntry[] = [...entries, ...userEntries];
+    const visible = allEntries.filter((e) => activeGroups.includes(e.group));
     const base: Row[] = visible.map((entry) => {
+      const userEntry = entry as TUserLeaderboardEntry;
+      const isUserOffer = userEntry.isUserOffer === true;
       const p = entry.ticker ? (prices[entry.ticker] ?? null) : null;
       const priceFailed = entry.ticker !== null && p === null && failed.includes(entry.ticker);
       let realized = realized4yr(entry, p);
@@ -243,6 +269,8 @@ export default function LeaderboardPanel() {
         realized,
         tcPerYear: tcPerYearWithGrowth(realized),
         rank: null,
+        isUserOffer,
+        offerId: isUserOffer ? userEntry.offerId : null,
       };
     });
     // Rank by realized value descending for the 2024 class; by offer TC at grant
@@ -256,7 +284,7 @@ export default function LeaderboardPanel() {
       r.rank = i + 1;
     });
     return base;
-  }, [prices, failed, activeGroups, entries, year]);
+  }, [prices, failed, activeGroups, entries, userEntries, year]);
 
   const sorted = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;
@@ -493,13 +521,15 @@ export default function LeaderboardPanel() {
                 {year === '2024' ? (
                   <>
                     What 2024 new-grad offers are actually worth today — 4-year grants marked to live
-                    market prices{asOfDate ? ` as of ${asOfDate}` : ''}.{colNote}
+                    market prices{asOfDate ? ` as of ${asOfDate}` : ''}. Your own offers appear
+                    highlighted with a “You” badge so you can see where you stand.{colNote}
                   </>
                 ) : (
                   <>
                     What {year} new-grad offers looked like at grant — sourced aggregates, ranked by
                     offer TC at grant. Stock growth is only computed for the 2024 class, so the
-                    growth columns here are n/a.{colNote}
+                    growth columns here are n/a. Your own offers appear highlighted with a “You”
+                    badge so you can see where you stand.{colNote}
                   </>
                 )}
               </CardDescription>
@@ -562,7 +592,7 @@ export default function LeaderboardPanel() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.length === 0 ? (
+                {entries.length === 0 && userEntries.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="whitespace-normal! py-10 text-center">
                       <p className="text-sm font-medium">No sourced offers yet for {year}</p>
@@ -575,12 +605,22 @@ export default function LeaderboardPanel() {
                   </TableRow>
                 ) : (
                   sorted.map((r) => (
-                  <TableRow key={r.entry.company}>
+                  <TableRow
+                    key={r.isUserOffer ? `user-${r.offerId}` : `src-${r.entry.company}-${r.entry.levelLabel}`}
+                    className={cn(r.isUserOffer && 'bg-primary/8 hover:bg-primary/12')}
+                  >
                     <TableCell className="font-semibold tabular-nums">
                       {r.rank ?? <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>
-                      <div className="font-medium">{r.entry.company}</div>
+                      <div className="flex items-center gap-1.5 font-medium">
+                        {r.entry.company}
+                        {r.isUserOffer && (
+                          <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                            You
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs text-muted-foreground">
                         {COMPANY_GROUP_LABELS[r.entry.group]}
                       </div>
@@ -589,7 +629,7 @@ export default function LeaderboardPanel() {
                       {r.entry.confidence === 'unavailable' && (
                         <div className="text-xs text-muted-foreground">no offer data</div>
                       )}
-                      {r.entry.ticker === null && (
+                      {r.entry.ticker === null && !r.isUserOffer && (
                         <div className="text-xs text-muted-foreground">private</div>
                       )}
                     </TableCell>
