@@ -24,10 +24,8 @@ const prices: GrantPricePoints = {
 };
 
 describe('leaderboard2024 dataset', () => {
-  it('has a defensible number of aggregate entries and none from Applied Intuition', () => {
+  it('has a defensible number of aggregate entries', () => {
     expect(LEADERBOARD_2024.length).toBeGreaterThanOrEqual(10);
-    const haystack = JSON.stringify(LEADERBOARD_2024).toLowerCase();
-    expect(haystack).not.toContain('applied intuition');
   });
 
   it('every entry parses the schema', () => {
@@ -54,10 +52,17 @@ describe('leaderboard2024 dataset', () => {
     expect(PRIVATE_ENTRIES.length).toBeGreaterThan(0);
     for (const e of PRIVATE_ENTRIES) {
       expect(e.ticker).toBeNull();
-      // Realized value is undefined for private companies by construction,
-      // even if live prices were somehow provided.
-      expect(realized4yr(e, prices)).toBeNull();
-      expect(realized4yr(e, null)).toBeNull();
+      // Realized value falls back to the at-grant 4-year figure when an
+      // offer exists (no price-derived growth is ever applied without a
+      // ticker), and stays null when there is no offer data at all.
+      if (e.base !== null) {
+        const atGrant4yr = e.base * 4 + (e.signingBonus ?? 0) + (e.stockGrantTotal4yr ?? 0);
+        expect(realized4yr(e, prices)).toBe(atGrant4yr);
+        expect(realized4yr(e, null)).toBe(atGrant4yr);
+      } else {
+        expect(realized4yr(e, prices)).toBeNull();
+        expect(realized4yr(e, null)).toBeNull();
+      }
     }
   });
 
@@ -95,9 +100,10 @@ describe('leaderboard realized-value math', () => {
     expect(realized4yr(entry, prices)).toBe(400000 + 20000 + (400000 / 100) * 150);
   });
 
-  it('returns null realized value when prices are unavailable', () => {
-    expect(realized4yr(entry, null)).toBeNull();
-    expect(realized4yr(entry, { ...prices, priceAtGrant: 0 })).toBeNull();
+  it('falls back to at-grant 4-year value when prices are unavailable', () => {
+    // base*4 + signing + grant (no price-derived growth without prices)
+    expect(realized4yr(entry, null)).toBe(400000 + 20000 + 400000);
+    expect(realized4yr(entry, { ...prices, priceAtGrant: 0 })).toBe(400000 + 20000 + 400000);
   });
 
   it('computes stock growth since grant as a fraction', () => {
@@ -174,7 +180,7 @@ describe('startup leaderboard dataset', () => {
     expect(startupTcPerYearWithGrowth(databricks)).toBeCloseTo(148000 + 0 / 4 + 94500 * (190 / 43), 6);
   });
 
-  it('Applied Intuition uses only public figures and leaves Sunnyvale offer data blank', async () => {
+  it('Applied Intuition uses only public figures', async () => {
     const { STARTUP_LEADERBOARD } = await import('@/data/startupLeaderboard2024');
     const { startupTcPerYearWithGrowth } = await import('@/lib/leaderboard');
     const ai = STARTUP_LEADERBOARD.find((e) => e.company === 'Applied Intuition')!;
@@ -183,12 +189,13 @@ describe('startup leaderboard dataset', () => {
     for (const leak of ['136.39', '149.24', '31.09', '37.50', 'chirag', 'bangera', 'token=']) {
       expect(haystack).not.toContain(leak);
     }
-    // No Sunnyvale-specific public new-grad figure exists (levels.fyi only
-    // publishes a US-wide aggregate), so the offer fields stay blank and no
-    // annual TC can be computed.
-    expect(ai.ngOfferTc2024).toBeNull();
-    expect(ai.ngStockPerYearAtGrant).toBeNull();
-    expect(startupTcPerYearWithGrowth(ai)).toBeNull();
+    // Bay Area entry-level aggregate found on levels.fyi (read 2026-09-24):
+    // $145K base + $61.6K/yr stock, TC = $206.6K. Breakdown sums honestly.
+    expect(ai.ngOfferTc2024).toBe(206600);
+    expect(ai.ngBase2024).toBe(145000);
+    expect(ai.ngStockPerYearAtGrant).toBe(61600);
+    expect(ai.ngSigning2024).toBe(0);
+    expect(startupTcPerYearWithGrowth(ai)).not.toBeNull();
     // Valuations are still the public press-covered anchors.
     expect(ai.latestValuationUsd).toBe(15e9);
     expect(ai.valuationAug2024Usd).toBe(6e9);
@@ -333,7 +340,7 @@ describe('leaderboard group filters', () => {
       startups: STARTUP_LEADERBOARD.filter((e) => groups.includes(e.group)).map((e) => e.company),
     });
     const ai = inGroups(['ai']);
-    expect(ai.public).toEqual(['Databricks', 'Waymo']);
+    expect(ai.public).toEqual(['Databricks', 'Waymo', 'Applied Intuition']);
     expect(ai.startups).toEqual(expect.arrayContaining(['Anthropic', 'OpenAI', 'Perplexity']));
     const defense = inGroups(['defense']);
     expect(defense.public).toEqual(['Palantir']);
@@ -381,11 +388,18 @@ describe('leaderboard offer cities for per-offer COL normalization', () => {
     const arm = LEADERBOARD_2024.find((e) => e.company === 'Arm')!;
     expect(arm.city).toBe('Austin');
     const bayRows = LEADERBOARD_2024.filter(
-      (e) => e.confidence === 'estimate' && e.company !== 'Arm',
+      (e) => e.confidence === 'estimate' && e.company !== 'Arm' && e.city !== 'US',
     );
     expect(bayRows.length).toBeGreaterThan(15);
     for (const e of bayRows) {
       expect(e.city).toBe('San Francisco Bay Area');
+    }
+    // US-aggregate rows (no Bay Area entry-level page) carry city 'US' and
+    // normalize with the default factor; they are labeled as US aggregates.
+    const usRows = LEADERBOARD_2024.filter((e) => e.city === 'US' && e.confidence === 'estimate');
+    expect(usRows.length).toBe(5);
+    for (const e of usRows) {
+      expect(e.method).toContain('US aggregate');
     }
     // Per-offer normalization actually moves Arm vs a Bay Area row:
     // same nominal $100K is worth more from Austin than from the Bay Area.

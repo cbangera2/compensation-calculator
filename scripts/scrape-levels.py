@@ -5,31 +5,48 @@ scrape-levels.py -- refresh entry-level comp aggregates from levels.fyi.
 Replaces the manual copy-paste workflow that feeds src/data/leaderboard2024.ts.
 
 WHAT IT DOES
-  For each configured company it fetches the levels.fyi software-engineer
-  salary page (US and/or Bay Area), parses the "Average Compensation By Level"
-  table, pulls the entry-level row (total / base / stock / bonus medians) and
-  writes a JSON file shaped for conversion into TLeaderboardEntry records:
+  For each configured company it fetches TWO representations of the
+  levels.fyi software-engineer salary page (US and/or Bay Area):
+
+    1. The sanctioned `.md` variant (e.g. .../software-engineer.md),
+       which reports per-level MEDIAN total compensation.
+    2. The HTML page's "Average Compensation By Level" table,
+       which gives the AVERAGE base / stock / bonus component split
+       (the .md variant does not include the split).
+
+  and writes a JSON file shaped for conversion into TLeaderboardEntry
+  records:
 
       {
         "company": "Google",
         "levelLabel": "L3",
         "location": "us",
-        "total": 208000,
-        "base": 157000,
+        "totalMedian": 207842,        # from .md -- PRIMARY figure
+        "totalAverage": 208000,       # from HTML table -- supplementary
+        "total": 207842,              # alias: totalMedian ?? totalAverage
+        "base": 157000,               # average component split (HTML)
         "stockPerYear": 38600,
         "bonus": 12300,
-        "stockGrantTotal4yr": 154400,   # stockPerYear * 4
-        "signingBonus": null,           # levels.fyi does not publish signing
-        "submissions": 24216,           # company-wide total, may be null
+        "stockGrantTotal4yr": 154400, # stockPerYear * 4
+        "signingBonus": null,         # levels.fyi does not publish signing
+        "submissions": 24216,         # company-wide total, may be null
         "sampleBand": "50+",
         "source": "levels.fyi",
         "sourceUrl": "https://www.levels.fyi/companies/google/salaries/software-engineer",
-        "method": "levels.fyi L3 entry-level aggregate, read 2026-09-24",
+        "mdSourceUrl": "https://www.levels.fyi/companies/google/salaries/software-engineer.md",
+        "method": "levels.fyi L3 entry-level median $207,842 (total) + average component split, read 2026-09-24",
         "confidence": "estimate",
         "accessDate": "2026-09-24",
         "status": "ok",
-        "error": null
+        "error": null,
+        "mdError": null               # set when the .md fetch/parse failed
       }
+
+  NOTE on median vs average: levels.fyi's HTML table is explicitly an
+  *average*; the .md variant is explicitly a *median*. The leaderboard
+  uses totalMedian as the primary figure because medians are robust to
+  the outlier-heavy comp distribution. Components remain averages --
+  label them honestly downstream.
 
 USAGE
   python3 scripts/scrape-levels.py                        # all companies, US only
@@ -42,14 +59,12 @@ POLITENESS / LEGAL NOTES (read before running)
     rule is `Allow: /`. The disallow list targets named training crawlers
     and data brokers (e.g. an explicit `Disallow: /` for the `Scrapy` UA).
     This script identifies as `comp-calculator-levels-refresh/1.0` (not a
-    listed token), waits 3s between requests, and fetches ~13-26 pages per
-    run -- human-scale traffic.
-  - levels.fyi offers sanctioned machine-readable routes: append `.md` to
-    salary pages (e.g. .../salaries/software-engineer.md), plus llms.txt,
-    sitemap.xml, and official API access at https://levels.fyi/api-access/.
-    This script parses the HTML breakdown table because the .md summary only
-    carries per-level *total* comp, not the base/stock/bonus split the
-    leaderboard needs.
+    listed token), waits 3s between requests, and fetches ~26-52 pages per
+    run (HTML + .md per company/location) -- human-scale traffic.
+  - levels.fyi sanctions machine-readable access via `.md` page variants,
+    `llms.txt`, sitemaps, and an official API -- but the `.md` summary only
+    carries per-level *total* comp, not the base/stock/bonus split, so the
+    script also parses the HTML breakdown table for components.
   - ATTRIBUTION IS REQUIRED: any derived work must include
     "Data source: Levels.fyi (https://www.levels.fyi)".
   - The .md pages note the data is under the Levels.fyi Data License
@@ -75,29 +90,38 @@ from html.parser import HTMLParser
 
 # ---------------------------------------------------------------------------
 # Company config: levels.fyi slug + entry-level matcher.
-# entry_level is a regex matched against the level cell with parenthetical
-# qualifiers stripped, e.g. "L3SWE II (Entry Level)" -> "L3SWE II".
+# entry_level is a regex matched against the HTML table's level cell with
+# parenthetical qualifiers stripped, e.g. "L3SWE II (Entry Level)" -> "L3SWE II".
+# md_level is a regex matched against the level label in the sanctioned .md
+# variant's "Levels Breakdown" table, where labels are clean codes
+# (e.g. "L3", "E3", "L4"). The two can differ: Amazon's HTML table shows
+# "SDE I" while its .md table shows "L4".
 # ---------------------------------------------------------------------------
 # NOTE: patterns use (?![0-9]) instead of a trailing \b because levels.fyi
 # concatenates the level and title without a space in the HTML
 # (e.g. "L3SWE II"), which defeats \b.
 COMPANIES = [
-    {"name": "Google", "slug": "google", "entry_level": r"(?<![A-Z0-9])L3(?![0-9])", "level_label": "L3"},
-    {"name": "Meta", "slug": "meta", "entry_level": r"(?<![A-Z0-9])E3(?![0-9])", "level_label": "E3"},
-    {"name": "Amazon", "slug": "amazon", "entry_level": r"\bSDE\s?I(?![A-Z0-9])", "level_label": "SDE I"},
-    {"name": "Apple", "slug": "apple", "entry_level": r"(?<![A-Z0-9])ICT2(?![0-9])", "level_label": "ICT2"},
-    {"name": "Microsoft", "slug": "microsoft", "entry_level": r"(?<![0-9])59(?![0-9])", "level_label": "59"},
-    {"name": "Netflix", "slug": "netflix", "entry_level": r"(?<![A-Z0-9])L3(?![0-9])", "level_label": "L3"},
-    {"name": "Nvidia", "slug": "nvidia", "entry_level": r"(?<![A-Z0-9])IC1(?![0-9])", "level_label": "IC1"},
-    {"name": "Roblox", "slug": "roblox", "entry_level": r"(?<![A-Z0-9])IC1(?![0-9])", "level_label": "IC1"},
-    {"name": "Pinterest", "slug": "pinterest", "entry_level": r"(?<![A-Z0-9])IC13(?![0-9])", "level_label": "IC13"},
-    {"name": "Snap", "slug": "snap", "entry_level": r"(?<![A-Z0-9])L3(?![0-9])", "level_label": "L3"},
-    {"name": "Snowflake", "slug": "snowflake", "entry_level": r"(?<![A-Z0-9])IC1(?![0-9])", "level_label": "IC1"},
-    {"name": "Stripe", "slug": "stripe", "entry_level": r"(?<![A-Z0-9])L1(?![0-9])", "level_label": "L1"},
-    {"name": "Databricks", "slug": "databricks", "entry_level": r"(?<![A-Z0-9])L3(?![0-9])", "level_label": "L3"},
+    {"name": "Google", "slug": "google", "entry_level": r"(?<![A-Z0-9])L3(?![0-9])", "md_level": r"^(?<![A-Z0-9])L3(?![0-9])$", "level_label": "L3"},
+    {"name": "Meta", "slug": "meta", "entry_level": r"(?<![A-Z0-9])E3(?![0-9])", "md_level": r"^(?<![A-Z0-9])E3(?![0-9])$", "level_label": "E3"},
+    {"name": "Amazon", "slug": "amazon", "entry_level": r"\bSDE\s?I(?![A-Z0-9])", "md_level": r"^(?<![A-Z0-9])L4(?![0-9])$", "level_label": "SDE I"},
+    {"name": "Apple", "slug": "apple", "entry_level": r"(?<![A-Z0-9])ICT2(?![0-9])", "md_level": r"^(?<![A-Z0-9])ICT2(?![0-9])$", "level_label": "ICT2"},
+    {"name": "Microsoft", "slug": "microsoft", "entry_level": r"(?<![0-9])59(?![0-9])", "md_level": r"^(?<![0-9])59(?![0-9])$", "level_label": "59"},
+    {"name": "Netflix", "slug": "netflix", "entry_level": r"(?<![A-Z0-9])L3(?![0-9])", "md_level": r"^(?<![A-Z0-9])L3(?![0-9])$", "level_label": "L3"},
+    {"name": "Nvidia", "slug": "nvidia", "entry_level": r"(?<![A-Z0-9])IC1(?![0-9])", "md_level": r"^(?<![A-Z0-9])IC1(?![0-9])$", "level_label": "IC1"},
+    {"name": "Roblox", "slug": "roblox", "entry_level": r"(?<![A-Z0-9])IC1(?![0-9])", "md_level": r"^(?<![A-Z0-9])IC1(?![0-9])$", "level_label": "IC1"},
+    {"name": "Pinterest", "slug": "pinterest", "entry_level": r"(?<![A-Z0-9])IC13(?![0-9])", "md_level": r"^(?<![A-Z0-9])IC13(?![0-9])$", "level_label": "IC13"},
+    {"name": "Snap", "slug": "snap", "entry_level": r"(?<![A-Z0-9])L3(?![0-9])", "md_level": r"^(?<![A-Z0-9])L3(?![0-9])$", "level_label": "L3"},
+    {"name": "Snowflake", "slug": "snowflake", "entry_level": r"(?<![A-Z0-9])IC1(?![0-9])", "md_level": r"^(?<![A-Z0-9])IC1(?![0-9])$", "level_label": "IC1"},
+    {"name": "Stripe", "slug": "stripe", "entry_level": r"(?<![A-Z0-9])L1(?![0-9])", "md_level": r"^(?<![A-Z0-9])L1(?![0-9])$", "level_label": "L1"},
+    {"name": "Databricks", "slug": "databricks", "entry_level": r"(?<![A-Z0-9])L3(?![0-9])", "md_level": r"^(?<![A-Z0-9])L3(?![0-9])$", "level_label": "L3"},
 ]
 
 BASE_URL = "https://www.levels.fyi/companies/{slug}/salaries/software-engineer"
+
+
+def md_url_for(slug, location_suffix):
+    """.../software-engineer.md or .../software-engineer/locations/san-francisco-bay-area.md"""
+    return BASE_URL.format(slug=slug) + location_suffix + ".md"
 LOCATIONS = {
     "us": "",
     "bay-area": "/locations/san-francisco-bay-area",
@@ -191,6 +215,65 @@ def extract_submissions(html):
 
 
 # ---------------------------------------------------------------------------
+# .md variant: per-level MEDIAN totals (sanctioned machine-readable route).
+# The .md page carries a "Levels Breakdown" markdown table:
+#   | Level | Median Total Compensation |
+#   | L3    | $207,842                  |
+# It does NOT include the base/stock/bonus split -- that still comes from
+# the HTML table (as averages). Location variants work the same way:
+#   .../software-engineer.md
+#   .../software-engineer/locations/san-francisco-bay-area.md
+# ---------------------------------------------------------------------------
+MD_LEVEL_ROW = re.compile(r"^\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|$", re.M)
+
+
+def parse_md_medians(md_body):
+    """Return {level_label: median_total} from the .md Levels Breakdown table.
+
+    Scoped to the '### Levels Breakdown' section so other markdown tables
+    (if any) elsewhere in the page can't pollute the result.
+    """
+    section = md_body
+    start = md_body.find("### Levels Breakdown")
+    if start >= 0:
+        section = md_body[start:]
+        # end at the next horizontal rule or section header
+        end = re.search(r"(?m)^(---|\s*##\s)", section)
+        if end:
+            section = section[: end.start()]
+    medians = {}
+    for level, total in MD_LEVEL_ROW.findall(section):
+        level = level.strip()
+        if level.lower() in ("level", "---"):
+            continue
+        value = parse_money(total)
+        if value is not None:
+            medians[level] = value
+    return medians
+
+
+def fetch_md(url, timeout=30):
+    """Fetch the .md variant. Returns (status, body)."""
+    req = urllib.request.Request(
+        url,
+        headers={
+            "User-Agent": UA,
+            "Accept": "text/markdown,text/plain",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = resp.read()
+        encoding = resp.headers.get("Content-Encoding", "").lower()
+        if "gzip" in encoding:
+            raw = gzip.decompress(raw)
+        elif "deflate" in encoding:
+            raw = zlib.decompress(raw)
+        return resp.status, raw.decode("utf-8", errors="replace")
+
+
+# ---------------------------------------------------------------------------
 # Fetching
 # ---------------------------------------------------------------------------
 def fetch(url, timeout=30):
@@ -244,16 +327,19 @@ def check_robots():
 
 
 # ---------------------------------------------------------------------------
-# Per-company scrape
+# Per-company scrape: HTML (average component split) + .md (median totals)
 # ---------------------------------------------------------------------------
-def scrape_company(company, location_key, location_suffix, read_date):
+def scrape_company(company, location_key, location_suffix, read_date, delay=3.0):
     url = BASE_URL.format(slug=company["slug"]) + location_suffix
+    md_url = md_url_for(company["slug"], location_suffix)
     rec = {
         "company": company["name"],
         "levelLabel": company["level_label"],
         "location": location_key,
-        "total": None,
-        "base": None,
+        "totalMedian": None,       # PRIMARY figure -- from .md
+        "totalAverage": None,      # supplementary -- from HTML table
+        "total": None,             # alias: totalMedian ?? totalAverage
+        "base": None,              # average component split (HTML)
         "stockPerYear": None,
         "bonus": None,
         "stockGrantTotal4yr": None,
@@ -262,12 +348,67 @@ def scrape_company(company, location_key, location_suffix, read_date):
         "sampleBand": "unknown",
         "source": "levels.fyi",
         "sourceUrl": url,
-        "method": f"levels.fyi {company['level_label']} entry-level aggregate, read {read_date}",
+        "mdSourceUrl": md_url,
+        "method": "",
         "confidence": "estimate",
         "accessDate": read_date,
         "status": "failed",
         "error": None,
+        "mdError": None,
     }
+
+    # --- .md fetch: median totals -----------------------------------------
+    # NOTE: the .md route is flaky under this UA (observed 2026-09-24:
+    # intermittent HTTP 200 with empty body, flip-flopping between
+    # requests). Retry persistently with backoff before falling back to
+    # the HTML average -- this script runs quarterly, so waiting is fine.
+    md_attempts = 5
+    md_backoffs = [15, 30, 45, 60]
+    md_body, md_status = "", 0
+    for attempt in range(1, md_attempts + 1):
+        try:
+            md_status, md_body = fetch_md(md_url)
+        except urllib.error.HTTPError as e:
+            rec["mdError"] = f".md HTTP {e.code}: {e.reason}"
+            if e.code in (401, 403):
+                rec["mdError"] += " -- median total unavailable"
+            md_body = None  # hard failure, don't retry
+            break
+        except Exception as e:  # noqa: BLE001
+            rec["mdError"] = f".md fetch failed: {e}"
+            md_body = None
+            break
+        if md_body and md_body.strip():
+            break  # success
+        if attempt < md_attempts:
+            wait = md_backoffs[attempt - 1]
+            print(f"  (.md empty, retry {attempt}/{md_attempts - 1} after {wait}s ...)", flush=True)
+            time.sleep(wait)
+    if md_body is None:
+        pass  # mdError already set by the exception handler
+    elif not md_body.strip():
+        rec["mdError"] = (
+            f".md returned HTTP {md_status} with empty body after "
+            f"{md_attempts} attempts (rate-limited); median total unavailable, "
+            "falling back to HTML average"
+        )
+    elif re.search(r"just a moment|cf-chl|challenge-platform", md_body, re.I):
+        rec["mdError"] = "bot challenge on .md endpoint; median total unavailable"
+    else:
+        medians = parse_md_medians(md_body)
+        pattern = re.compile(company["md_level"], re.I)
+        match = next((lvl for lvl in medians if pattern.search(lvl)), None)
+        if match is None:
+            rec["mdError"] = (
+                f"entry-level /{company['md_level']}/ not in .md table; "
+                f"levels seen: {sorted(medians)[:8]}"
+            )
+        else:
+            rec["totalMedian"] = medians[match]
+
+    time.sleep(delay)
+
+    # --- HTML fetch: average component split ------------------------------
     try:
         status, html = fetch(url)
     except urllib.error.HTTPError as e:
@@ -324,12 +465,14 @@ def scrape_company(company, location_key, location_suffix, read_date):
     def col(i):
         return row[i] if i < len(row) else None
 
-    rec["total"] = parse_money(col(i_total))
+    rec["totalAverage"] = parse_money(col(i_total))
     rec["base"] = parse_money(col(i_base))
     rec["stockPerYear"] = parse_money(col(i_stock))
     rec["bonus"] = parse_money(col(i_bonus))
     if rec["stockPerYear"] is not None:
         rec["stockGrantTotal4yr"] = rec["stockPerYear"] * 4
+
+    rec["total"] = rec["totalMedian"] if rec["totalMedian"] is not None else rec["totalAverage"]
 
     subs = extract_submissions(html)
     rec["submissions"] = subs
@@ -338,6 +481,16 @@ def scrape_company(company, location_key, location_suffix, read_date):
     if rec["total"] is None and rec["base"] is None:
         rec["error"] = "entry row found but no parseable figures"
         return rec
+
+    # method text: be explicit about median vs average
+    parts = [f"levels.fyi {company['level_label']} entry-level"]
+    if rec["totalMedian"] is not None:
+        parts.append(f"median total ${rec['totalMedian']:,}")
+    else:
+        parts.append("median total n/a")
+    parts.append("average base/stock/bonus split")
+    parts.append(f"read {read_date}")
+    rec["method"] = ", ".join(parts)
 
     rec["status"] = "ok"
     return rec
@@ -387,13 +540,15 @@ def main():
             time.sleep(args.delay)
         label = f"{company['name']} [{loc_key}]"
         print(f"[{idx + 1}/{len(jobs)}] fetching {label} ...", flush=True)
-        rec = scrape_company(company, loc_key, LOCATIONS[loc_key], read_date)
+        rec = scrape_company(company, loc_key, LOCATIONS[loc_key], read_date, args.delay)
         results.append(rec)
         if rec["status"] == "ok":
             fmt = lambda v: f"${v:,}" if v is not None else "n/a"  # noqa: E731
-            print(f"  ok: total={fmt(rec['total'])} base={fmt(rec['base'])} "
-                  f"stock/yr={fmt(rec['stockPerYear'])} bonus={fmt(rec['bonus'])} "
-                  f"subs={rec['submissions']}")
+            print(f"  ok: median_total={fmt(rec['totalMedian'])} avg_total={fmt(rec['totalAverage'])} "
+                  f"base={fmt(rec['base'])} stock/yr={fmt(rec['stockPerYear'])} "
+                  f"bonus={fmt(rec['bonus'])} subs={rec['submissions']}")
+            if rec["mdError"]:
+                print(f"  note: {rec['mdError']}")
         else:
             print(f"  FAILED: {rec['error']}")
 

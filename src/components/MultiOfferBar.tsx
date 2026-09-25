@@ -13,7 +13,7 @@ import { buildOfferFromFields, parseOfferLetter } from '@/lib/offerLetterImport'
 import type { ExtractedOfferFields, OfferLetterParseResult } from '@/lib/offerLetterImport';
 import type { TOffer } from '@/models/types';
 import ShareDialog from '@/components/ShareDialog';
-import { cn } from '@/lib/utils';
+import { cn, disambiguateNames } from '@/lib/utils';
 
 const scrollGradient = "pointer-events-none absolute inset-y-0 w-6 bg-gradient-to-r from-background/95 to-transparent";
 const fileInputWrapper = "relative inline-flex";
@@ -365,6 +365,8 @@ export default function MultiOfferBar() {
     setPresetKey(undefined);
   }
 
+  const displayNames = disambiguateNames(offers, (o) => o.name, (o) => o.location);
+
   return (
     <div className="rounded-2xl border border-border/60 bg-background/95 px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -380,7 +382,7 @@ export default function MultiOfferBar() {
                 className={cn('snap-start font-medium', 'max-w-[180px] truncate')}
                 onClick={() => setActiveIndex(index)}
               >
-                {offer.name || `Offer ${index + 1}`}
+                {displayNames[index]}
               </Button>
             ))}
           </div>

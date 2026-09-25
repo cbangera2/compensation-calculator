@@ -66,13 +66,18 @@ export function offerTcAtGrant(e: EntryNumbers): number | null {
 /**
  * Realized 4-year value at today's prices:
  *   base*4 + signing + stockGrantTotal4yr / priceAtGrant * priceNow
- * Null for private companies (no ticker), unavailable offer data, or when
- * prices are missing. Vesting schedules, refreshers, and taxes are
+ * When prices are unavailable (private company with no ticker, or missing
+ * price history), falls back to the at-grant 4-year value
+ * (base*4 + signing + stockGrantTotal4yr) instead of null, so private rows
+ * still show a defensible realized figure. Null only when the offer data
+ * itself is unavailable. Vesting schedules, refreshers, and taxes are
  * intentionally ignored — this is a grant-marking comparison, not take-home pay.
  */
 export function realized4yr(e: EntryNumbers, prices: GrantPricePoints | null): number | null {
   if (!hasOffer(e)) return null;
-  if (e.ticker === null || prices === null || prices.priceAtGrant <= 0) return null;
+  if (e.ticker === null || prices === null || prices.priceAtGrant <= 0) {
+    return e.base * 4 + (e.signingBonus ?? 0) + (e.stockGrantTotal4yr ?? 0);
+  }
   return e.base * 4 + (e.signingBonus ?? 0) + ((e.stockGrantTotal4yr ?? 0) / prices.priceAtGrant) * prices.priceNow;
 }
 

@@ -51,7 +51,7 @@ import {
   type GrantPricePoints,
 } from '@/lib/leaderboard';
 import type { HistoryStats } from '@/lib/market';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, shortCity } from '@/lib/utils';
 import { ArrowDown, ArrowUp, ArrowUpDown, Database, Info, RotateCcw } from 'lucide-react';
 
 type SortKey = 'realized' | 'company' | 'tc' | 'growth' | 'tcPerYear';
@@ -561,7 +561,7 @@ export default function LeaderboardPanel() {
                       <div className="text-xs text-muted-foreground">
                         {COMPANY_GROUP_LABELS[r.entry.group]}
                       </div>
-                      <div className="text-xs text-muted-foreground">{r.entry.city}</div>
+                      <div className="text-xs text-muted-foreground">{shortCity(r.entry.city)}</div>
                       {r.entry.confidence === 'estimate' && (
                         <div className="text-xs text-muted-foreground">estimate</div>
                       )}
@@ -608,8 +608,6 @@ export default function LeaderboardPanel() {
                         >
                           n/a
                         </span>
-                      ) : r.entry.ticker === null ? (
-                        <span className="text-xs font-normal text-muted-foreground">n/a (private)</span>
                       ) : r.priceFailed ? (
                         <span className="text-xs font-normal text-muted-foreground">price unavailable</span>
                       ) : r.realized !== null ? (
@@ -693,7 +691,7 @@ export default function LeaderboardPanel() {
                     <div className="text-xs text-muted-foreground">
                       {COMPANY_GROUP_LABELS[r.entry.group]}
                     </div>
-                    <div className="text-xs text-muted-foreground">{r.entry.city}</div>
+                    <div className="text-xs text-muted-foreground">{shortCity(r.entry.city)}</div>
                     {r.entry.confidence === 'estimate' && (
                       <div className="text-xs text-muted-foreground">estimate</div>
                     )}

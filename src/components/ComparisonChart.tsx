@@ -4,7 +4,7 @@ import ReactEChartsCore from 'echarts-for-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useStore } from '@/state/store';
 import { computeOffer } from '@/core/compute';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, disambiguateNames } from '@/lib/utils';
 import { X } from 'lucide-react';
 import { useDarkMode } from '@/lib/useDarkMode';
 import {
@@ -37,6 +37,11 @@ export default function ComparisonChart() {
     [offers]
   );
 
+  const displayNames = useMemo(() =>
+    disambiguateNames(offers || [], (o) => o.name, (o) => o.location),
+    [offers]
+  );
+
   // Calculate purchasing power data for the summary cards
   const ppData = useMemo(() => {
     return (offers || []).map((offer, idx) => {
@@ -47,7 +52,7 @@ export default function ComparisonChart() {
       const ppY1 = y1Total / colFactor;
       const pp4y = total4y / colFactor;
       return {
-        name: offer.name?.trim() || `Offer ${idx + 1}`,
+        name: displayNames[idx],
         location: offer.location || `${colFactor.toFixed(2)}× COL`,
         colFactor,
         nominalY1: y1Total,
@@ -172,7 +177,7 @@ export default function ComparisonChart() {
         Object.keys(grouped).sort((a, b) => Number(a) - Number(b)).forEach((key) => {
           const offerIdx = Number(key);
           const { base, bonus, stock, other } = grouped[offerIdx];
-          const name = offers[offerIdx]?.name || `Offer ${offerIdx + 1}`;
+          const name = displayNames[offerIdx] || `Offer ${offerIdx + 1}`;
           const loc = offers[offerIdx]?.location;
           const total = byOffer[offerIdx]?.total[dataIndex] ?? base + bonus + stock + other;
           lines.push(`<div style="margin-top:4px;"><strong>${name}</strong>${loc ? ` (${loc})` : ''} — Total ${fmt(total)}</div>`);
