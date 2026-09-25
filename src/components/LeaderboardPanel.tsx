@@ -71,6 +71,8 @@ interface Row {
   prices: GrantPricePoints | null;
   priceFailed: boolean;
   growth: number | null;
+  /** True when growth is private-valuation growth (not public stock growth). */
+  growthIsValuation?: boolean;
   realized: number | null;
   tcPerYear: number | null;
   rank: number | null;
@@ -211,12 +213,27 @@ export default function LeaderboardPanel() {
       const p = entry.ticker ? (prices[entry.ticker] ?? null) : null;
       const priceFailed = entry.ticker !== null && p === null && failed.includes(entry.ticker);
       const realized = realized4yr(entry, p);
+      // Private companies have no ticker: fall back to valuation growth from
+      // the startups dataset when available, so the column isn't just n/a.
+      let growth = stockGrowthSinceGrant(p);
+      let growthIsValuation = false;
+      if (growth === null && entry.ticker === null) {
+        const startup = STARTUP_LEADERBOARD.find(
+          (s) => s.company.toLowerCase() === entry.company.toLowerCase()
+        );
+        const vg = startup ? valuationGrowthSince2024(startup) : null;
+        if (vg !== null) {
+          growth = vg;
+          growthIsValuation = true;
+        }
+      }
       return {
         entry,
         tcAtGrant: offerTcAtGrant(entry),
         prices: p,
         priceFailed,
-        growth: stockGrowthSinceGrant(p),
+        growth,
+        growthIsValuation,
         realized,
         tcPerYear: tcPerYearWithGrowth(realized),
         rank: null,
@@ -586,13 +603,21 @@ export default function LeaderboardPanel() {
                         >
                           n/a
                         </span>
-                      ) : r.entry.ticker === null ? (
-                        <span className="text-xs text-muted-foreground">n/a</span>
                       ) : r.priceFailed ? (
                         <span className="text-xs text-muted-foreground">price unavailable</span>
                       ) : r.growth !== null ? (
-                        <span className={cn(r.growth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}>
+                        <span
+                          className={cn(r.growth >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400')}
+                          title={r.growthIsValuation ? 'Private valuation growth since ~Aug 2024' : undefined}
+                        >
                           {formatPct(r.growth)}
+                        </span>
+                      ) : r.entry.ticker === null ? (
+                        <span
+                          className="text-xs text-muted-foreground"
+                          title="Private company with no 2024 valuation anchor"
+                        >
+                          n/a
                         </span>
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
