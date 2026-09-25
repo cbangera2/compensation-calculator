@@ -562,9 +562,7 @@ export default function LeaderboardPanel() {
                         {COMPANY_GROUP_LABELS[r.entry.group]}
                       </div>
                       <div className="text-xs text-muted-foreground">{shortCity(r.entry.city)}</div>
-                      {r.entry.confidence === 'estimate' && (
-                        <div className="text-xs text-muted-foreground">estimate</div>
-                      )}
+
                       {r.entry.confidence === 'unavailable' && (
                         <div className="text-xs text-muted-foreground">no offer data</div>
                       )}
@@ -589,7 +587,7 @@ export default function LeaderboardPanel() {
                           n/a
                         </span>
                       ) : r.entry.ticker === null ? (
-                        <span className="text-xs text-muted-foreground">n/a (private)</span>
+                        <span className="text-xs text-muted-foreground">n/a</span>
                       ) : r.priceFailed ? (
                         <span className="text-xs text-muted-foreground">price unavailable</span>
                       ) : r.growth !== null ? (
@@ -692,9 +690,7 @@ export default function LeaderboardPanel() {
                       {COMPANY_GROUP_LABELS[r.entry.group]}
                     </div>
                     <div className="text-xs text-muted-foreground">{shortCity(r.entry.city)}</div>
-                    {r.entry.confidence === 'estimate' && (
-                      <div className="text-xs text-muted-foreground">estimate</div>
-                    )}
+
                     {r.entry.valuationAug2024Usd === null && (
                       <div className="text-xs text-muted-foreground">no 2024 anchor</div>
                     )}
