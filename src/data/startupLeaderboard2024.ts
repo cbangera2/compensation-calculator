@@ -14,13 +14,20 @@ import { CompanyGroup } from './companyGroups';
  *  - The anchor date is whatever the nearest press-covered mark was; it is
  *    labeled with its real date, never silently treated as exactly Aug 2024.
  *    Null when no 2024-era mark is publicly known.
- *  - 2024 NG offer TC appears ONLY where a sourced figure exists, never
- *    invented and never private: Stripe and Databricks carry their figures
- *    over from the project's own collected-offer dataset (leaderboard2024.ts);
- *    Applied Intuition uses the public levels.fyi entry-level aggregate
- *    (per owner request — public data only, never the owner's comp).
+ *  - 2024 NG offer TC appears ONLY where a levels.fyi entry-level figure
+ *    exists, never invented and never private: Stripe and Databricks carry
+ *    their Bay Area aggregates over from leaderboard2024.ts; Anduril, Ramp,
+ *    Vercel, Rippling, Discord, and OpenAI use their levels.fyi US entry-level
+ *    aggregates (no Bay Area entry-level pages exist for these). OpenAI's page
+ *    publishes only a median total, so its components are null and its
+ *    growth-marked TC is n/a. Applied Intuition's NG offer column is
+ *    intentionally null because no *public* new-grad aggregate exists for its
+ *    hub and the owner's private data is never used.
  *    The stock portion is stored separately so the growth-marked TC column
  *    can re-price it at the latest valuation.
+ *  - Every entry carries its offer city ("United States" — no Bay Area
+ *    entry-level pages exist for these companies). Per-offer COL normalization
+ *    treats a US aggregate with the US-aggregate factor.
  */
 
 export const STARTUP_DATASET_VERSION = 'v1.2026-09-24';
@@ -28,13 +35,16 @@ export const STARTUP_DATASET_VERSION = 'v1.2026-09-24';
 /** Last date any entry in this dataset was verified against its source. */
 export const STARTUP_LAST_VERIFIED = '2026-09-24';
 
-export const StartupConfidence = z.enum(['sourced', 'estimate']);
+export const StartupConfidence = z.enum(['sourced', 'estimate', 'unavailable']);
 export type TStartupConfidence = z.infer<typeof StartupConfidence>;
 
 export const StartupEntry = z
   .object({
     /** Display company name. */
     company: z.string().min(1),
+    /** City the NG offer figures are denominated in. "United States" for US-wide
+     * levels.fyi aggregates (no Bay Area entry-level pages exist for these). */
+    city: z.string().min(1),
     /** Company group for the leaderboard filter checkboxes. */
     group: CompanyGroup,
     /** Latest known valuation, USD. */
@@ -85,7 +95,7 @@ export const StartupEntry = z
   })
   .refine(
     (e) =>
-      (e.ngOfferTc2024 === null) === (e.ngStockPerYearAtGrant === null) &&
+      (e.ngStockPerYearAtGrant === null || e.ngOfferTc2024 !== null) &&
       (e.ngBase2024 === null) === (e.ngSigning2024 === null) &&
       (e.ngOfferTc2024 === null || e.ngBase2024 === null || e.ngSigning2024 === null || e.ngStockPerYearAtGrant === null ||
         e.ngBase2024 + e.ngSigning2024 + e.ngStockPerYearAtGrant === e.ngOfferTc2024) &&
@@ -93,7 +103,7 @@ export const StartupEntry = z
       (e.valuationAug2024Usd === null) === (e.valuationAug2024Event === null),
     {
       message:
-        'ngOfferTc2024/ngStockPerYearAtGrant must be null together, ngBase2024/ngSigning2024 must be null together, and a present breakdown must sum to the offer TC',
+        'a present stock split requires a present offer TC (a total-only median may stand alone), ngBase2024/ngSigning2024 must be null together, and a present breakdown must sum to the offer TC',
     },
   );
 export type TStartupEntry = z.infer<typeof StartupEntry>;
@@ -109,6 +119,7 @@ const ACCESS = '2026-09-24';
 const RAW: TStartupEntry[] = [
   {
     company: 'Anthropic',
+    city: 'United States',
     group: 'ai',
     latestValuationUsd: 965e9,
     latestValuationDate: '2026-05-28',
@@ -125,11 +136,12 @@ const RAW: TStartupEntry[] = [
       'https://github.com/pedro-bright/the-ledger/blob/HEAD/content/events/2026/53-anthropic-series-h-65b.md',
     accessDate: ACCESS,
     method:
-      'Latest: $965B post-money, May 2026 Series H. Anchor: ~$18.4B post, early-2024 Menlo-led round. No sourced 2024 new-grad offer figure in this project, so NG TC is null.',
-    confidence: 'sourced',
+      'Latest: $965B post-money, May 2026 Series H. Anchor: ~$18.4B post, early-2024 Menlo-led round. levels.fyi checked 2026-09-24: the $367K figure is an all-levels aggregate, NOT entry level, so it is not used. No entry-level data on levels.fyi - NG TC is unavailable, never invented.',
+    confidence: 'unavailable',
   },
   {
     company: 'Mercor',
+    city: 'United States',
     group: 'startups',
     latestValuationUsd: 10e9,
     latestValuationDate: '2025-10-27',
@@ -142,14 +154,16 @@ const RAW: TStartupEntry[] = [
     ngBase2024: null,
     ngSigning2024: null,
     source: 'TechCrunch (Series B); Series C reported by TechCrunch via Beamstart',
-    sourceUrl: 'https://beamstart.com/news/mercor-quintuples-valuation-to-10b-17615810758582',
+    sourceUrl:
+      'https://beamstart.com/news/mercor-quintuples-valuation-to-10b-17615810758582',
     accessDate: ACCESS,
     method:
-      'Latest: $10B, Oct 2025 Series C $350M led by Felicis (TechCrunch-reported). Anchor: $250M, Sep 2024 Series A $32M led by Benchmark (Forbes/TechCrunch). Reported 2026 $20B talks are talks, not a closed round — excluded. No sourced 2024 new-grad offer figure, so NG TC is null.',
-    confidence: 'sourced',
+      'Latest: $10B, Oct 2025 Series C $350M led by Felicis (TechCrunch-reported). Anchor: $250M, Sep 2024 Series A $32M led by Benchmark (Forbes/TechCrunch). Reported 2026 $20B talks are talks, not a closed round - excluded. levels.fyi checked 2026-09-24: no entry-level band, only an all-levels median - NG TC is unavailable, never invented.',
+    confidence: 'unavailable',
   },
   {
     company: 'Figure AI',
+    city: 'United States',
     group: 'startups',
     latestValuationUsd: 39e9,
     latestValuationDate: '2025-09-16',
@@ -166,11 +180,12 @@ const RAW: TStartupEntry[] = [
       'https://www.reuters.com/business/robotics-startup-figure-valued-39-billion-latest-funding-round-2025-09-16/',
     accessDate: ACCESS,
     method:
-      'Latest: $39B post-money Series C, Sep 2025. Anchor: $2.6B, Feb 2024 round (both per the same Reuters report). No sourced 2024 new-grad offer figure, so NG TC is null.',
-    confidence: 'sourced',
+      'Latest: $39B post-money Series C, Sep 2025. Anchor: $2.6B, Feb 2024 round (both per the same Reuters report). levels.fyi checked 2026-09-24: an entry-level band exists but has zero submissions - NG TC is unavailable, never invented.',
+    confidence: 'unavailable',
   },
   {
     company: 'Ramp',
+    city: 'United States',
     group: 'startups',
     latestValuationUsd: 44e9,
     latestValuationDate: '2026-06-04',
@@ -178,20 +193,21 @@ const RAW: TStartupEntry[] = [
     valuationAug2024Usd: 7.65e9,
     valuationAug2024Date: '2024-04-17',
     valuationAug2024Event: '$150M Series D-2 at $7.65B (Khosla, Founders Fund)',
-    ngOfferTc2024: null,
-    ngStockPerYearAtGrant: null,
-    ngBase2024: null,
-    ngSigning2024: null,
-    source: 'Reuters',
+    ngOfferTc2024: 225800,
+    ngStockPerYearAtGrant: 51800,
+    ngBase2024: 174000,
+    ngSigning2024: 0,
+    source: 'levels.fyi',
     sourceUrl:
-      'https://www.reuters.com/legal/transactional/fintech-firm-ramps-valuation-surges-44-billion-ai-driven-growth-2026-06-04/',
+      'https://www.levels.fyi/companies/ramp/salaries/software-engineer',
     accessDate: ACCESS,
     method:
-      'Latest: $44B, Jun 2026 Series F (Reuters). Anchor: $7.65B, Apr 2024 Series D-2 (TechCrunch). Sep 2026 reports of a $60B raise are talks, not a closed round — excluded.',
-    confidence: 'sourced',
+      'Estimate from levels.fyi New Grad entry-level aggregate (average), 125 submissions, read 2026-09-24: $174K base + $51.8K/yr stock. Signing bonus not reported by levels.fyi; counted as $0 (unknown, not zero). Private company: equity is illiquid paper. US aggregate - no Bay Area entry-level page exists.',
+    confidence: 'estimate',
   },
   {
     company: 'OpenAI',
+    city: 'United States',
     group: 'ai',
     latestValuationUsd: 852e9,
     latestValuationDate: '2026-03-31',
@@ -199,19 +215,21 @@ const RAW: TStartupEntry[] = [
     valuationAug2024Usd: 157e9,
     valuationAug2024Date: '2024-10-02',
     valuationAug2024Event: '$13.33B raise at $157B post (Oct 2024)',
-    ngOfferTc2024: null,
+    ngOfferTc2024: 249500,
     ngStockPerYearAtGrant: null,
     ngBase2024: null,
     ngSigning2024: null,
-    source: 'Forge private-market round history',
-    sourceUrl: 'https://forgeglobal.com/insights/openai-upcoming-ipo-news/',
+    source: 'levels.fyi',
+    sourceUrl:
+      'https://www.levels.fyi/companies/openai/salaries/software-engineer',
     accessDate: ACCESS,
     method:
-      'Latest: $852B, Mar 2026. Anchor: $157B, Oct 2024 raise — the nearest press-covered mark to Aug 2024 (the round was being negotiated in Aug–Sep 2024). No sourced 2024 new-grad offer figure, so NG TC is null.',
-    confidence: 'sourced',
+      'levels.fyi L2 entry-level median total only, no component breakdown available. $249.5K median total, 238 submissions, read 2026-09-24. Base/stock/bonus split is not published, so the stock portion cannot be re-priced at valuation growth - TC/yr with growth is n/a. Private company: equity is illiquid paper. US aggregate - no Bay Area entry-level page exists.',
+    confidence: 'estimate',
   },
   {
     company: 'Databricks',
+    city: 'United States',
     group: 'ai',
     latestValuationUsd: 190e9,
     latestValuationDate: '2026-08-13',
@@ -219,20 +237,21 @@ const RAW: TStartupEntry[] = [
     valuationAug2024Usd: 43e9,
     valuationAug2024Date: '2023-09-14',
     valuationAug2024Event: 'Series I, $500M+ at $43B',
-    ngOfferTc2024: 247500,
-    ngStockPerYearAtGrant: 37500,
-    ngBase2024: 175000,
-    ngSigning2024: 35000,
-    source: 'Company announcements; TechCrunch (Series I)',
+    ngOfferTc2024: 242500,
+    ngStockPerYearAtGrant: 94500,
+    ngBase2024: 148000,
+    ngSigning2024: 0,
+    source: 'levels.fyi',
     sourceUrl:
-      'https://techstartups.com/2026/08/13/databricks-raises-5-billion-at-190-billion-valuation-as-revenue-run-rate-tops-7-billion/',
+      'https://www.levels.fyi/companies/databricks/salaries/software-engineer/locations/san-francisco-bay-area',
     accessDate: ACCESS,
     method:
-      'Latest: $190B, Aug 2026 strategic round. Anchor: $43B Series I, Sep 2023 — the last press-covered mark before Dec 2024 ($62B). NG TC carried from leaderboard2024.ts: single collected offer $175K base + $35K signing + $150K equity (stock/4 = $37.5K). Private equity is illiquid paper.',
-    confidence: 'sourced',
+      'Estimate from levels.fyi L3 entry-level aggregate (average), 641 submissions, read 2026-09-24: $148K base + $94.5K/yr stock. Signing bonus not reported by levels.fyi; counted as $0 (unknown, not zero). Private company: equity is illiquid paper. Carried from leaderboard2024.ts (same Bay Area aggregate). Valuation: latest $190B strategic round, Aug 2026; anchor $43B Series I, Sep 2023.',
+    confidence: 'estimate',
   },
   {
     company: 'Anduril',
+    city: 'United States',
     group: 'defense',
     latestValuationUsd: 61e9,
     latestValuationDate: '2026-05-13',
@@ -240,20 +259,21 @@ const RAW: TStartupEntry[] = [
     valuationAug2024Usd: 14e9,
     valuationAug2024Date: '2024-08-01',
     valuationAug2024Event: '$1.5B Series F at $14B (Founders Fund, Sands Capital)',
-    ngOfferTc2024: null,
-    ngStockPerYearAtGrant: null,
-    ngBase2024: null,
-    ngSigning2024: null,
-    source: 'Reuters',
+    ngOfferTc2024: 227900,
+    ngStockPerYearAtGrant: 58900,
+    ngBase2024: 169000,
+    ngSigning2024: 0,
+    source: 'levels.fyi',
     sourceUrl:
-      'https://www.reuters.com/legal/transactional/us-defense-firm-anduril-raises-5-billion-doubling-its-valuation-61-billion-2026-05-13/',
+      'https://www.levels.fyi/companies/anduril-industries/salaries/software-engineer',
     accessDate: ACCESS,
     method:
-      'Latest: $61B, May 2026 Series H (Reuters). Anchor: $14B, Aug 2024 Series F (Crunchbase) — exactly the Aug-2024 window. No sourced 2024 new-grad offer figure, so NG TC is null.',
-    confidence: 'sourced',
+      'Estimate from levels.fyi IC2 entry-level aggregate (average), 333 submissions, read 2026-09-24: $169K base + $58.9K/yr stock. Signing bonus not reported by levels.fyi; counted as $0 (unknown, not zero). Private company: equity is illiquid paper. US aggregate - no Bay Area entry-level page exists.',
+    confidence: 'estimate',
   },
   {
     company: 'Vercel',
+    city: 'United States',
     group: 'startups',
     latestValuationUsd: 9.3e9,
     latestValuationDate: '2025-09-30',
@@ -261,20 +281,21 @@ const RAW: TStartupEntry[] = [
     valuationAug2024Usd: 3.25e9,
     valuationAug2024Date: '2024-05-16',
     valuationAug2024Event: '$250M Series E at $3.25B (Accel)',
-    ngOfferTc2024: null,
-    ngStockPerYearAtGrant: null,
-    ngBase2024: null,
-    ngSigning2024: null,
-    source: 'Company announcement (Morningstar)',
+    ngOfferTc2024: 206800,
+    ngStockPerYearAtGrant: 33800,
+    ngBase2024: 173000,
+    ngSigning2024: 0,
+    source: 'levels.fyi',
     sourceUrl:
-      'https://www.morningstar.com/news/business-wire/20250930898216/vercel-closes-series-f-at-93b-valuation-to-scale-the-ai-cloud',
+      'https://www.levels.fyi/companies/vercel/salaries/software-engineer',
     accessDate: ACCESS,
     method:
-      'Latest: $9.3B, Sep 2025 Series F. Anchor: $3.25B, May 2024 Series E (Reuters/SiliconANGLE). No sourced 2024 new-grad offer figure, so NG TC is null.',
-    confidence: 'sourced',
+      'Estimate from levels.fyi Entry entry-level aggregate (average), 45 submissions, read 2026-09-24: $173K base + $33.8K/yr stock. Thin data (45 submissions). Signing bonus not reported by levels.fyi; counted as $0 (unknown, not zero). Private company: equity is illiquid paper. US aggregate - no Bay Area entry-level page exists.',
+    confidence: 'estimate',
   },
   {
     company: 'Rippling',
+    city: 'United States',
     group: 'startups',
     latestValuationUsd: 35e9,
     latestValuationDate: '2026-07-01',
@@ -282,19 +303,21 @@ const RAW: TStartupEntry[] = [
     valuationAug2024Usd: 13.5e9,
     valuationAug2024Date: '2024-04-22',
     valuationAug2024Event: '$200M Series F at $13.5B (Coatue)',
-    ngOfferTc2024: null,
-    ngStockPerYearAtGrant: null,
-    ngBase2024: null,
-    ngSigning2024: null,
-    source: 'TechStackIPO round tracker',
-    sourceUrl: 'https://techstackipo.polsia.app/company/rippling',
+    ngOfferTc2024: 203100,
+    ngStockPerYearAtGrant: 33100,
+    ngBase2024: 170000,
+    ngSigning2024: 0,
+    source: 'levels.fyi',
+    sourceUrl:
+      'https://www.levels.fyi/companies/rippling/salaries/software-engineer',
     accessDate: ACCESS,
     method:
-      'Latest: $35B, Jul 2026 Series I (round tracker — treat as a secondary source). Anchor: $13.5B, Apr 2024 Series F (SiliconANGLE). No sourced 2024 new-grad offer figure, so NG TC is null.',
+      'Estimate from levels.fyi L5 entry-level aggregate (average), 435 submissions, read 2026-09-24: $170K base + $33.1K/yr stock. Signing bonus not reported by levels.fyi; counted as $0 (unknown, not zero). Private company: equity is illiquid paper. US aggregate - no Bay Area entry-level page exists.',
     confidence: 'estimate',
   },
   {
     company: 'Applied Intuition',
+    city: 'United States',
     group: 'startups',
     latestValuationUsd: 15e9,
     latestValuationDate: '2025-06-01',
@@ -315,6 +338,7 @@ const RAW: TStartupEntry[] = [
   },
   {
     company: 'Stripe',
+    city: 'United States',
     group: 'startups',
     latestValuationUsd: 159e9,
     latestValuationDate: '2026-02-24',
@@ -322,19 +346,21 @@ const RAW: TStartupEntry[] = [
     valuationAug2024Usd: 70e9,
     valuationAug2024Date: '2024-07-01',
     valuationAug2024Event: 'Sequoia internal $70B mark (Jul 2024)',
-    ngOfferTc2024: 215000,
-    ngStockPerYearAtGrant: 25000,
-    ngBase2024: 165000,
-    ngSigning2024: 25000,
-    source: 'Company tender announcement; TechCrunch (Sequoia mark)',
-    sourceUrl: 'https://www.ainvest.com/news/stripe-159b-tender-liquidity-pump-smart-money-exit-2602/',
+    ngOfferTc2024: 191300,
+    ngStockPerYearAtGrant: 45300,
+    ngBase2024: 146000,
+    ngSigning2024: 0,
+    source: 'levels.fyi',
+    sourceUrl:
+      'https://www.levels.fyi/companies/stripe/salaries/software-engineer/locations/san-francisco-bay-area',
     accessDate: ACCESS,
     method:
-      'Latest: $159B tender, Feb 2026. Anchor: Sequoia’s $70B internal mark, Jul 2024 (TechCrunch) — the nearest mark to Aug 2024; the $65B Feb 2024 tender is the alternative anchor. NG TC carried from leaderboard2024.ts: midpoints $165K base + $25K signing + $100K equity (stock/4 = $25K). Private equity is illiquid paper.',
-    confidence: 'sourced',
+      'Estimate from levels.fyi L1 entry-level aggregate (average), 1,530 submissions, read 2026-09-24: $146K base + $45.3K/yr stock. Signing bonus not reported by levels.fyi; counted as $0 (unknown, not zero). Private company: equity is illiquid paper. Carried from leaderboard2024.ts (same Bay Area aggregate). Valuation: latest $159B tender, Feb 2026; anchor Sequoia $70B internal mark, Jul 2024.',
+    confidence: 'estimate',
   },
   {
     company: 'Perplexity',
+    city: 'United States',
     group: 'ai',
     latestValuationUsd: 20e9,
     latestValuationDate: '2025-08-15',
@@ -347,14 +373,16 @@ const RAW: TStartupEntry[] = [
     ngBase2024: null,
     ngSigning2024: null,
     source: 'TechFundingNews',
-    sourceUrl: 'https://techfundingnews.com/perplexity-raises-200m-at-20b-valuation-ai-search/',
+    sourceUrl:
+      'https://techfundingnews.com/perplexity-raises-200m-at-20b-valuation-ai-search/',
     accessDate: ACCESS,
     method:
-      'Latest: $20B closed round, Aug 2025 (a later reported $30B round is talks, not closed — excluded). Anchor: $9B, Dec 2024. No sourced 2024 new-grad offer figure, so NG TC is null.',
-    confidence: 'sourced',
+      'Latest: $20B closed round, Aug 2025 (a later reported $30B round is talks, not closed - excluded). Anchor: $9B, Dec 2024. levels.fyi checked 2026-09-24: only mid-level data exists ($507K at 5 YOE), not entry level - NG TC is unavailable, never invented.',
+    confidence: 'unavailable',
   },
   {
     company: 'Canva',
+    city: 'United States',
     group: 'startups',
     latestValuationUsd: 42e9,
     latestValuationDate: '2026-09-15',
@@ -371,11 +399,12 @@ const RAW: TStartupEntry[] = [
       'https://news.bloomberglaw.com/capital-markets/canva-begins-share-sale-at-42-billion-valuation-in-road-to-ipo',
     accessDate: ACCESS,
     method:
-      'Latest: $42B employee share sale, Sep 2026 (Bloomberg). Anchor: $32B 2024 share sale (per the same report). No sourced 2024 new-grad offer figure, so NG TC is null.',
-    confidence: 'sourced',
+      'Latest: $42B employee share sale, Sep 2026 (Bloomberg). Anchor: $32B 2024 share sale (per the same report). levels.fyi checked 2026-09-24: only Australia data exists, not usable for a US leaderboard - NG TC is unavailable, never invented.',
+    confidence: 'unavailable',
   },
   {
     company: 'Discord',
+    city: 'United States',
     group: 'consumer',
     latestValuationUsd: 8.53e9,
     latestValuationDate: '2026-07-08',
@@ -383,15 +412,16 @@ const RAW: TStartupEntry[] = [
     valuationAug2024Usd: null,
     valuationAug2024Date: null,
     valuationAug2024Event: null,
-    ngOfferTc2024: null,
-    ngStockPerYearAtGrant: null,
-    ngBase2024: null,
-    ngSigning2024: null,
-    source: 'Forge secondary mark (via AIFundingTracker)',
-    sourceUrl: 'https://aifundingtracker.com/who-owns-discord/',
+    ngOfferTc2024: 148600,
+    ngStockPerYearAtGrant: 14600,
+    ngBase2024: 134000,
+    ngSigning2024: 0,
+    source: 'levels.fyi',
+    sourceUrl:
+      'https://www.levels.fyi/companies/discord/salaries/software-engineer',
     accessDate: ACCESS,
     method:
-      'Latest is a secondary-market mark ($8.53B, Jul 2026, Forge) — not a funding round, so confidence is estimate. Last primary round was Sep 2021 ($15.2B); no 2024-era mark is publicly known, so the anchor is null and growth is not computed.',
+      'Estimate from levels.fyi L1 entry-level aggregate (average), 84 submissions, read 2026-09-24: $134K base + $14.6K/yr stock. Signing bonus not reported by levels.fyi; counted as $0 (unknown, not zero). Private company RSU: equity is illiquid paper. US aggregate - no Bay Area entry-level page exists.',
     confidence: 'estimate',
   },
 ];

@@ -8,6 +8,7 @@ import { z } from 'zod';
  * creating an import cycle through lib/leaderboard.
  */
 export const CompanyGroup = z.enum([
+  'user',
   'big-tech',
   'ai',
   'startups',
@@ -18,6 +19,7 @@ export const CompanyGroup = z.enum([
 export type TCompanyGroup = z.infer<typeof CompanyGroup>;
 
 export const COMPANY_GROUP_LABELS: Record<TCompanyGroup, string> = {
+  user: 'Your offers',
   'big-tech': 'Big Tech',
   ai: 'AI labs & infra',
   startups: 'Startups',
@@ -28,6 +30,7 @@ export const COMPANY_GROUP_LABELS: Record<TCompanyGroup, string> = {
 
 /** All groups in checkbox display order. */
 export const COMPANY_GROUPS: TCompanyGroup[] = [
+  'user',
   'big-tech',
   'ai',
   'startups',

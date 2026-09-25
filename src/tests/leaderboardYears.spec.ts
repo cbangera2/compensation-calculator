@@ -18,15 +18,19 @@ describe('leaderboard year keying', () => {
     expect(LEADERBOARD_BY_YEAR['2024'].length).toBeGreaterThan(0);
   });
 
-  it('files 8 sourced 2025 rows and 28 estimate 2026 rows under their years', () => {
+  it('files 8 estimate 2025 rows and 28 estimate 2026 rows under their years', () => {
     const y25 = LEADERBOARD_BY_YEAR['2025'];
     const y26 = LEADERBOARD_BY_YEAR['2026'];
     expect(y25).toHaveLength(8);
     expect(y26).toHaveLength(28);
+    // 2025 rows are the same levels.fyi all-years aggregates as 2026, filed
+    // under the 2025 grant date; no 2025-anchored aggregates exist.
     for (const e of y25) {
       expect(e.grantDate).toBe('2025-08-01');
-      expect(e.confidence).toBe('sourced');
-      expect(e.sampleBand).toBe('<10');
+      expect(e.confidence).toBe('estimate');
+      expect(e.sampleBand).toBe('50+');
+      expect(e.source.toLowerCase()).toContain('levels.fyi');
+      expect(e.sourceUrl).toContain('levels.fyi');
     }
     for (const e of y26) {
       expect(e.grantDate).toBe('2026-08-01');

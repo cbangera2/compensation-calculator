@@ -37,7 +37,9 @@ import {
   COMPANY_GROUP_LABELS,
   type TCompanyGroup,
 } from '@/data/companyGroups';
-import { ALL_CITY_PRESETS } from '@/lib/col';
+import { ALL_CITY_PRESETS, matchCityPresetKey } from '@/lib/col';
+import { offerToLeaderboardEntry } from '@/lib/userLeaderboard';
+import { useStore } from '@/state/store';
 import {
   offerTcAtGrant,
   priceAtDate,
@@ -56,9 +58,10 @@ type SortKey = 'realized' | 'company' | 'tc' | 'growth' | 'tcPerYear';
 type StartupSortKey = 'growth' | 'company';
 
 /**
- * COL adjustment assumes nominal offer figures are Bay Area dollars
- * (the most common hub in the source data — per-offer cities are not
- * disclosed). Adjusted = nominal / BAY_AREA_FACTOR * baseCity.factor.
+ * Fallback COL factor when an offer's city has no preset (e.g. a US-wide
+ * aggregate). Per-offer normalization: adjusted = nominal / offerCityFactor *
+ * baseCity.factor, so each row converts FROM its own city (shown under the
+ * company name) TO the selected base city.
  */
 const BAY_AREA_FACTOR = 1.4;
 
@@ -118,9 +121,20 @@ export default function LeaderboardPanel() {
   const growthNa = year !== '2024';
 
   const baseCity = ALL_CITY_PRESETS.find((c) => c.key === baseCityKey) ?? ALL_CITY_PRESETS[0];
-  const colScale = colAdjust ? baseCity.factor / BAY_AREA_FACTOR : 1;
-  /** Scale a TC figure into base-city purchasing-power dollars when the COL toggle is on. */
-  const colAdj = (n: number | null): number | null => (n === null ? null : n * colScale);
+  /** COL factor for an offer's city; falls back to Bay Area when the city has no preset. */
+  const offerCityFactor = (city: string): number => {
+    const preset = ALL_CITY_PRESETS.find((c) => c.key === matchCityPresetKey(city));
+    return preset?.factor ?? BAY_AREA_FACTOR;
+  };
+  const colScaleForCity = (city: string): number =>
+    colAdjust ? baseCity.factor / offerCityFactor(city) : 1;
+  /** Scale a TC figure from its offer city into base-city purchasing-power dollars. */
+  const colAdjFor =
+    (city: string) =>
+    (n: number | null): number | null =>
+      n === null ? null : n * colScaleForCity(city);
+  /** Startup-table rows carry no city; they keep the Bay Area assumption. */
+  const colAdj = colAdjFor('San Francisco Bay Area');
   const tcSuffix = colAdjust ? ' (adj.)' : '';
 
   useEffect(() => {
@@ -547,6 +561,7 @@ export default function LeaderboardPanel() {
                       <div className="text-xs text-muted-foreground">
                         {COMPANY_GROUP_LABELS[r.entry.group]}
                       </div>
+                      <div className="text-xs text-muted-foreground">{r.entry.city}</div>
                       {r.entry.confidence === 'estimate' && (
                         <div className="text-xs text-muted-foreground">estimate</div>
                       )}
@@ -560,7 +575,7 @@ export default function LeaderboardPanel() {
                     <TableCell className="text-muted-foreground">{r.entry.levelLabel}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {r.tcAtGrant !== null ? (
-                        formatCurrency(colAdj(r.tcAtGrant) as number)
+                        formatCurrency(colAdjFor(r.entry.city)(r.tcAtGrant) as number)
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
@@ -598,7 +613,7 @@ export default function LeaderboardPanel() {
                       ) : r.priceFailed ? (
                         <span className="text-xs font-normal text-muted-foreground">price unavailable</span>
                       ) : r.realized !== null ? (
-                        formatCurrency(colAdj(r.realized) as number)
+                        formatCurrency(colAdjFor(r.entry.city)(r.realized) as number)
                       ) : (
                         <span className="text-xs font-normal text-muted-foreground">—</span>
                       )}
@@ -612,7 +627,7 @@ export default function LeaderboardPanel() {
                           n/a
                         </span>
                       ) : r.tcPerYear !== null ? (
-                        formatCurrency(colAdj(r.tcPerYear) as number)
+                        formatCurrency(colAdjFor(r.entry.city)(r.tcPerYear) as number)
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
@@ -678,6 +693,7 @@ export default function LeaderboardPanel() {
                     <div className="text-xs text-muted-foreground">
                       {COMPANY_GROUP_LABELS[r.entry.group]}
                     </div>
+                    <div className="text-xs text-muted-foreground">{r.entry.city}</div>
                     {r.entry.confidence === 'estimate' && (
                       <div className="text-xs text-muted-foreground">estimate</div>
                     )}
@@ -756,20 +772,19 @@ export default function LeaderboardPanel() {
             instead (growth not computed — see Years).
           </p>
           <p>
-            <strong className="text-foreground">Where the numbers come from.</strong> Most entries are
-            midpoints of ranges across 47 real 2024–2025 new-grad offer letters collected in March 2026
-            (source linked per entry in the dataset file). Ranges are disclosed in each entry’s method —
-            the midpoints are not exact offers. Rows labeled <em>estimate</em> are backed out from
-            published benchmarks, not collected offers: Nvidia from a levels.fyi read, Roblox from two
-            corroborating 2024-cycle offer posts plus its official new-grad posting, and Apple, Arm, Snap,
-            Snowflake, Pinterest, LinkedIn, and ByteDance from levels.fyi entry-level aggregates read
-            2026-09-24 (all-years averages, not 2024-specific — each method says so). levels.fyi aggregates
-            do not report signing bonuses, so those rows count signing as $0: unknown, not zero, and the
-            at-grant TC understates offers that had one. LinkedIn (Microsoft subsidiary) and ByteDance
-            (private) have no ticker; their growth/realized columns are n/a by construction. Tesla, AMD,
-            and Broadcom were researched and left out — no defensible 2024 new-grad figure exists publicly.
-            The Palantir row has no offer data: no defensible 2024 new-grad offer aggregate exists publicly, so its offer columns
-            are intentionally blank (not estimated) and only its stock move since Aug 2024 is shown.
+            <strong className="text-foreground">Where the numbers come from.</strong> Every comp
+            figure comes from levels.fyi and nothing else — no Medium articles, no other sources. Most
+            2024 rows are levels.fyi Bay Area entry-level <em>averages</em> (levels.fyi labels them
+            &quot;Average Compensation By Level&quot;), read 2026-09-24, with each row&apos;s submission
+            count disclosed in its method. levels.fyi aggregates do not report signing bonuses, so those
+            rows count signing as $0: unknown, not zero, and the at-grant TC understates offers that had
+            one. Arm has no Bay Area aggregate on levels.fyi, so its row uses the Austin aggregate and is
+            labeled Austin. Palantir has no entry-level salary band on levels.fyi — only job-posting base
+            ranges ($135–155K) — so its row is a postings-based estimate: base is the $145K midpoint and
+            equity is null (unknown, not zero), meaning its at-grant TC and realized columns reflect base
+            only. LinkedIn and ByteDance have no levels.fyi entry-level data and are shown as insufficient
+            data rather than invented. LinkedIn (Microsoft subsidiary) and ByteDance (private) have no
+            ticker; their growth/realized columns are n/a by construction.
           </p>
           <p>
             <strong className="text-foreground">Top startups.</strong> Latest private valuations are
@@ -777,8 +792,13 @@ export default function LeaderboardPanel() {
             data. Growth = latest ÷ ~Aug-2024 anchor − 1; the anchor is the nearest press-covered 2024-era
             mark, labeled with its real date (never silently treated as exactly Aug 2024). Companies
             without a 2024-era anchor (Discord) are listed last, unranked. &quot;2024 NG offer TC&quot;
-            appears only where a sourced figure exists (Stripe, Databricks from the collected-offer
-            dataset). Applied Intuition has no Sunnyvale-specific public new-grad figure — levels.fyi
+            appears only where a levels.fyi entry-level figure exists (Stripe, Databricks from the same
+            Bay Area aggregates as the board above; Anduril, Ramp, Vercel, Rippling, Discord, and OpenAI
+            from their US-wide aggregates — no Bay Area entry-level pages exist for those). OpenAI&apos;s
+            page publishes only a median total, so its breakdown is blank and its growth-marked TC is
+            n/a. Companies with no entry-level data on levels.fyi (Anthropic, Perplexity, Figure AI,
+            Canva, Mercor) show no offer figures rather than mislabeled ones. Applied Intuition has
+            no Sunnyvale-specific public new-grad figure — levels.fyi
             publishes only a US-wide aggregate — so its offer columns are blank rather than mislabeled,
             and owner private comp data is never used. <strong className="text-foreground">TC/yr with growth</strong>{' '}
             re-prices only the stock portion of that TC at valuation growth: one year of the
@@ -791,28 +811,31 @@ export default function LeaderboardPanel() {
           <p>
             <strong className="text-foreground">Years.</strong> The year tabs switch the offer leaderboard
             by graduating class; each year gets its own canonical grant-date assumption (August of that
-            year). The <strong className="text-foreground">2025</strong> tab holds the 8 companies with
-            real 2024–2025 offer data from the collected-offer collection (same source as the 2024 sourced
-            rows, filed under the 2025 grant date). The <strong className="text-foreground">2026</strong>{' '}
+            year). The <strong className="text-foreground">2025</strong> tab holds 8 levels.fyi
+            entry-level aggregates (the same all-years rolling averages as 2026, read 2026-09-24, filed
+            under the 2025 grant date — no 2025-anchored aggregates exist). The{' '}
+            <strong className="text-foreground">2026</strong>{' '}
             tab holds 28 levels.fyi entry-level aggregates read 2026-09-24 — all-years rolling averages,
             labeled <em>estimate</em>, with their own submission counts; Canva is omitted (Australia-only
-            A$ figures) as are Palantir, Perplexity, Mercor, and Figure AI (no defensible entry-level
+            A$ figures) as are Perplexity, Mercor, and Figure AI (no defensible entry-level
             aggregate). Growth/realized columns are computed only for the 2024 class; 2025 and 2026 rank by
             offer TC at grant and their growth columns are n/a — never invented. The Top startups table is
             latest valuations, not year-specific, and is unaffected by the tabs.
           </p>
           <p>
             <strong className="text-foreground">Groups &amp; COL.</strong> The group checkboxes filter
-            both tables and each ranking re-computes over the visible rows. &quot;Adjust by COL&quot;
-            re-denominates TC figures into the selected base city’s purchasing-power dollars; it assumes
-            offers are Bay Area dollars (per-offer cities aren’t in the source data), so it is a
-            re-denomination, not a per-offer correction. Valuation and growth columns are never COL-adjusted.
+            both tables and each ranking re-computes over the visible rows. Each offer row shows its city
+            under the company name. &quot;Adjust by COL&quot; re-denominates TC figures into the selected
+            base city&apos;s purchasing-power dollars with a per-offer correction: each row is converted
+            <em> from its own city</em> (e.g. Arm&apos;s Austin figures are divided by Austin&apos;s
+            factor, Bay Area rows by the Bay Area factor), so it is a genuine normalization, not a blanket
+            re-denomination. Valuation and growth columns are never COL-adjusted.
           </p>
           <p>
-            <strong className="text-foreground">What it ignores.</strong> Self-reported data: the 2024
-            collected offers and the 2025 rows are small samples (&lt;10 offers each), while the 2026
-            levels.fyi aggregates carry their own submission counts (disclosed per row). Pre-tax. Vesting
-            schedules (e.g. Amazon’s 5/15/40/40 back-load, Nvidia’s 40/30/20/10 front-load), refreshers,
+            <strong className="text-foreground">What it ignores.</strong> Self-reported data: the
+            levels.fyi aggregates carry their own submission counts (disclosed per row), and Bay Area
+            figures can run hotter than national averages. Pre-tax. Vesting schedules (e.g. Amazon’s
+            5/15/40/40 back-load, Nvidia’s 40/30/20/10 front-load), refreshers,
             bonuses after year 1, and taxes are not modeled. Signing bonuses are counted in full in the
             at-grant TC even when paid over two years. Private-company equity (Stripe, Databricks) is
             illiquid paper — shown as n/a, not zero.

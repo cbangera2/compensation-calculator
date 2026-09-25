@@ -169,9 +169,9 @@ describe('startup leaderboard dataset', () => {
     const { startupTcPerYearWithGrowth } = await import('@/lib/leaderboard');
     const stripe = STARTUP_LEADERBOARD.find((e) => e.company === 'Stripe')!;
     // base + signing/4 + one year of stock × growth multiple
-    expect(startupTcPerYearWithGrowth(stripe)).toBeCloseTo(165000 + 25000 / 4 + 25000 * (159 / 70), 6);
+    expect(startupTcPerYearWithGrowth(stripe)).toBeCloseTo(146000 + 0 / 4 + 45300 * (159 / 70), 6);
     const databricks = STARTUP_LEADERBOARD.find((e) => e.company === 'Databricks')!;
-    expect(startupTcPerYearWithGrowth(databricks)).toBeCloseTo(175000 + 35000 / 4 + 37500 * (190 / 43), 6);
+    expect(startupTcPerYearWithGrowth(databricks)).toBeCloseTo(148000 + 0 / 4 + 94500 * (190 / 43), 6);
   });
 
   it('Applied Intuition uses only public figures and leaves Sunnyvale offer data blank', async () => {
@@ -202,24 +202,39 @@ describe('startup leaderboard dataset', () => {
   });
 });
 
-describe('leaderboard null-offer handling (Palantir)', () => {
-  const palantir = () => LEADERBOARD_2024.find((e) => e.company === 'Palantir')!;
+describe('leaderboard null-offer handling (unavailable rows)', () => {
+  const bytedance = () => LEADERBOARD_2024.find((e) => e.company === 'ByteDance')!;
 
-  it('Palantir has null offer components with confidence unavailable', () => {
-    const p = palantir();
+  it('levels.fyi-missing companies are unavailable with null offer components', () => {
+    for (const name of ['ByteDance', 'LinkedIn']) {
+      const e = LEADERBOARD_2024.find((x) => x.company === name)!;
+      expect(e, name).toBeDefined();
+      expect(e.base).toBeNull();
+      expect(e.signingBonus).toBeNull();
+      expect(e.stockGrantTotal4yr).toBeNull();
+      expect(e.confidence).toBe('unavailable');
+      expect(e.source).toBe('levels.fyi');
+      expect(e.sourceUrl).toContain('levels.fyi/companies/');
+    }
+  });
+
+  it('Palantir keeps its levels.fyi postings-based estimate', () => {
+    const p = LEADERBOARD_2024.find((e) => e.company === 'Palantir')!;
     expect(p.ticker).toBe('PLTR');
-    expect(p.base).toBeNull();
+    expect(p.base).toBe(145000);
     expect(p.signingBonus).toBeNull();
     expect(p.stockGrantTotal4yr).toBeNull();
-    expect(p.confidence).toBe('unavailable');
+    expect(p.confidence).toBe('estimate');
+    expect(p.source).toBe('levels.fyi');
+    expect(p.method).toContain('no equity data available');
   });
 
   it('null offers produce no offer-derived values but keep the stock move', async () => {
     const { tcPerYearWithGrowth, stockGrowthSinceGrant } = await import('@/lib/leaderboard');
-    const p = palantir();
-    expect(offerTcAtGrant(p)).toBeNull();
-    expect(realized4yr(p, prices)).toBeNull();
-    expect(tcPerYearWithGrowth(realized4yr(p, prices))).toBeNull();
+    const b = bytedance();
+    expect(offerTcAtGrant(b)).toBeNull();
+    expect(realized4yr(b, prices)).toBeNull();
+    expect(tcPerYearWithGrowth(realized4yr(b, prices))).toBeNull();
     expect(stockGrowthSinceGrant(prices)).toBeCloseTo(0.5, 10);
   });
 
@@ -227,34 +242,52 @@ describe('leaderboard null-offer handling (Palantir)', () => {
     const meta = LEADERBOARD_2024.find((e) => e.company === 'Meta')!;
     expect(() => LeaderboardEntry.parse({ ...meta, base: null })).toThrow();
     expect(() => LeaderboardEntry.parse({ ...meta, base: null, signingBonus: null, stockGrantTotal4yr: null })).toThrow();
-    expect(() => LeaderboardEntry.parse({ ...palantir(), confidence: 'sourced' })).toThrow();
-    expect(() => LeaderboardEntry.parse({ ...palantir(), base: 100000, signingBonus: 0, stockGrantTotal4yr: 0 })).toThrow();
+    expect(() => LeaderboardEntry.parse({ ...bytedance(), confidence: 'sourced' })).toThrow();
+    expect(() => LeaderboardEntry.parse({ ...bytedance(), base: 100000, signingBonus: 0, stockGrantTotal4yr: 0 })).toThrow();
+    // Palantir's null stock grant is only valid on an estimate (no equity data published).
+    const palantir = LEADERBOARD_2024.find((e) => e.company === 'Palantir')!;
+    expect(() => LeaderboardEntry.parse({ ...palantir, confidence: 'sourced' })).toThrow();
+    expect(() => LeaderboardEntry.parse(palantir)).not.toThrow();
   });
 
-  it('allows null signing alone when the source aggregate does not report it', () => {
+  it('counts unreported signing as $0 in TC math, disclosed as unknown', () => {
     const snap = LEADERBOARD_2024.find((e) => e.company === 'Snap')!;
-    expect(snap.signingBonus).toBeNull();
-    expect(snap.base).toBe(137000);
-    expect(snap.stockGrantTotal4yr).toBe(218000);
+    expect(snap.signingBonus).toBe(0);
+    expect(snap.base).toBe(136000);
+    expect(snap.stockGrantTotal4yr).toBe(205600);
     expect(() => LeaderboardEntry.parse(snap)).not.toThrow();
     // Unknown signing is counted as $0 in TC math, disclosed in method.
-    expect(offerTcAtGrant(snap)).toBe(137000 + 0 + 218000 / 4);
+    expect(offerTcAtGrant(snap)).toBe(136000 + 0 + 205600 / 4);
     expect(snap.method.toLowerCase()).toContain('unknown, not zero');
   });
 
-  it('new research-backed entries parse with honest estimate labeling', () => {
-    for (const name of ['Roblox', 'Arm', 'Apple', 'Snap', 'Snowflake', 'Pinterest', 'LinkedIn', 'ByteDance']) {
-      const e = LEADERBOARD_2024.find((x) => x.company === name);
-      expect(e, name).toBeDefined();
+  it('postings-based null stock counts as $0 in TC math (base only)', async () => {
+    const palantir = LEADERBOARD_2024.find((e) => e.company === 'Palantir')!;
+    expect(offerTcAtGrant(palantir)).toBe(145000);
+    expect(realized4yr(palantir, prices)).toBeCloseTo(145000 * 4, 10);
+  });
+
+  it('2024 rows are levels.fyi Bay Area entry-level averages with honest estimate labeling', () => {
+    const estimates = LEADERBOARD_2024.filter((e) => e.confidence === 'estimate');
+    expect(estimates.length).toBeGreaterThan(15);
+    for (const e of estimates) {
       expect(() => LeaderboardEntry.parse(e)).not.toThrow();
+      expect(e.source).toBe('levels.fyi');
+      expect(e.sourceUrl).toContain('levels.fyi');
+      expect(e.method).toContain('read 2026-09-24');
     }
-    const roblox = LEADERBOARD_2024.find((e) => e.company === 'Roblox')!;
-    expect(roblox.confidence).toBe('sourced');
-    for (const name of ['Arm', 'Apple', 'Snap', 'Snowflake', 'Pinterest', 'LinkedIn', 'ByteDance']) {
-      const e = LEADERBOARD_2024.find((x) => x.company === name)!;
-      expect(e.confidence).toBe('estimate');
-      expect(e.method.toLowerCase()).toContain('estimate');
+    // Bay Area aggregates carry the required method format; averages, not medians.
+    const google = LEADERBOARD_2024.find((e) => e.company === 'Google')!;
+    expect(google.base).toBe(162000);
+    expect(google.stockGrantTotal4yr).toBe(165200);
+    expect(google.method).toContain('levels.fyi L3 entry-level aggregate (average), 24,223 submissions, read 2026-09-24');
+    expect(google.method.toLowerCase()).not.toContain('median');
+    // Every row carries its offer city; Arm is Austin-only.
+    for (const e of LEADERBOARD_2024) {
+      expect(e.city.length).toBeGreaterThan(0);
     }
+    expect(LEADERBOARD_2024.find((e) => e.company === 'Arm')!.city).toBe('Austin');
+    expect(google.city).toBe('San Francisco Bay Area');
     // Null-ticker private/subsidiary entries cannot make growth claims.
     for (const name of ['LinkedIn', 'ByteDance']) {
       const e = LEADERBOARD_2024.find((x) => x.company === name)!;
@@ -300,7 +333,7 @@ describe('leaderboard group filters', () => {
       startups: STARTUP_LEADERBOARD.filter((e) => groups.includes(e.group)).map((e) => e.company),
     });
     const ai = inGroups(['ai']);
-    expect(ai.public).toEqual(['Databricks']);
+    expect(ai.public).toEqual(['Databricks', 'Waymo']);
     expect(ai.startups).toEqual(expect.arrayContaining(['Anthropic', 'OpenAI', 'Perplexity']));
     const defense = inGroups(['defense']);
     expect(defense.public).toEqual(['Palantir']);
@@ -332,5 +365,32 @@ describe('no illustrative wording in leaderboard data or UI', () => {
       const text = readFileSync(new URL(f, import.meta.url), 'utf8').toLowerCase();
       expect(text, f).not.toContain('illustrative');
     }
+  });
+});
+
+describe('leaderboard offer cities for per-offer COL normalization', () => {
+  it('maps each 2024 offer city to a COL preset factor', async () => {
+    const { ALL_CITY_PRESETS, matchCityPresetKey } = await import('@/lib/col');
+    const factorFor = (city: string): number => {
+      const preset = ALL_CITY_PRESETS.find((c) => c.key === matchCityPresetKey(city));
+      return preset?.factor ?? 1.4;
+    };
+    // Bay Area rows normalize with the SF factor; Arm normalizes from Austin.
+    expect(factorFor('San Francisco Bay Area')).toBe(1.4);
+    expect(factorFor('Austin')).toBe(1.05);
+    const arm = LEADERBOARD_2024.find((e) => e.company === 'Arm')!;
+    expect(arm.city).toBe('Austin');
+    const bayRows = LEADERBOARD_2024.filter(
+      (e) => e.confidence === 'estimate' && e.company !== 'Arm',
+    );
+    expect(bayRows.length).toBeGreaterThan(15);
+    for (const e of bayRows) {
+      expect(e.city).toBe('San Francisco Bay Area');
+    }
+    // Per-offer normalization actually moves Arm vs a Bay Area row:
+    // same nominal $100K is worth more from Austin than from the Bay Area.
+    const baseCity = ALL_CITY_PRESETS.find((c) => c.key === 'renter-ann-arbor')!;
+    const adj = (city: string, n: number) => (n * baseCity.factor) / factorFor(city);
+    expect(adj('Austin', 100000)).toBeGreaterThan(adj('San Francisco Bay Area', 100000));
   });
 });

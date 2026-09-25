@@ -1,4 +1,5 @@
 import type { TLeaderboardEntry } from '@/data/leaderboard2024';
+import { STARTUP_LEADERBOARD, type TStartupEntry } from '@/data/startupLeaderboard2024';
 import type { MonthlyClose } from './market';
 
 /**
@@ -24,12 +25,13 @@ type EntryNumbers = Pick<
 
 /** True when the entry carries an offer figure. Signing may be null on its own
  * (unreported in the source aggregate) — it is then counted as $0, with the
- * entry's method disclosing it is unknown rather than zero. */
+ * entry's method disclosing it is unknown rather than zero. A null stock
+ * grant on a postings-based estimate (base present, no equity data published)
+ * is likewise counted as $0 in TC math, disclosed in the method. */
 function hasOffer(e: EntryNumbers): e is EntryNumbers & {
   base: number;
-  stockGrantTotal4yr: number;
 } {
-  return e.base !== null && e.stockGrantTotal4yr !== null;
+  return e.base !== null;
 }
 
 /** Monthly close nearest `date` (YYYY-MM-DD). Null when there is no history. */
@@ -52,12 +54,13 @@ export function priceAtDate(closes: MonthlyClose[], date: string): MonthlyClose 
  * Annualized first-year total comp at grant prices:
  * base + signing (counted in full) + one quarter of the 4-year stock grant.
  * A null signing bonus (unreported by the source) counts as $0 — the entry's
- * method must disclose it is unknown, not zero. Null when the offer figure
- * is intentionally unavailable.
+ * method must disclose it is unknown, not zero. A null stock grant
+ * (postings-based estimate whose source published no equity data) likewise
+ * counts as $0. Null when the offer figure is intentionally unavailable.
  */
 export function offerTcAtGrant(e: EntryNumbers): number | null {
   if (!hasOffer(e)) return null;
-  return e.base + (e.signingBonus ?? 0) + e.stockGrantTotal4yr / 4;
+  return e.base + (e.signingBonus ?? 0) + (e.stockGrantTotal4yr ?? 0) / 4;
 }
 
 /**
@@ -70,7 +73,7 @@ export function offerTcAtGrant(e: EntryNumbers): number | null {
 export function realized4yr(e: EntryNumbers, prices: GrantPricePoints | null): number | null {
   if (!hasOffer(e)) return null;
   if (e.ticker === null || prices === null || prices.priceAtGrant <= 0) return null;
-  return e.base * 4 + (e.signingBonus ?? 0) + (e.stockGrantTotal4yr / prices.priceAtGrant) * prices.priceNow;
+  return e.base * 4 + (e.signingBonus ?? 0) + ((e.stockGrantTotal4yr ?? 0) / prices.priceAtGrant) * prices.priceNow;
 }
 
 /** Stock price growth since the grant date, as a fraction. Null when unavailable. */
@@ -92,7 +95,7 @@ export function tcPerYearWithGrowth(realized4yrValue: number | null): number | n
 // Startup valuation-growth leaderboard math
 // ---------------------------------------------------------------------------
 
-import type { TStartupEntry } from '@/data/startupLeaderboard2024';
+// (TStartupEntry is already imported at the top of this file.)
 
 /**
  * Valuation growth since the ~Aug-2024 anchor, as a fraction:
