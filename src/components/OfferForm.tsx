@@ -714,6 +714,30 @@ export default function OfferForm() {
                     </option>
                   ))}
                 </select>
+                {resolveLocationPresetKey(offer.location, offer.colFactor) === "custom" && (
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="custom-col" className="text-xs text-muted-foreground whitespace-nowrap">
+                      COL factor
+                    </Label>
+                    <input
+                      id="custom-col"
+                      type="number"
+                      min={0.1}
+                      max={5}
+                      step={0.01}
+                      className="h-9 w-24 rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={offer.colFactor ?? 1}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        setOffer({
+                          ...offer,
+                          location: "Custom",
+                          colFactor: Number.isFinite(v) && v > 0 ? v : 1,
+                        });
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 
