@@ -259,11 +259,10 @@ export default function StartupPanel() {
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'option' | 'rsu'; index: number; label: string } | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ kind: 'reload' } | { kind: 'disable' } | null>(null);
   const [scenarioName, setScenarioName] = useState('');
-  const [inputMode, setInputMode] = useState<'valuation' | 'sharePrice'>('valuation');
   // Draft string for the share price input. Kept separate from the derived
   // sharePrice so mid-typing values (e.g. "123.") aren't snapped back by
   // the valuation -> sharePrice -> rounded display feedback loop.
-  // Committed to valuation on blur or Enter.
+  // Committed to valuation on blur or Enter. Empty = show derived as placeholder.
   const [sharePriceDraft, setSharePriceDraft] = useState<string | null>(null);
 
   const block: TStartupEquity | undefined = offer?.startupEquity;
@@ -301,11 +300,6 @@ export default function StartupPanel() {
       ),
     }));
     setSharePriceDraft(null);
-  };
-
-  const switchInputMode = (mode: 'valuation' | 'sharePrice') => {
-    setSharePriceDraft(null);
-    setInputMode(mode);
   };
 
   if (!offer) return null;
@@ -420,18 +414,15 @@ export default function StartupPanel() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                {inputMode === 'valuation' ? 'Scenario valuation' : 'Scenario share price'}
+                Scenario valuation
               </p>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
                 <span className="text-3xl font-bold tabular-nums tracking-tight text-foreground sm:text-5xl">
-                  {formatCurrency(sharePrice, { decimals: 2 })}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {inputMode === 'valuation' ? 'implied per share' : 'per share'}
+                  {formatCurrency(block.valuation)}
                 </span>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
-                {formatCurrency(block.valuation)} valuation · {formatNumber(block.fullyDilutedShares)} fully diluted shares
+                ≈ {formatCurrency(sharePrice, { decimals: 2 })} per share · {formatNumber(sharesForPriceMode)} fully diluted shares
               </p>
             </div>
             <div className="flex gap-2">
@@ -445,35 +436,6 @@ export default function StartupPanel() {
           </div>
 
           <div className="mt-4 sm:mt-6">
-            {/* Input mode toggle: valuation vs share price */}
-            <div className="mb-3 flex gap-1 rounded-full bg-muted/60 p-1 w-fit" role="group" aria-label="Input mode">
-              <button
-                type="button"
-                onClick={() => switchInputMode('valuation')}
-                aria-pressed={inputMode === 'valuation'}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  inputMode === 'valuation'
-                    ? 'bg-foreground text-background shadow-sm'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                I know the valuation
-              </button>
-              <button
-                type="button"
-                onClick={() => switchInputMode('sharePrice')}
-                aria-pressed={inputMode === 'sharePrice'}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  inputMode === 'sharePrice'
-                    ? 'bg-foreground text-background shadow-sm'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                I know the share price
-              </button>
-            </div>
-            {inputMode === 'valuation' ? (
-              <>
             <Slider
               value={[valToSliderT(block.valuation)]}
               min={0}
@@ -482,7 +444,7 @@ export default function StartupPanel() {
               onValueChange={(v) => patch((b) => ({ ...b, valuation: sliderTToVal(v[0] ?? 0) }))}
               className="py-2 [&_[data-slot=slider-track]]:h-2.5 [&_[data-slot=slider-thumb]]:size-6"
             />
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {VALUATION_PRESETS.map((p) => {
                 const active = Math.abs(block.valuation - p.value) / p.value < 0.02;
                 return (
@@ -518,30 +480,45 @@ export default function StartupPanel() {
                 <span className="text-xs text-muted-foreground">$B</span>
               </div>
             </div>
-              </>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    className="h-10 w-40 px-3 text-sm"
-                    min={0.01}
-                    step={0.01}
-                    aria-label="Share price in dollars"
-                    value={sharePriceDraft ?? Math.round(sharePrice * 100) / 100}
-                    onChange={(e) => setSharePriceDraft(e.target.value)}
-                    onBlur={commitSharePriceDraft}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') commitSharePriceDraft();
-                    }}
-                  />
-                  <span className="text-xs text-muted-foreground">per share</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Implied valuation: {formatCurrency(sharePrice * sharesForPriceMode)} · {formatNumber(sharesForPriceMode)} fully diluted shares
-                </p>
+
+            {/* Secondary inputs: shares and share price alternative */}
+            <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
+              <div className="flex items-center gap-2">
+                <label htmlFor="fds-input" className="text-xs text-muted-foreground">
+                  Fully diluted shares
+                </label>
+                <Input
+                  id="fds-input"
+                  type="number"
+                  className="h-8 w-28 px-2 text-xs"
+                  min={1}
+                  step={1}
+                  value={block.fullyDilutedShares}
+                  onChange={(e) => patch((b) => ({ ...b, fullyDilutedShares: Math.max(1, Math.round(toNumber(e.target.value, b.fullyDilutedShares))) }))}
+                />
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <label htmlFor="sp-input" className="text-xs text-muted-foreground">
+                  Or enter share price
+                </label>
+                <Input
+                  id="sp-input"
+                  type="number"
+                  className="h-8 w-24 px-2 text-xs"
+                  min={0.01}
+                  step={0.01}
+                  aria-label="Share price in dollars"
+                  placeholder={String(Math.round(sharePrice * 100) / 100)}
+                  value={sharePriceDraft ?? ''}
+                  onChange={(e) => setSharePriceDraft(e.target.value)}
+                  onBlur={commitSharePriceDraft}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitSharePriceDraft();
+                  }}
+                />
+                <span className="text-xs text-muted-foreground">/ share</span>
+              </div>
+            </div>
           </div>
 
           {/* Saved valuation scenarios */}
@@ -611,14 +588,6 @@ export default function StartupPanel() {
                 value={block.companyName}
                 onChange={(e) => patch((b) => ({ ...b, companyName: e.target.value }))}
                 placeholder="Example Startup"
-              />
-            </Field>
-            <Field label="Fully diluted shares outstanding">
-              <Input
-                type="number"
-                min={1}
-                value={block.fullyDilutedShares}
-                onChange={(e) => patch((b) => ({ ...b, fullyDilutedShares: Math.max(1, Math.round(toNumber(e.target.value, b.fullyDilutedShares))) }))}
               />
             </Field>
           </div>
