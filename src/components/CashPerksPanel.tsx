@@ -121,7 +121,7 @@ export default function CashPerksPanel() {
             </div>
             <div className="bg-muted/50 rounded p-3">
               <p className="text-sm font-medium">
-                💰 Estimated Match: {formatCurrency(computeRetirementMatch(offer, 0))} in Year 1
+                💰 Employer Match: {formatCurrency(computeRetirementMatch(offer, 0))} in Year 1
               </p>
             </div>
           </div>

@@ -1,1 +1,66 @@
-{"assumptions":{"horizonYears":4},"base":{"startAnnual":185000},"benefits":[{"annualValue":5200,"enabled":true,"name":"Free meals"},{"annualValue":3000,"enabled":true,"name":"Wellness stipend"}],"currency":"USD","equityGrants":[{"fmv":600,"shares":0,"targetMode":"total","targetValue":200000,"type":"RSU","vesting":{"cliffMonths":0,"cliffPercent":0,"distribution":"even","frequency":"quarterly","model":"standard","years":4}}],"growth":{"startingPrice":600,"yoy":[0,0,0,0]},"location":"Menlo Park, CA","name":"Meta","performanceBonus":{"expectedPayout":1,"kind":"percent","value":0.15},"raises":[],"retirement":{"employeeContributionCapDollar":23500,"employeeContributionPercent":1,"matchCapDollar":19500,"matchCapMode":"dollar","matchCapPercentOfSalary":0.07,"matchRate":0.5},"signingBonuses":[{"amount":25000,"payDate":"2025-01-01"}],"startDate":"2025-01-01"}
+{
+  "assumptions": {
+    "horizonYears": 4,
+    "source": "levels.fyi E3 entry-level aggregate (average), San Francisco Bay Area, read 2026-09-24"
+  },
+  "base": {
+    "startAnnual": 145000
+  },
+  "benefits": [
+    {
+      "annualValue": 5200,
+      "enabled": true,
+      "name": "Free meals"
+    },
+    {
+      "annualValue": 3000,
+      "enabled": true,
+      "name": "Wellness stipend"
+    }
+  ],
+  "currency": "USD",
+  "equityGrants": [
+    {
+      "fmv": 600,
+      "shares": 0,
+      "targetMode": "total",
+      "targetValue": 141600,
+      "type": "RSU",
+      "vesting": {
+        "cliffMonths": 0,
+        "cliffPercent": 0,
+        "distribution": "even",
+        "frequency": "quarterly",
+        "model": "standard",
+        "years": 4
+      }
+    }
+  ],
+  "growth": {
+    "startingPrice": 600,
+    "yoy": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "location": "San Francisco Bay Area",
+  "name": "Meta",
+  "performanceBonus": {
+    "expectedPayout": 1,
+    "kind": "percent",
+    "value": 0.15
+  },
+  "raises": [],
+  "retirement": {
+    "employeeContributionCapDollar": 23500,
+    "employeeContributionPercent": 1,
+    "matchCapDollar": 19500,
+    "matchCapMode": "dollar",
+    "matchCapPercentOfSalary": 0.07,
+    "matchRate": 0.5
+  },
+  "signingBonuses": [],
+  "startDate": "2025-01-01"
+}
