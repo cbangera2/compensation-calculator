@@ -136,7 +136,9 @@ export const useStore = create<State>()(
       }),
       addOffer: (o) => set((state) => {
         const clone = (x: TOffer) => JSON.parse(JSON.stringify(x)) as TOffer;
-        const offer = o ? clone(o) : { ...clone(initialOffer), name: `Offer ${state.offers.length + 1}` };
+        const offer = o
+          ? { ...clone(initialOffer), ...clone(o) }
+          : { ...clone(initialOffer), name: `Offer ${state.offers.length + 1}` };
         const offers = [...state.offers, offer];
         const activeIndex = offers.length - 1;
         return { offers, activeIndex, offer: offers[activeIndex] };

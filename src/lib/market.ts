@@ -37,6 +37,11 @@ export const SUPPORTED_TICKERS = [
   'CRM',
   'ADBE',
   'NVDA',
+  'RBLX',
+  'ARM',
+  'SNAP',
+  'SNOW',
+  'PINS',
 ] as const;
 
 export function isSupportedTicker(t: string): boolean {

@@ -15,7 +15,8 @@ import { buildOfferFromFields, parseOfferLetter } from '@/lib/offerLetterImport'
 import type { ExtractedOfferFields, OfferLetterParseResult } from '@/lib/offerLetterImport';
 import type { TOffer } from '@/models/types';
 import ShareDialog from '@/components/ShareDialog';
-import { cn } from '@/lib/utils';
+import { cn, disambiguateNames } from '@/lib/utils';
+import OfferModal from '@/components/OfferModal';
 
 const fileInputWrapper = "relative inline-flex";
 const hiddenInput = "absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0";
@@ -264,6 +265,8 @@ export default function MultiOfferBar() {
   const [levelsUrl, setLevelsUrl] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
   const [offerLetterOpen, setOfferLetterOpen] = useState(false);
+  const [offerModalOpen, setOfferModalOpen] = useState(false);
+  const [editOfferIndex, setEditOfferIndex] = useState<number | null>(null);
 
   function exportJSON() {
     const offer = offers[activeIndex];
@@ -400,13 +403,14 @@ export default function MultiOfferBar() {
     setPresetKey(undefined);
   }
 
+  const displayNames = disambiguateNames(offers, (o) => o.name, (o) => o.location);
+
   return (
     <div className="rounded-2xl border border-border/60 bg-background/95 px-3 py-2.5 shadow-sm sm:px-4 sm:py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             {visibleOfferIndices.map((index) => {
-              const offer = offers[index]!;
               return (
                 <Button
                   key={index}
@@ -416,8 +420,10 @@ export default function MultiOfferBar() {
                   data-active={index === activeIndex}
                   className={cn('min-w-0 font-medium', 'max-w-[180px] truncate')}
                   onClick={() => setActiveIndex(index)}
+                  onDoubleClick={() => { setEditOfferIndex(index); setOfferModalOpen(true); }}
+                  title="Double-click to rename"
                 >
-                  {offer.name || `Offer ${index + 1}`}
+                  {displayNames[index]}
                 </Button>
               );
             })}
@@ -433,10 +439,9 @@ export default function MultiOfferBar() {
                 </SelectTrigger>
                 <SelectContent>
                   {overflowOfferIndices.map((index) => {
-                    const offer = offers[index]!;
                     return (
                       <SelectItem key={index} value={String(index)}>
-                        <span className="max-w-[220px] truncate">{offer.name || `Offer ${index + 1}`}</span>
+                        <span className="max-w-[220px] truncate">{displayNames[index]}</span>
                       </SelectItem>
                     );
                   })}
@@ -447,7 +452,7 @@ export default function MultiOfferBar() {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <Button type="button" size="sm" variant="secondary" className="gap-1.5" onClick={() => addOffer()}>
+          <Button type="button" size="sm" variant="secondary" className="gap-1.5" onClick={() => { setEditOfferIndex(null); setOfferModalOpen(true); }}>
             <Plus className="size-4" />
             New
           </Button>
@@ -499,6 +504,11 @@ export default function MultiOfferBar() {
           </Button>
         </div>
       </div>
+      <OfferModal
+        open={offerModalOpen}
+        onClose={() => setOfferModalOpen(false)}
+        editIndex={editOfferIndex}
+      />
       <ShareDialog
         open={shareOpen}
         onClose={() => setShareOpen(false)}
