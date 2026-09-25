@@ -212,9 +212,10 @@ export default function LeaderboardPanel() {
     const base: Row[] = visible.map((entry) => {
       const p = entry.ticker ? (prices[entry.ticker] ?? null) : null;
       const priceFailed = entry.ticker !== null && p === null && failed.includes(entry.ticker);
-      const realized = realized4yr(entry, p);
+      let realized = realized4yr(entry, p);
       // Private companies have no ticker: fall back to valuation growth from
       // the startups dataset when available, so the column isn't just n/a.
+      // The valuation multiple reprices the stock portion of the realized value.
       let growth = stockGrowthSinceGrant(p);
       let growthIsValuation = false;
       if (growth === null && entry.ticker === null) {
@@ -225,6 +226,11 @@ export default function LeaderboardPanel() {
         if (vg !== null) {
           growth = vg;
           growthIsValuation = true;
+          const multiple = 1 + vg;
+          const stock = entry.stockGrantTotal4yr ?? 0;
+          if (stock > 0 && realized !== null && entry.base !== null) {
+            realized = entry.base * 4 + (entry.signingBonus ?? 0) + stock * multiple;
+          }
         }
       }
       return {
