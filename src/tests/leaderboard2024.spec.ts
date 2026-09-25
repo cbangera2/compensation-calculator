@@ -392,7 +392,8 @@ describe('leaderboard offer cities for per-offer COL normalization', () => {
     );
     expect(bayRows.length).toBeGreaterThan(15);
     for (const e of bayRows) {
-      expect(e.city).toBe('San Francisco Bay Area');
+      // Applied Intuition is in Sunnyvale (South Bay), others are SF Bay Area generic
+      expect(['San Francisco Bay Area', 'Sunnyvale, CA']).toContain(e.city);
     }
     // US-aggregate rows (no Bay Area entry-level page) carry city 'US' and
     // normalize with the default factor; they are labeled as US aggregates.

@@ -111,7 +111,7 @@ export default function LeaderboardPanel() {
   const [startupSortDir, setStartupSortDir] = useState<'asc' | 'desc'>('desc');
   const [activeGroups, setActiveGroups] = useState<TCompanyGroup[]>([...COMPANY_GROUPS]);
   const [colAdjust, setColAdjust] = useState(false);
-  const [baseCityKey, setBaseCityKey] = useState('renter-ann-arbor');
+  const [baseCityKey, setBaseCityKey] = useState('sf');
   // Offer-leaderboard year tab. 2024 holds the full dataset; 2025/2026 render
   // honest empty states. The startup valuation table is latest-valuations and
   // is NOT governed by this tab.

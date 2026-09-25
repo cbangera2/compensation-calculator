@@ -317,7 +317,7 @@ const RAW: TStartupEntry[] = [
   },
   {
     company: 'Applied Intuition',
-    city: 'San Francisco Bay Area',
+    city: 'Sunnyvale, CA',
     group: 'startups',
     latestValuationUsd: 15e9,
     latestValuationDate: '2025-06-17',

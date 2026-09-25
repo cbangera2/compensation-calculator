@@ -522,7 +522,7 @@ const RAW: TLeaderboardEntry[] = [
     group: 'ai',
     ticker: null,
     levelLabel: 'Entry Level',
-    city: 'San Francisco Bay Area',
+    city: 'Sunnyvale, CA',
     base: 145000,
     signingBonus: 0,
     stockGrantTotal4yr: 246400,
