@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { TOffer, TEquityGrant } from '@/models/types';
-import { remapCompareSelectionAfterRemove, sanitizeCompareSelection } from '@/lib/compare';
+import { cleanCompareSelection, remapCompareSelectionAfterRemove } from '@/lib/compare';
 import googlePreset from '../../public/presets/google.json';
 import amazonPreset from '../../public/presets/amazon.json';
 import metaPreset from '../../public/presets/meta.json';
@@ -128,7 +128,9 @@ export const useStore = create<State>()(
       sidebarCollapsed: false,
       compareSelection: [],
       setCompareSelection: (indices) => set((state) => ({
-        compareSelection: sanitizeCompareSelection(indices, state.offers.length),
+        // Keep the raw wishlist (valid + deduped); the viewport-scaled cap is
+        // applied at render by resolveCompareIndices via useComparedOffers.
+        compareSelection: cleanCompareSelection(indices, state.offers.length),
       })),
       resetAll: () => set(() => {
         try { localStorage.removeItem('compcalc-store'); } catch {}

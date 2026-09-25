@@ -29,7 +29,7 @@ export default function CompareShareButton() {
   const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 
   // Same derivation the compare charts use: the picker-scoped offers
-  // (at most MAX_COMPARE_OFFERS), paired with original store indices.
+  // (viewport-scaled max via useComparedOffers), paired with original store indices.
   const compared = useComparedOffers();
   const comparedIndices = useMemo(
     () => compared.map((p) => p.index),

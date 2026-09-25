@@ -137,7 +137,7 @@ function StartupScenarioControl({ offer, index }: { offer: TOffer; index: number
 
 export default function ComparisonAdjustments() {
   const { activeIndex, updateOfferAt, applyToOffers } = useStore();
-  // Compare tab renders at most MAX_COMPARE_OFFERS offers. `compared` pairs
+  // Compare tab renders at most useMaxCompareOffers() offers (viewport-scaled). `compared` pairs
   // each offer with its original store index so updateOfferAt hits the
   // right offer; stats/pricePreviews stay positional over the filtered list.
   const compared = useComparedOffers();

@@ -1,43 +1,63 @@
 /**
  * Compare-tab scoping + offer-bar overflow helpers.
  *
- * The Compare tab renders at most MAX_COMPARE_OFFERS offers at a time; the
- * offer bar shows at most a handful of pills and tucks the rest behind a
- * "+N more" menu. Both are pure index math so they're trivially testable.
+ * The Compare tab renders at most `maxOffers` offers at a time (see
+ * `useMaxCompareOffers` — the cap scales with viewport width instead of a
+ * hard constant). The offer bar shows at most a handful of pills and tucks
+ * the rest behind a "+N more" menu. Both are pure index math so they're
+ * trivially testable.
  */
 
+/** Default compare cap (used for SSR and non-component contexts). */
 export const MAX_COMPARE_OFFERS = 3;
 
-/** Dedupe + clamp a user compare selection to valid offer indices. */
-export function sanitizeCompareSelection(selection: number[], offerCount: number): number[] {
+/** Dedupe + drop invalid indices. No count cap — the render layer caps. */
+export function cleanCompareSelection(selection: number[], offerCount: number): number[] {
   const seen = new Set<number>();
   const out: number[] = [];
   for (const i of selection) {
     if (!Number.isInteger(i) || i < 0 || i >= offerCount || seen.has(i)) continue;
     seen.add(i);
     out.push(i);
-    if (out.length >= MAX_COMPARE_OFFERS) break;
   }
   return out;
 }
 
+/** Dedupe + clamp a user compare selection to valid offer indices. */
+export function sanitizeCompareSelection(
+  selection: number[],
+  offerCount: number,
+  maxOffers: number = MAX_COMPARE_OFFERS,
+): number[] {
+  return cleanCompareSelection(selection, offerCount).slice(0, Math.max(0, maxOffers));
+}
+
 /**
- * Effective compare indices: the user's explicit selection when it has any
- * valid entry, otherwise the active offer plus the next offers in order.
- * Always 0..MAX_COMPARE_OFFERS entries.
+ * Effective compare indices: the user's explicit selection when it names at
+ * least two valid offers (the minimum for a meaningful comparison),
+ * otherwise the active offer plus the next offers in order — i.e. the tab
+ * always auto-fills up to `maxOffers` instead of stranding on a single
+ * offer whose charts can't render. Always 0..maxOffers entries.
  */
 export function resolveCompareIndices(
   offerCount: number,
   activeIndex: number,
   selection: number[],
+  maxOffers: number = MAX_COMPARE_OFFERS,
 ): number[] {
-  const clean = sanitizeCompareSelection(selection, offerCount);
-  if (clean.length > 0) return clean;
+  const clean = sanitizeCompareSelection(selection, offerCount, maxOffers);
+  if (clean.length >= 2) return clean;
   if (offerCount <= 0) return [];
   const safeActive = Math.max(0, Math.min(activeIndex, offerCount - 1));
-  const out = [safeActive];
-  for (let i = 0; i < offerCount && out.length < MAX_COMPARE_OFFERS; i++) {
-    if (i !== safeActive) out.push(i);
+  // Seed with the active offer plus any valid explicit picks, then fill up
+  // to maxOffers in index order — the tab auto-fills instead of stranding
+  // on a lone offer whose charts can't render.
+  const out: number[] = [];
+  for (const i of [safeActive, ...clean]) {
+    if (!out.includes(i)) out.push(i);
+  }
+  for (let i = 0; i < offerCount && out.length < maxOffers; i++) {
+    if (!out.includes(i)) out.push(i);
   }
   return out;
 }
