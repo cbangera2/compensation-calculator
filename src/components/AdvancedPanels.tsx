@@ -39,7 +39,7 @@ export default function AdvancedPanels() {
         <CardContent>
           <div className="space-y-4">
             <SectionWrapper
-              title="📈 Stock Growth Projections"
+              title="📈 Equity Growth Projections"
               description="Model how your equity value may change over time"
               isExpanded={expandedSections.growth}
               onToggle={() => toggleSection('growth')}

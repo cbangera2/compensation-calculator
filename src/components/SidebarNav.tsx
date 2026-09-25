@@ -6,7 +6,6 @@ import {
   Calculator,
   MapPin,
   PiggyBank,
-  Rocket,
   TrendingUp,
   Trophy,
   type LucideIcon,
@@ -29,8 +28,7 @@ import { TAB_GROUPS, type TabValue } from '@/lib/tabs';
 
 const TAB_ICONS: Record<TabValue, LucideIcon> = {
   calc: Calculator,
-  startup: Rocket,
-  growth: TrendingUp,
+  equity: TrendingUp,
   benchmarks: BarChart3,
   leaderboard: Trophy,
   compare: ArrowLeftRight,

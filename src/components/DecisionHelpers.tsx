@@ -25,7 +25,7 @@ import { CardTitle } from '@/components/ui/card';
  *
  * Note: grants with a targetValue re-peg their implied share count to
  * the modeled price path inside computeOffer. The sensitivity scan uses
- * the same semantics as the Stock Growth tab's growth slider, so the
+ * the same semantics as the Equity tab's growth slider, so the
  * breakeven rate agrees with what dragging that slider would show.
  */
 

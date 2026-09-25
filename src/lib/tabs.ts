@@ -12,13 +12,12 @@ export const TAB_GROUPS = [
     label: 'Capture',
     tabs: [
       { value: 'calc', label: 'Calculator' },
-      { value: 'startup', label: 'Startup' },
+      { value: 'equity', label: 'Equity' },
     ],
   },
   {
     label: 'Understand',
     tabs: [
-      { value: 'growth', label: 'Stock Growth' },
       { value: 'benchmarks', label: 'Benchmarks' },
       { value: 'leaderboard', label: 'Leaderboards' },
     ],
