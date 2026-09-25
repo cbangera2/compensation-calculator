@@ -260,6 +260,11 @@ export default function StartupPanel() {
   const [confirmAction, setConfirmAction] = useState<{ kind: 'reload' } | { kind: 'disable' } | null>(null);
   const [scenarioName, setScenarioName] = useState('');
   const [inputMode, setInputMode] = useState<'valuation' | 'sharePrice'>('valuation');
+  // Draft string for the share price input. Kept separate from the derived
+  // sharePrice so mid-typing values (e.g. "123.") aren't snapped back by
+  // the valuation -> sharePrice -> rounded display feedback loop.
+  // Committed to valuation on blur or Enter.
+  const [sharePriceDraft, setSharePriceDraft] = useState<string | null>(null);
 
   const block: TStartupEquity | undefined = offer?.startupEquity;
 
@@ -277,6 +282,31 @@ export default function StartupPanel() {
   }, [block]);
 
   const sharePrice = block ? impliedSharePrice(block.valuation, block.fullyDilutedShares) : 0;
+
+  // fullyDilutedShares is validated >= 1 at its input; normalize once here
+  // so the share price mode has a single consistent contract.
+  const sharesForPriceMode = block ? Math.max(1, block.fullyDilutedShares || 0) : 1;
+
+  const commitSharePriceDraft = () => {
+    if (sharePriceDraft === null || !block) {
+      setSharePriceDraft(null);
+      return;
+    }
+    const price = toNumber(sharePriceDraft, sharePrice);
+    patch((b) => ({
+      ...b,
+      valuation: Math.min(
+        MAX_VALUATION,
+        Math.max(MIN_VALUATION, price * Math.max(1, b.fullyDilutedShares || 0))
+      ),
+    }));
+    setSharePriceDraft(null);
+  };
+
+  const switchInputMode = (mode: 'valuation' | 'sharePrice') => {
+    setSharePriceDraft(null);
+    setInputMode(mode);
+  };
 
   if (!offer) return null;
 
@@ -419,7 +449,7 @@ export default function StartupPanel() {
             <div className="mb-3 flex gap-1 rounded-full bg-muted/60 p-1 w-fit" role="group" aria-label="Input mode">
               <button
                 type="button"
-                onClick={() => setInputMode('valuation')}
+                onClick={() => switchInputMode('valuation')}
                 aria-pressed={inputMode === 'valuation'}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                   inputMode === 'valuation'
@@ -431,7 +461,7 @@ export default function StartupPanel() {
               </button>
               <button
                 type="button"
-                onClick={() => setInputMode('sharePrice')}
+                onClick={() => switchInputMode('sharePrice')}
                 aria-pressed={inputMode === 'sharePrice'}
                 className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                   inputMode === 'sharePrice'
@@ -498,21 +528,17 @@ export default function StartupPanel() {
                     min={0.01}
                     step={0.01}
                     aria-label="Share price in dollars"
-                    value={Math.round(sharePrice * 100) / 100}
-                    onChange={(e) =>
-                      patch((b) => ({
-                        ...b,
-                        valuation: Math.min(
-                          MAX_VALUATION,
-                          Math.max(MIN_VALUATION, toNumber(e.target.value, sharePrice) * (b.fullyDilutedShares || 1))
-                        ),
-                      }))
-                    }
+                    value={sharePriceDraft ?? Math.round(sharePrice * 100) / 100}
+                    onChange={(e) => setSharePriceDraft(e.target.value)}
+                    onBlur={commitSharePriceDraft}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitSharePriceDraft();
+                    }}
                   />
                   <span className="text-xs text-muted-foreground">per share</span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Implied valuation: {formatCurrency(sharePrice * (block.fullyDilutedShares || 0))} · {formatNumber(block.fullyDilutedShares)} fully diluted shares
+                  Implied valuation: {formatCurrency(sharePrice * sharesForPriceMode)} · {formatNumber(sharesForPriceMode)} fully diluted shares
                 </p>
               </div>
             )}

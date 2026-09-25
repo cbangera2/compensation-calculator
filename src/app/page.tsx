@@ -42,11 +42,22 @@ function HomeContent() {
   const { sidebarCollapsed, setSidebarCollapsed } = useStore();
 
   // Sync tab changes to the URL so tabs are deep-linkable and shareable.
+  // Uses pushState so browser back/forward moves between tabs.
   const handleTabChange = useCallback((v: TabValue) => {
     setTab(v);
     const url = new URL(window.location.href);
     url.searchParams.set('tab', v);
-    window.history.replaceState(null, '', url.toString());
+    window.history.pushState(null, '', url.toString());
+  }, []);
+
+  // Keep tab state in sync when the user navigates with back/forward.
+  useEffect(() => {
+    const onPopState = () => {
+      const param = new URL(window.location.href).searchParams.get('tab');
+      if (isValidTabValue(param)) setTab(param);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   // Programmatic tab switching for cross-tab deep links, e.g.
