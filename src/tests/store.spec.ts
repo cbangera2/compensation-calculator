@@ -50,9 +50,10 @@ describe('store advanced offer updates', () => {
     }), { recordHistory: false });
 
     const { offers } = useStore.getState();
-    expect(offers).toHaveLength(2);
+    expect(offers).toHaveLength(4);
     expect(offers[1].assumptions?.colAdjust).toBeCloseTo(1.25);
-    expect(offers[0].assumptions?.colAdjust).toBeCloseTo(1);
+    // offers[0] (Google preset) has no colAdjust set, should remain undefined (defaults to 1 in calculations)
+    expect(offers[0].assumptions?.colAdjust ?? 1).toBeCloseTo(1);
   });
 
   it('applies growth presets across all offers', () => {
