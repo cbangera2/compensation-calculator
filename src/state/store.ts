@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { TOffer, TEquityGrant } from '@/models/types';
+import { remapCompareSelectionAfterRemove, sanitizeCompareSelection } from '@/lib/compare';
 
 type State = {
   offer: TOffer; // mirrors offers[activeIndex] for backward-compat
@@ -15,6 +16,8 @@ type State = {
   duplicateActiveOffer: () => void;
   removeOffer: (index: number) => void;
   setActiveIndex: (i: number) => void;
+  compareSelection: number[];
+  setCompareSelection: (indices: number[]) => void;
   setYoY: (values: number[]) => void;
   addGrant: (g: TEquityGrant) => void;
   updateGrant: (index: number, g: Partial<TEquityGrant>) => void;
@@ -92,6 +95,10 @@ export const useStore = create<State>()(
       future: [],
       uiMode: 'simple',
       sidebarCollapsed: false,
+      compareSelection: [],
+      setCompareSelection: (indices) => set((state) => ({
+        compareSelection: sanitizeCompareSelection(indices, state.offers.length),
+      })),
       resetAll: () => set(() => {
         try { localStorage.removeItem('compcalc-store'); } catch {}
         // Reset to initial defaults
@@ -103,6 +110,7 @@ export const useStore = create<State>()(
           past: [],
           future: [],
           uiMode: 'simple',
+          compareSelection: [],
         };
       }),
       setOffer: (offer) => set((state) => {
@@ -114,7 +122,7 @@ export const useStore = create<State>()(
         const safeOffers = (offers.length ? offers : [initialOffer]).map((offer) => JSON.parse(JSON.stringify(offer)) as TOffer);
         const activeIndex = safeOffers.length ? Math.min(0, safeOffers.length - 1) : 0;
         const offer = safeOffers[activeIndex] ?? initialOffer;
-        return { offers: safeOffers, activeIndex, offer };
+        return { offers: safeOffers, activeIndex, offer, compareSelection: [] };
       }),
       addOffer: (o) => set((state) => {
         const clone = (x: TOffer) => JSON.parse(JSON.stringify(x)) as TOffer;
@@ -134,7 +142,7 @@ export const useStore = create<State>()(
         const offers = state.offers.filter((_, i) => i !== index);
         const activeIndex = Math.max(0, state.activeIndex >= index ? state.activeIndex - 1 : state.activeIndex);
         const offer = offers[activeIndex] ?? initialOffer;
-        return { offers: offers.length ? offers : [initialOffer], activeIndex: offers.length ? activeIndex : 0, offer };
+        return { offers: offers.length ? offers : [initialOffer], activeIndex: offers.length ? activeIndex : 0, offer, compareSelection: remapCompareSelectionAfterRemove(state.compareSelection, index) };
       }),
       setActiveIndex: (i) => set((state) => {
         const clamped = Math.max(0, Math.min(i, state.offers.length - 1));
@@ -257,6 +265,7 @@ export const useStore = create<State>()(
           offer,
           past: [],
           future: [],
+          compareSelection: [],
           ...(uiMode ? { uiMode } : {}),
         };
       }),
@@ -264,7 +273,7 @@ export const useStore = create<State>()(
     {
       name: 'compcalc-store',
       storage: createJSONStorage(() => localStorage),
-      partialize: (s) => ({ offers: s.offers, activeIndex: s.activeIndex, offer: s.offer, uiMode: s.uiMode, sidebarCollapsed: s.sidebarCollapsed }),
+      partialize: (s) => ({ offers: s.offers, activeIndex: s.activeIndex, offer: s.offer, uiMode: s.uiMode, sidebarCollapsed: s.sidebarCollapsed, compareSelection: s.compareSelection }),
     }
   )
 );

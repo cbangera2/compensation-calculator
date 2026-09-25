@@ -14,6 +14,7 @@ import ComparisonAdjustments from '@/components/ComparisonAdjustments';
 import ComparisonTrendChart from '@/components/ComparisonTrendChart';
 import ComparisonStockChart from '@/components/ComparisonStockChart';
 import CompareShareButton from '@/components/CompareShareButton';
+import ComparePicker from '@/components/ComparePicker';
 import DecisionHelpers from '@/components/DecisionHelpers';
 import StatCards from '@/components/StatCards';
 import StartupPanel from '@/components/StartupPanel';
@@ -26,11 +27,14 @@ import ThemeToggle from '@/components/ThemeToggle';
 import UiModeToggle from '@/components/UiModeToggle';
 import OnboardingNudge from '@/components/OnboardingNudge';
 import SidebarNav from '@/components/SidebarNav';
+import { SidebarProvider } from '@/components/ui/sidebar';
+import { useStore } from '@/state/store';
 import ActiveOfferStrip, { isValidTabValue, type TabValue } from '@/components/ActiveOfferStrip';
 import { TAB_GROUPS } from '@/lib/tabs';
 
 export default function Home() {
   const [tab, setTab] = useState<TabValue>('calc');
+  const { sidebarCollapsed, setSidebarCollapsed } = useStore();
 
   // Programmatic tab switching for cross-tab deep links, e.g.
   // window.dispatchEvent(new CustomEvent('compcalc:switch-tab', { detail: 'compare' }))
@@ -48,8 +52,12 @@ export default function Home() {
       <Suspense fallback={null}>
         <ShareHydrator />
       </Suspense>
-      <Tabs value={tab} onValueChange={(v) => { if (isValidTabValue(v)) setTab(v); }} className="gap-0 md:flex-row">
-        <SidebarNav />
+      <SidebarProvider
+        open={!sidebarCollapsed}
+        onOpenChange={(open) => setSidebarCollapsed(!open)}
+      >
+      <Tabs value={tab} onValueChange={(v) => { if (isValidTabValue(v)) setTab(v); }} className="min-w-0 gap-0 md:flex-row">
+        <SidebarNav activeTab={tab} />
         <div className="min-w-0 flex-1">
           {/* Slim sticky top bar: live totals on desktop, section picker on mobile */}
           <div className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-md">
@@ -137,6 +145,7 @@ export default function Home() {
                 <div className="flex justify-end">
                   <CompareShareButton />
                 </div>
+                <ComparePicker />
                 <ComparisonChart />
                 <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
                   <ComparisonTrendChart />
@@ -167,6 +176,7 @@ export default function Home() {
           </div>
         </div>
       </Tabs>
+      </SidebarProvider>
     </main>
   );
 }

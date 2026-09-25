@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import ReactEChartsCore from 'echarts-for-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useStore } from '@/state/store';
+import { useComparedOffers } from '@/lib/useComparedOffers';
 import { computeOffer } from '@/core/compute';
 import { cn, formatCurrency, disambiguateNames } from '@/lib/utils';
 import { X } from 'lucide-react';
@@ -20,7 +21,11 @@ import { useChartHeight } from '@/lib/useIsMobile';
 
 export default function ComparisonChart() {
   const chartH = useChartHeight(360, 260);
-  const { offers, activeIndex } = useStore();
+  const { activeIndex } = useStore();
+  const compared = useComparedOffers();
+  // Compare tab renders at most MAX_COMPARE_OFFERS offers; `compared` pairs
+  // each with its original store index for the active-offer highlight.
+  const offers = useMemo(() => compared.map((p) => p.offer), [compared]);
   const [showPurchasingPower, setShowPurchasingPower] = useState(false);
   const [ppNudgeDismissed, setPpNudgeDismissed] = useState(false);
   const [ppEverEnabled, setPpEverEnabled] = useState(false);
@@ -264,7 +269,7 @@ export default function ComparisonChart() {
         )}
         <div className="text-sm text-muted-foreground flex flex-wrap gap-4 mt-2">
           {offers.map((o, i) => (
-            <div key={i} className={i === activeIndex ? 'font-medium' : ''}>
+            <div key={compared[i]?.index ?? i} className={compared[i]?.index === activeIndex ? 'font-medium' : ''}>
               {o.name || `Offer ${i + 1}`}: <span className="font-medium">{fmt(totals[i])}</span>
               {showPurchasingPower && <span className="text-xs text-muted-foreground"> PP</span>}
             </div>
