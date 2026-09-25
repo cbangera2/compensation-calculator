@@ -42,41 +42,15 @@
     "horizonYears": 4,
     "source": "levels.fyi L3 entry-level aggregate (average), San Francisco Bay Area, read 2026-09-24"
   },
-  "relocationBonuses": [
-    {
-      "amount": 15000,
-      "payDate": "2025-01-01"
-    }
-  ],
-  "benefits": [
-    {
-      "name": "Free breakfast",
-      "annualValue": 2600,
-      "enabled": true
-    },
-    {
-      "name": "Free dinner",
-      "annualValue": 2600,
-      "enabled": true
-    },
-    {
-      "name": "Free lunch",
-      "annualValue": 2600,
-      "enabled": true
-    },
-    {
-      "name": "HSA",
-      "annualValue": 1000,
-      "enabled": true
-    }
-  ],
+  "relocationBonuses": [],
+  "benefits": [],
   "retirement": {
-    "employeeContributionPercent": 1,
-    "matchRate": 0.5,
-    "matchCapPercentOfSalary": 0.06,
-    "employeeContributionCapDollar": 23500,
+    "employeeContributionPercent": 0,
+    "matchRate": 0,
+    "matchCapPercentOfSalary": 0,
+    "employeeContributionCapDollar": 0,
     "matchCapMode": "dollar",
-    "matchCapDollar": 19500
+    "matchCapDollar": 0
   },
   "location": "San Francisco Bay Area"
 }

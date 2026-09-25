@@ -1,1 +1,43 @@
-{"assumptions":{"horizonYears":4},"base":{"startAnnual":155000},"benefits":[{"annualValue":2600,"enabled":true,"name":"Free pantry and meals"}],"currency":"USD","equityGrants":[],"growth":{"startingPrice":0,"yoy":[0,0,0,0]},"location":"New York, NY","name":"Bloomberg","performanceBonus":{"expectedPayout":1,"kind":"percent","value":0.3},"raises":[],"retirement":{"employeeContributionCapDollar":23500,"employeeContributionPercent":1,"matchCapDollar":19500,"matchCapMode":"dollar","matchCapPercentOfSalary":0.06,"matchRate":0.5},"signingBonuses":[{"amount":10000,"payDate":"2025-01-01"}],"startDate":"2025-01-01"}
+{
+  "assumptions": {
+    "horizonYears": 4
+  },
+  "base": {
+    "startAnnual": 155000
+  },
+  "benefits": [],
+  "currency": "USD",
+  "equityGrants": [],
+  "growth": {
+    "startingPrice": 0,
+    "yoy": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "location": "New York, NY",
+  "name": "Bloomberg",
+  "performanceBonus": {
+    "expectedPayout": 1,
+    "kind": "percent",
+    "value": 0.3
+  },
+  "raises": [],
+  "retirement": {
+    "employeeContributionPercent": 0,
+    "matchRate": 0,
+    "matchCapPercentOfSalary": 0,
+    "employeeContributionCapDollar": 0,
+    "matchCapMode": "dollar",
+    "matchCapDollar": 0
+  },
+  "signingBonuses": [
+    {
+      "amount": 10000,
+      "payDate": "2025-01-01"
+    }
+  ],
+  "startDate": "2025-01-01"
+}
