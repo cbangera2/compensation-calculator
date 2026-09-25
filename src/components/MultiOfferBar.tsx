@@ -418,6 +418,8 @@ export default function MultiOfferBar() {
                   variant="chip"
                   size="pill"
                   data-active={index === activeIndex}
+                  aria-pressed={index === activeIndex}
+                  aria-label={`Switch to ${displayNames[index] || `Offer ${index + 1}`}`}
                   className={cn('min-w-0 font-medium', 'max-w-[180px] truncate')}
                   onClick={() => setActiveIndex(index)}
                   onDoubleClick={() => { setEditOfferIndex(index); setOfferModalOpen(true); }}

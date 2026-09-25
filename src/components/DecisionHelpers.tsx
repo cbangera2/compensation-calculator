@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo } from 'react';
-import { ArrowLeftRight, CalendarClock, TrendingUp } from 'lucide-react';
+import { ArrowLeftRight, CalendarClock, Rocket, TrendingUp } from 'lucide-react';
 import { useComparedOffers } from '@/lib/useComparedOffers';
 import { computeOffer, type YearRow } from '@/core/compute';
 import { yoyFromCagr } from '@/core/growth';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatValuation } from '@/lib/utils';
 import type { TOffer } from '@/models/types';
 import MobileCollapse from '@/components/MobileCollapse';
 import EmptyState from '@/components/EmptyState';
@@ -36,11 +36,14 @@ type PairInsight = {
   crossoverLine: string;
   sensitivityLine: string;
   vestingLines: string[];
+  startupLine: string | null;
 };
 
 const SCAN_LO = -0.5; // -50%/yr
 const SCAN_HI = 1.0; // +100%/yr
 const VESTING_DIFF_THRESHOLD = 0.1; // 10pp front-load difference worth flagging
+const VAL_SCAN_LO = 10_000_000; // $10M exit
+const VAL_SCAN_HI = 1_000_000_000_000; // $1T exit
 
 function offerLabel(offer: TOffer, index: number): string {
   const name = offer.name?.trim();
@@ -161,6 +164,48 @@ function sensitivityLine(
   return `${winnerName} wins unless ${loserName}'s stock grows \u2265 ${Math.round(breakeven * 100)}%/yr.`;
 }
 
+/**
+ * Breakeven exit valuation for a pair where exactly one side is a startup
+ * offer: the valuation at which the startup's horizon total ties the other
+ * offer's. Bisection on a log scale — the horizon total is non-decreasing in
+ * valuation (higher valuation → higher implied share price → higher option
+ * intrinsic / RSU value), so it converges on the crossover.
+ * Exported for regression tests.
+ */
+export function startupBreakevenLine(
+  startup: TOffer,
+  startupName: string,
+  other: TOffer,
+  otherName: string
+): string | null {
+  const block = startup.startupEquity;
+  if (!block?.enabled) return null;
+  const otherTotal = computeOffer(other).reduce((s, r) => s + r.total, 0);
+  const totalAt = (v: number) =>
+    computeOffer({ ...startup, startupEquity: { ...block, valuation: v } }).reduce(
+      (s, r) => s + r.total,
+      0
+    );
+  const lo = totalAt(VAL_SCAN_LO);
+  const hi = totalAt(VAL_SCAN_HI);
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || !Number.isFinite(otherTotal)) return null;
+  if (lo >= otherTotal) {
+    return `${startupName} wins at any exit above ${formatValuation(VAL_SCAN_LO)} — even a downside case beats ${otherName}.`;
+  }
+  if (hi < otherTotal) {
+    return `${startupName} can't catch ${otherName} on valuation alone — even a ${formatValuation(VAL_SCAN_HI)} exit falls short.`;
+  }
+  let a = Math.log10(VAL_SCAN_LO);
+  let b = Math.log10(VAL_SCAN_HI);
+  for (let i = 0; i < 50; i++) {
+    const m = (a + b) / 2;
+    if (totalAt(Math.pow(10, m)) >= otherTotal) b = m;
+    else a = m;
+  }
+  const breakeven = Math.pow(10, (a + b) / 2);
+  return `${startupName} wins if it exits above ~${formatValuation(breakeven)} — below that, ${otherName} pays more over the horizon.`;
+}
+
 function vestingLines(
   aName: string,
   bName: string,
@@ -220,6 +265,8 @@ function buildInsights(offers: TOffer[]): PairInsight[] {
       const isTie = Math.abs(totalA - totalB) < 0.5;
       // Ties are vanishingly rare with real numbers; break them by year-1 cash.
       const aWins = totalA >= totalB;
+      const aStartup = !!a.startupEquity?.enabled;
+      const bStartup = !!b.startupEquity?.enabled;
       insights.push({
         key: `${i}-${j}`,
         aName,
@@ -231,6 +278,12 @@ function buildInsights(offers: TOffer[]): PairInsight[] {
             ? sensitivityLine(a, aName, b, bName)
             : sensitivityLine(b, bName, a, aName),
         vestingLines: vestingLines(aName, bName, rowsA, rowsB),
+        startupLine:
+          aStartup !== bStartup
+            ? aStartup
+              ? startupBreakevenLine(a, aName, b, bName)
+              : startupBreakevenLine(b, bName, a, aName)
+            : null,
       });
     }
   }
@@ -278,6 +331,11 @@ export default function DecisionHelpers() {
               <InsightRow icon={<ArrowLeftRight className="size-4" />}>
                 {ins.crossoverLine}
               </InsightRow>
+              {ins.startupLine && (
+                <InsightRow icon={<Rocket className="size-4" />}>
+                  {ins.startupLine}
+                </InsightRow>
+              )}
               <InsightRow icon={<TrendingUp className="size-4" />}>
                 {ins.sensitivityLine}
               </InsightRow>
@@ -292,7 +350,8 @@ export default function DecisionHelpers() {
       </div>
       <p className="text-xs leading-relaxed text-muted-foreground">
         Breakevens assume a constant annual growth rate for the trailing offer&apos;s stock and the
-        same horizon as the comparison above. Projections, not predictions.
+        same horizon as the comparison above. Startup breakevens solve for the exit valuation that
+        ties the other offer over the horizon, holding everything else fixed. Projections, not predictions.
       </p>
     </MobileCollapse>
   );

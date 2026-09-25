@@ -4,6 +4,7 @@ import ReactEChartsCore from 'echarts-for-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useStore } from '@/state/store';
 import { useComparedOffers } from '@/lib/useComparedOffers';
+import { matchCityPresetKey } from '@/lib/col';
 import { computeOffer } from '@/core/compute';
 import { cn, formatCurrency, disambiguateNames } from '@/lib/utils';
 import { X } from 'lucide-react';
@@ -205,8 +206,14 @@ export default function ComparisonChart() {
     series: stackedSeries,
   } as const;
 
-  // Check if there's an interesting insight (lower nominal but higher PP)
-  const hasInsight = ranked.length >= 2 && ranked[0].nominalY1 < ranked[ranked.length - 1].nominalY1;
+  // Check if there's an interesting insight (lower nominal but higher PP).
+  // Only when both locations map to known COL presets — otherwise the "lower
+  // cost of living" claim is fabricated from a default 1.0x factor (e.g. an
+  // unmapped "San Francisco Bay Area" vs a mapped "San Francisco, CA").
+  const hasInsight =
+    ranked.length >= 2 &&
+    ranked[0].nominalY1 < ranked[ranked.length - 1].nominalY1 &&
+    (offers || []).every((o) => matchCityPresetKey(o.location) !== null);
 
   return (
     <Card>

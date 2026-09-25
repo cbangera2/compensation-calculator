@@ -16,11 +16,16 @@ import { cn } from '@/lib/utils';
 import { Plus, Trash2, Sparkles, ChevronDown, FilePlus2 } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { savedScenariosOf } from '@/lib/startup';
 
-const MIN_VALUATION = 1_000_000_000; // $1B
+// Log-scale valuation slider runs $10M → $150B so seed/Series A
+// companies ($50M–$500M) are modelable, not just unicorns.
+const MIN_VALUATION = 10_000_000; // $10M
 const MAX_VALUATION = 150_000_000_000; // $150B
 
 const VALUATION_PRESETS = [
+  { label: '$50M', value: 50_000_000 },
+  { label: '$250M', value: 250_000_000 },
   { label: '$1B', value: 1_000_000_000 },
   { label: '$5B', value: 5_000_000_000 },
   { label: '$15B', value: 15_000_000_000 },
@@ -28,25 +33,19 @@ const VALUATION_PRESETS = [
   { label: '$150B', value: 150_000_000_000 },
 ];
 
-function valToSliderT(valuation: number): number {
+/**
+ * Slider math, exported for regression tests: the log slider must cover
+ * $10M..$150B so seed/Series A valuations ($50M–$500M) are reachable.
+ */
+export function valToSliderT(valuation: number): number {
   const v = Math.min(MAX_VALUATION, Math.max(MIN_VALUATION, valuation || MIN_VALUATION));
   const t = (Math.log10(v) - Math.log10(MIN_VALUATION)) / (Math.log10(MAX_VALUATION) - Math.log10(MIN_VALUATION));
   return Math.round(t * 1000);
 }
 
-function sliderTToVal(t: number): number {
+export function sliderTToVal(t: number): number {
   const f = Math.min(1, Math.max(0, t / 1000));
   return Math.pow(10, Math.log10(MIN_VALUATION) + f * (Math.log10(MAX_VALUATION) - Math.log10(MIN_VALUATION)));
-}
-
-/**
- * Saved valuation scenarios for a startup-equity block, normalized to [].
- * The field can be missing on offers imported from anonymized share links
- * (stripped for privacy) or from older persisted state — every consumer
- * must go through this so the Startup tab can't crash on the missing field.
- */
-export function savedScenariosOf(block: TStartupEquity | undefined): TValuationScenario[] {
-  return block?.savedScenarios ?? [];
 }
 
 function toNumber(value: string, fallback: number): number {
@@ -348,7 +347,7 @@ export default function StartupPanel() {
               }))
             }
           >
-            Start from scratch
+            Reset to defaults
           </Button>
           <p className="text-xs text-muted-foreground">Sample data is fictional and for demonstration only.</p>
         </CardContent>

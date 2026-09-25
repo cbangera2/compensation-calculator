@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
-import { savedScenariosOf } from '@/components/StartupPanel';
+import { savedScenariosOf } from '@/lib/startup';
 import ErrorPage from '@/app/error';
 import {
   anonymizeOffer,

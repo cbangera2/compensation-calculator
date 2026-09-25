@@ -146,14 +146,13 @@ function HomeContent() {
               </div>
             </header>
 
-            <OnboardingNudge />
-
             <MultiOfferBar />
 
             <StatCards />
 
             <div className="pt-4 sm:pt-6">
               <TabsContent value="calc" className="space-y-5 sm:space-y-8">
+                <OnboardingNudge />
                 <div className="grid gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] xl:items-start">
                   <div className="order-2 xl:order-1">
                     <OfferForm />

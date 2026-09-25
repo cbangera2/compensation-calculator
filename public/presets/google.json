@@ -52,5 +52,6 @@
     "matchCapMode": "dollar",
     "matchCapDollar": 0
   },
-  "location": "San Francisco Bay Area"
+  "location": "San Francisco Bay Area",
+  "colFactor": 1.4
 }

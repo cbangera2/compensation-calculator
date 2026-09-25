@@ -40,6 +40,7 @@ import {
 import { ALL_CITY_PRESETS, matchCityPresetKey } from '@/lib/col';
 import { offerToLeaderboardEntry, type TUserLeaderboardEntry } from '@/lib/userLeaderboard';
 import { useStore } from '@/state/store';
+import { computeOffer } from '@/core/compute';
 import {
   offerTcAtGrant,
   priceAtDate,
@@ -233,6 +234,9 @@ export default function LeaderboardPanel() {
   const rows: Row[] = useMemo(() => {
     const allEntries: TLeaderboardEntry[] = [...entries, ...userEntries];
     const visible = allEntries.filter((e) => activeGroups.includes(e.group));
+    // Map user entries back to their live offers so startup-equity rows can be
+    // repriced at the offer's active Startup-lab scenario (not grant intrinsic).
+    const offerById = new Map(offers.map((o) => [(o.id ?? o.name) as string, o]));
     const base: Row[] = visible.map((entry) => {
       const userEntry = entry as TUserLeaderboardEntry;
       const isUserOffer = userEntry.isUserOffer === true;
@@ -256,6 +260,20 @@ export default function LeaderboardPanel() {
           const stock = entry.stockGrantTotal4yr ?? 0;
           if (stock > 0 && realized !== null && entry.base !== null) {
             realized = entry.base * 4 + (entry.signingBonus ?? 0) + stock * multiple;
+          }
+        }
+      }
+      // Your own startup offers: reprice the equity at the offer's ACTIVE
+      // Startup-lab scenario via the same computeOffer engine the Calculator
+      // tab uses, so the row agrees with the calculator and moves when the
+      // scenario changes. Grant-price intrinsic ($0 for at-the-money options)
+      // would otherwise make every startup row read as ~4x base.
+      if (isUserOffer) {
+        const liveOffer = offerById.get(userEntry.offerId);
+        if (liveOffer?.startupEquity?.enabled) {
+          const modeledStock4yr = computeOffer(liveOffer).reduce((s, r) => s + r.stock, 0);
+          if (entry.base !== null) {
+            realized = entry.base * 4 + (entry.signingBonus ?? 0) + modeledStock4yr;
           }
         }
       }
@@ -284,7 +302,7 @@ export default function LeaderboardPanel() {
       r.rank = i + 1;
     });
     return base;
-  }, [prices, failed, activeGroups, entries, userEntries, year]);
+  }, [prices, failed, activeGroups, entries, userEntries, year, offers]);
 
   const sorted = useMemo(() => {
     const dir = sortDir === 'asc' ? 1 : -1;

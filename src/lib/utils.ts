@@ -16,6 +16,21 @@ export function formatNumber(n: number, options?: { decimals?: number }) {
 }
 
 /**
+ * Compact valuation formatting: $50M, $3.2B, $150B.
+ * Used for startup valuations anywhere they surface (compare tab, decision
+ * helpers, leaderboard).
+ */
+export function formatValuation(v: number): string {
+  if (!Number.isFinite(v) || v <= 0) return '—';
+  if (v >= 1e9) {
+    const b = v / 1e9;
+    return `$${b >= 100 ? Math.round(b).toString() : (Math.round(b * 10) / 10).toString()}B`;
+  }
+  if (v >= 1e6) return `$${(Math.round((v / 1e6) * 10) / 10).toString()}M`;
+  return formatCurrency(Math.round(v));
+}
+
+/**
  * Short display form for city/location names used in the UI.
  * "San Francisco Bay Area" -> "SF", "New York, NY" -> "NYC", "Ann Arbor" -> "AA", etc.
  */
