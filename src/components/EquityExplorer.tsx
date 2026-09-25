@@ -784,7 +784,7 @@ export default function EquityExplorer() {
                   }}
                   className="mt-1 h-9"
                 />
-                <p className="text-[10px] text-muted-foreground mt-1">Market cap estimate</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Market cap</p>
               </div>
               <div>
                 <Label className="text-xs">Projected Valuation</Label>

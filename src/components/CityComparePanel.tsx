@@ -284,7 +284,7 @@ export default function CityComparePanel() {  const offers = useStore((s) => s.o
               aria-label="Cash portion of comp"
             />
             <p className="text-[11px] leading-tight text-muted-foreground">
-              State tax is estimated on this share only
+              State tax applies to this share only
             </p>
           </div>
         </div>
@@ -293,7 +293,7 @@ export default function CityComparePanel() {  const offers = useStore((s) => s.o
           <div className="min-w-0">
             <Label id="city-household-label">Household</Label>
             <p className="text-[11px] leading-tight text-muted-foreground">
-              Nudges the state-tax estimate
+              Nudges the state-tax figure
             </p>
           </div>
           <div
@@ -411,8 +411,8 @@ export default function CityComparePanel() {  const offers = useStore((s) => s.o
               renter-model city shows a cross-model warning above.
             </li>
             <li>
-              State-tax rates are rough estimates, not tax advice: CA ~9.3%, NY
-              ~9.5% (incl. ~3% NYC local tax (estimate)), DC ~7%, MI 4.25%
+              State-tax rates are approximations, not tax advice: CA ~9.3%, NY
+              ~9.5% (incl. ~3% NYC local tax), DC ~7%, MI 4.25%
               flat, TX &amp; WA 0%. Applied to the cash portion only.
             </li>
             <li>

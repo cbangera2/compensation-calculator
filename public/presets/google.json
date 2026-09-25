@@ -3,7 +3,7 @@
   "currency": "USD",
   "startDate": "2025-01-01",
   "base": {
-    "startAnnual": 160000
+    "startAnnual": 162000
   },
   "raises": [],
   "performanceBonus": {
@@ -11,18 +11,13 @@
     "value": 0.15,
     "expectedPayout": 1
   },
-  "signingBonuses": [
-    {
-      "amount": 17000,
-      "payDate": "2025-01-01"
-    }
-  ],
+  "signingBonuses": [],
   "equityGrants": [
     {
       "type": "RSU",
       "shares": 0,
       "fmv": 100,
-      "targetValue": 130000,
+      "targetValue": 165200,
       "targetMode": "total",
       "vesting": {
         "model": "standard",
@@ -44,7 +39,8 @@
     ]
   },
   "assumptions": {
-    "horizonYears": 4
+    "horizonYears": 4,
+    "source": "levels.fyi L3 entry-level aggregate (average), San Francisco Bay Area, read 2026-09-24"
   },
   "relocationBonuses": [
     {
@@ -81,5 +77,6 @@
     "employeeContributionCapDollar": 23500,
     "matchCapMode": "dollar",
     "matchCapDollar": 19500
-  }
+  },
+  "location": "San Francisco Bay Area"
 }

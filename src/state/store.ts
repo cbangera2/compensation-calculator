@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { TOffer, TEquityGrant } from '@/models/types';
 import { remapCompareSelectionAfterRemove, sanitizeCompareSelection } from '@/lib/compare';
+import googlePreset from '../../public/presets/google.json';
+import amazonPreset from '../../public/presets/amazon.json';
+import metaPreset from '../../public/presets/meta.json';
 
 type State = {
   offer: TOffer; // mirrors offers[activeIndex] for backward-compat
@@ -85,11 +88,18 @@ const initialOffer: TOffer = {
   assumptions: { horizonYears: 4, colAdjust: 1 },
 };
 
+// Sample offers auto-loaded on first run (persist overwrites for existing users)
+const sampleOffers: TOffer[] = [
+  JSON.parse(JSON.stringify(googlePreset)) as TOffer,
+  JSON.parse(JSON.stringify(amazonPreset)) as TOffer,
+  JSON.parse(JSON.stringify(metaPreset)) as TOffer,
+];
+
 export const useStore = create<State>()(
   persist(
   (set) => ({
-      offer: initialOffer,
-      offers: [initialOffer],
+      offer: sampleOffers[0],
+      offers: sampleOffers.map((o) => JSON.parse(JSON.stringify(o)) as TOffer),
       activeIndex: 0,
       past: [],
       future: [],
@@ -101,11 +111,11 @@ export const useStore = create<State>()(
       })),
       resetAll: () => set(() => {
         try { localStorage.removeItem('compcalc-store'); } catch {}
-        // Reset to initial defaults
-        const freshOffer = JSON.parse(JSON.stringify(initialOffer)) as TOffer;
+        // Reset to initial defaults (sample offers)
+        const freshOffers = sampleOffers.map((o) => JSON.parse(JSON.stringify(o)) as TOffer);
         return {
-          offer: freshOffer,
-          offers: [freshOffer],
+          offer: freshOffers[0],
+          offers: freshOffers,
           activeIndex: 0,
           past: [],
           future: [],

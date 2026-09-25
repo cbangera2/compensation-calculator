@@ -766,19 +766,10 @@ export default function LeaderboardPanel() {
             instead (growth not computed — see Years).
           </p>
           <p>
-            <strong className="text-foreground">Where the numbers come from.</strong> Every comp
-            figure comes from levels.fyi and nothing else — no Medium articles, no other sources. Most
-            2024 rows are levels.fyi Bay Area entry-level <em>averages</em> (levels.fyi labels them
-            &quot;Average Compensation By Level&quot;), read 2026-09-24, with each row&apos;s submission
-            count disclosed in its method. levels.fyi aggregates do not report signing bonuses, so those
-            rows count signing as $0: unknown, not zero, and the at-grant TC understates offers that had
-            one. Arm has no Bay Area aggregate on levels.fyi, so its row uses the Austin aggregate and is
-            labeled Austin. Palantir has no entry-level salary band on levels.fyi — only job-posting base
-            ranges ($135–155K) — so its row is a postings-based estimate: base is the $145K midpoint and
-            equity is null (unknown, not zero), meaning its at-grant TC and realized columns reflect base
-            only. LinkedIn and ByteDance have no levels.fyi entry-level data and are shown as insufficient
-            data rather than invented. LinkedIn (Microsoft subsidiary) and ByteDance (private) have no
-            ticker; their growth/realized columns are n/a by construction.
+<strong className="text-foreground">Where the numbers come from.</strong> Eleven entries are
+            midpoints of ranges across 47 real 2024–2025 new-grad offer letters collected in March 2026
+            (source linked per entry in the dataset file). Ranges are disclosed in each entry’s method —
+            the midpoints are not exact offers. The Nvidia row is derived from a published benchmark, not a collected offer.
           </p>
           <p>
             <strong className="text-foreground">Top startups.</strong> Latest private valuations are
