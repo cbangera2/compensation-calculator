@@ -14,6 +14,7 @@ import type { ExtractedOfferFields, OfferLetterParseResult } from '@/lib/offerLe
 import type { TOffer } from '@/models/types';
 import ShareDialog from '@/components/ShareDialog';
 import { cn, disambiguateNames } from '@/lib/utils';
+import OfferModal from '@/components/OfferModal';
 
 const scrollGradient = "pointer-events-none absolute inset-y-0 w-6 bg-gradient-to-r from-background/95 to-transparent";
 const fileInputWrapper = "relative inline-flex";
@@ -229,6 +230,8 @@ export default function MultiOfferBar() {
   const [levelsUrl, setLevelsUrl] = useState('');
   const [shareOpen, setShareOpen] = useState(false);
   const [offerLetterOpen, setOfferLetterOpen] = useState(false);
+  const [offerModalOpen, setOfferModalOpen] = useState(false);
+  const [editOfferIndex, setEditOfferIndex] = useState<number | null>(null);
 
   function exportJSON() {
     const offer = offers[activeIndex];
@@ -381,6 +384,8 @@ export default function MultiOfferBar() {
                 data-active={index === activeIndex}
                 className={cn('snap-start font-medium', 'max-w-[180px] truncate')}
                 onClick={() => setActiveIndex(index)}
+                onDoubleClick={() => { setEditOfferIndex(index); setOfferModalOpen(true); }}
+                title="Double-click to rename"
               >
                 {displayNames[index]}
               </Button>
@@ -391,7 +396,7 @@ export default function MultiOfferBar() {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <Button type="button" size="sm" variant="secondary" className="gap-1.5" onClick={() => addOffer()}>
+          <Button type="button" size="sm" variant="secondary" className="gap-1.5" onClick={() => { setEditOfferIndex(null); setOfferModalOpen(true); }}>
             <Plus className="size-4" />
             New
           </Button>
@@ -443,6 +448,11 @@ export default function MultiOfferBar() {
           </Button>
         </div>
       </div>
+      <OfferModal
+        open={offerModalOpen}
+        onClose={() => setOfferModalOpen(false)}
+        editIndex={editOfferIndex}
+      />
       <ShareDialog
         open={shareOpen}
         onClose={() => setShareOpen(false)}
