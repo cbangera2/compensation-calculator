@@ -85,11 +85,26 @@ function ImportMenu({
 }) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // On mobile the menu is fixed-positioned to the viewport (the toolbar
+  // trigger sits too far left for a right-anchored dropdown), so capture
+  // the trigger's viewport position when opening.
+  const [menuTop, setMenuTop] = useState<number | null>(null);
+  // True when the menu should anchor to the viewport (mobile) rather than
+  // the trigger (desktop sm+).
+  const [viewportAnchored, setViewportAnchored] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+      if (!menuRef.current || menuRef.current.contains(e.target as Node)) return;
+      // The nested preset Select renders its options in a body-level radix
+      // portal, outside the menu element. Treat pointerdowns there as inside
+      // the menu — otherwise picking a preset closes the menu on pointerdown
+      // and unmounts the Select before the selection registers.
+      const target = e.target as Element | null;
+      if (target?.closest?.('[data-radix-popper-content-wrapper]')) return;
+      setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
@@ -105,20 +120,30 @@ function ImportMenu({
   const close = () => setOpen(false);
 
   const menuRow =
-    'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted';
+    'flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-muted';
   const sectionLabel =
-    'px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
+    'px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground';
 
   return (
     <div ref={menuRef} className="relative">
       <Button
+        ref={triggerRef}
         type="button"
         size="sm"
         variant="outline"
         className="gap-1.5"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!open) {
+            const rect = triggerRef.current?.getBoundingClientRect();
+            const mobile = window.matchMedia('(max-width: 639px)').matches;
+            setViewportAnchored(mobile);
+            setMenuTop(mobile && rect ? Math.round(rect.bottom + 8) : null);
+          }
+          setOpen((o) => !o);
+        }}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label="Import offer"
       >
         <Upload className="size-4" />
         <span className="hidden sm:inline">Import</span>
@@ -128,7 +153,8 @@ function ImportMenu({
         <div
           role="menu"
           aria-label="Import offer"
-          className="absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-xl border border-border bg-background p-1.5 shadow-xl"
+          style={viewportAnchored && menuTop != null ? { top: menuTop } : undefined}
+          className="fixed inset-x-3 z-50 max-h-[70vh] overflow-y-auto rounded-xl border border-border bg-background p-1.5 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:mt-2 sm:w-80"
         >
           <p className={sectionLabel}>From file</p>
           <label className={cn(fileInputWrapper, 'w-full')}>
@@ -310,7 +336,7 @@ export default function MultiOfferBar() {
         'palantir',
       ];
       const offers = await Promise.all(
-        files.map((f) => fetch(`presets/${f}.json`).then((r) => r.json()))
+        files.map((f) => fetch(`/presets/${f}.json`).then((r) => r.json()))
       );
       offers.forEach(addOffer);
     } catch {
@@ -370,7 +396,7 @@ export default function MultiOfferBar() {
   async function handlePresetSelect(value: string) {
     setPresetKey(value);
     if (value === 'all') await importAllPresets();
-    else if (value) await importPreset(`presets/${value}.json`);
+    else if (value) await importPreset(`/presets/${value}.json`);
     setPresetKey(undefined);
   }
 
