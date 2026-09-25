@@ -46,6 +46,7 @@ describe('LeaderboardPanel "You" row disclosure', () => {
         benefits: [],
         miscRecurring: [],
         equityGrants: [],
+        assumptions: { horizonYears: 4, colAdjust: 1 },
       } as TOffer,
     ];
   });
