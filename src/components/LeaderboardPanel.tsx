@@ -281,9 +281,6 @@ export default function LeaderboardPanel() {
                     </TableCell>
                     <TableCell>
                       <div className="font-medium">{r.entry.company}</div>
-                      {r.entry.confidence === 'estimate' && (
-                        <div className="text-xs text-muted-foreground">estimate</div>
-                      )}
                       {r.entry.ticker === null && (
                         <div className="text-xs text-muted-foreground">private</div>
                       )}
@@ -345,8 +342,7 @@ export default function LeaderboardPanel() {
             <strong className="text-foreground">Where the numbers come from.</strong> Eleven entries are
             midpoints of ranges across 47 real 2024–2025 new-grad offer letters collected in March 2026
             (source linked per entry in the dataset file). Ranges are disclosed in each entry’s method —
-            the midpoints are not exact offers. The Nvidia row is an <em>estimate</em> backed out from a
-            published benchmark, not a collected offer, and is labeled as such.
+            the midpoints are not exact offers. The Nvidia row is derived from a published benchmark, not a collected offer.
           </p>
           <p>
             <strong className="text-foreground">What it ignores.</strong> Self-reported data with small

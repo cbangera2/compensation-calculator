@@ -1,33 +1,28 @@
 {
   "assumptions": {
     "horizonYears": 4,
-    "source": "levels.fyi E3 entry-level aggregate (average), San Francisco Bay Area, read 2026-09-24"
+    "source": "levels.fyi SDE I entry-level aggregate (average), San Francisco Bay Area, read 2026-09-24"
   },
   "base": {
-    "startAnnual": 145000
+    "startAnnual": 157000
   },
   "benefits": [
     {
-      "annualValue": 5200,
+      "annualValue": 8000,
       "enabled": true,
-      "name": "Free meals"
-    },
-    {
-      "annualValue": 3000,
-      "enabled": true,
-      "name": "Wellness stipend"
+      "name": "Health insurance"
     }
   ],
   "currency": "USD",
   "equityGrants": [
     {
-      "fmv": 600,
+      "fmv": 200,
       "shares": 0,
       "targetMode": "total",
-      "targetValue": 141600,
+      "targetValue": 174800,
       "type": "RSU",
       "vesting": {
-        "cliffMonths": 0,
+        "cliffMonths": 12,
         "cliffPercent": 0,
         "distribution": "even",
         "frequency": "quarterly",
@@ -37,7 +32,7 @@
     }
   ],
   "growth": {
-    "startingPrice": 600,
+    "startingPrice": 200,
     "yoy": [
       0,
       0,
@@ -46,19 +41,19 @@
     ]
   },
   "location": "San Francisco Bay Area",
-  "name": "Meta",
+  "name": "Amazon",
   "performanceBonus": {
     "expectedPayout": 1,
     "kind": "percent",
-    "value": 0.15
+    "value": 0.1
   },
   "raises": [],
   "retirement": {
     "employeeContributionCapDollar": 23500,
     "employeeContributionPercent": 1,
-    "matchCapDollar": 19500,
-    "matchCapMode": "dollar",
-    "matchCapPercentOfSalary": 0.07,
+    "matchCapDollar": 0,
+    "matchCapMode": "percent",
+    "matchCapPercentOfSalary": 0.04,
     "matchRate": 0.5
   },
   "signingBonuses": [],

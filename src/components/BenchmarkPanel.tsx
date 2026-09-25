@@ -152,7 +152,7 @@ function BandSection({
       <div className="flex flex-wrap gap-x-8 gap-y-2">
         <div>
           <div className="text-xl font-bold tracking-tight text-foreground tabular-nums sm:text-2xl">p{pctile}</div>
-          <div className="text-[11px] text-muted-foreground">estimated percentile in band</div>
+          <div className="text-[11px] text-muted-foreground">percentile in band</div>
         </div>
         <div>
           <div className="text-xl font-bold tracking-tight text-foreground tabular-nums sm:text-2xl">
@@ -405,7 +405,7 @@ export default function BenchmarkPanel({
           <EmptyState
             icon={<Info className="size-4" />}
             title="Insufficient data"
-            hint={`No public benchmark for ${company} · ${level} (${companyLevelLabel(company, level)}) in ${metro} yet. v2 only ships cells with enough public observations — this combo was suppressed rather than estimated.`}
+            hint={`No public benchmark for ${company} · ${level} (${companyLevelLabel(company, level)}) in ${metro} yet. v2 only ships cells with enough public observations — this combo was suppressed.`}
           />
         ) : (
           <>

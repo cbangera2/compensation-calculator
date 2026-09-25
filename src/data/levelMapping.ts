@@ -9,7 +9,7 @@
  * two files cannot drift apart. The VERIFICATION map below is the honest part:
  * every (company, band) pair is graded
  *   - 'verified'   — standard community mapping (levels.fyi), deep coverage
- *   - 'estimated'  — plausible inference from thinner community data
+ *   - 'inferred'   — plausible inference from thinner community data
  *   - 'unverified' — company publishes no ladder; label is a placeholder
  * Anything not 'verified' must render with its marker in the UI, never as fact.
  */
@@ -18,7 +18,7 @@ import { COMPANY_LEVEL_MAP } from './benchmarks.v2';
 
 export type GenericBand = 'Entry' | 'Mid' | 'Senior';
 
-export type LevelVerification = 'verified' | 'estimated' | 'unverified';
+export type LevelVerification = 'verified' | 'inferred' | 'unverified';
 
 export interface CompanyLevelMapping {
   company: string;
@@ -56,16 +56,16 @@ const VERIFICATION: Record<
     Entry: { status: 'verified', note: 'Levels 59-60 map cleanly to entry band.' },
     Mid: { status: 'verified', note: 'Levels 61-62 map cleanly to mid band.' },
     Senior: {
-      status: 'estimated',
+      status: 'inferred',
       note: 'Levels 63-64 span the L4/L5 boundary; community mapping varies.',
     },
   },
   Palantir: {
-    status: 'estimated',
+    status: 'inferred',
     note: 'Palantir uses Google-style L-levels; mapping inferred from community data with thinner coverage.',
   },
   Tesla: {
-    status: 'estimated',
+    status: 'inferred',
     note: 'Tesla P-levels appear in community data but the ladder is unpublished; mapping is approximate.',
   },
   Stripe: {

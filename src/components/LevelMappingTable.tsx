@@ -13,7 +13,7 @@ import { ArrowLeftRight } from 'lucide-react';
 const STATUS_STYLE: Record<LevelVerification, string> = {
   verified:
     'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  estimated:
+  inferred:
     'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
   unverified:
     'border-border/70 bg-muted/40 text-muted-foreground',
@@ -102,7 +102,7 @@ export default function LevelMappingTable() {
           Level labels are community-reported mappings (e.g. levels.fyi), not
           official company ladders. <span className="font-medium">verified</span>{' '}
           means a standard, deep-coverage mapping;{' '}
-          <span className="font-medium">estimated</span> is inferred from thinner
+          <span className="font-medium">inferred</span> from thinner
           data; <span className="font-medium">unverified</span> means the
           company publishes no ladder and the label is a placeholder. Hover a
           badge for the reasoning.
