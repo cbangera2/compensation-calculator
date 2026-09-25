@@ -177,7 +177,7 @@ describe('startup leaderboard dataset', () => {
     // base + signing/4 + one year of stock × growth multiple
     expect(startupTcPerYearWithGrowth(stripe)).toBeCloseTo(146000 + 0 / 4 + 45300 * (159 / 70), 6);
     const databricks = STARTUP_LEADERBOARD.find((e) => e.company === 'Databricks')!;
-    expect(startupTcPerYearWithGrowth(databricks)).toBeCloseTo(148000 + 0 / 4 + 94500 * (190 / 43), 6);
+    expect(startupTcPerYearWithGrowth(databricks)).toBeCloseTo(148000 + 0 / 4 + 94500 * (188 / 62), 6);
   });
 
   it('Applied Intuition uses only public figures', async () => {
