@@ -11,7 +11,6 @@ import {
   Trophy,
   type LucideIcon,
 } from 'lucide-react';
-import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Sidebar,
   SidebarContent,
@@ -49,7 +48,7 @@ const TAB_ICONS: Record<TabValue, LucideIcon> = {
  * Collapse state lives in SidebarProvider (wired to the persisted
  * store value in page.tsx); on mobile this renders as a Sheet.
  */
-export default function SidebarNav({ activeTab }: { activeTab: TabValue }) {
+export default function SidebarNav({ activeTab, onTabChange }: { activeTab: TabValue; onTabChange: (v: TabValue) => void }) {
   return (
     <Sidebar collapsible="icon" aria-label="Primary">
       <SidebarHeader>
@@ -74,26 +73,23 @@ export default function SidebarNav({ activeTab }: { activeTab: TabValue }) {
           <SidebarGroup key={group.label}>
             <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
-              <TabsList asChild aria-label={`${group.label} tabs`}>
-              <SidebarMenu>
+              <SidebarMenu aria-label={`${group.label} tabs`}>
                 {group.tabs.map((t) => {
                   const Icon = TAB_ICONS[t.value];
                   return (
                     <SidebarMenuItem key={t.value}>
-                      <TabsTrigger asChild value={t.value}>
-                        <SidebarMenuButton
-                          isActive={activeTab === t.value}
-                          tooltip={t.label}
-                        >
-                          <Icon aria-hidden="true" />
-                          <span>{t.label}</span>
-                        </SidebarMenuButton>
-                      </TabsTrigger>
+                      <SidebarMenuButton
+                        isActive={activeTab === t.value}
+                        tooltip={t.label}
+                        onClick={() => onTabChange(t.value)}
+                      >
+                        <Icon aria-hidden="true" />
+                        <span>{t.label}</span>
+                      </SidebarMenuButton>
                     </SidebarMenuItem>
                   );
                 })}
               </SidebarMenu>
-              </TabsList>
             </SidebarGroupContent>
           </SidebarGroup>
         ))}

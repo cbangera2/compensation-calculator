@@ -57,7 +57,7 @@ export default function Home() {
         onOpenChange={(open) => setSidebarCollapsed(!open)}
       >
       <Tabs value={tab} onValueChange={(v) => { if (isValidTabValue(v)) setTab(v); }} className="min-w-0 gap-0 md:flex-row">
-        <SidebarNav activeTab={tab} />
+        <SidebarNav activeTab={tab} onTabChange={(v) => { if (isValidTabValue(v)) setTab(v); }} />
         <div className="min-w-0 flex-1">
           {/* Slim sticky top bar: live totals on desktop, section picker on mobile */}
           <div className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-md">
