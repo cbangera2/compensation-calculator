@@ -264,10 +264,13 @@ export default function LeaderboardPanel() {
         }
       }
       // Your own startup offers: reprice the equity at the offer's ACTIVE
-      // Startup-lab scenario via the same computeOffer engine the Calculator
-      // tab uses, so the row agrees with the calculator and moves when the
-      // scenario changes. Grant-price intrinsic ($0 for at-the-money options)
-      // would otherwise make every startup row read as ~4x base.
+      // Equity-tab scenario via the same computeOffer engine the Calculator
+      // tab uses, so the row moves when the scenario changes. Grant-price
+      // intrinsic ($0 for at-the-money options) would otherwise make every
+      // startup row read as ~4x base. Note the row still follows the board's
+      // grant-marking formula (base x 4 + signing + marked equity) for
+      // comparability — it intentionally differs from the Calculator's full
+      // modeled total, which also adds bonus, raises, benefits, and perks.
       if (isUserOffer) {
         const liveOffer = offerById.get(userEntry.offerId);
         if (liveOffer?.startupEquity?.enabled) {
@@ -634,7 +637,10 @@ export default function LeaderboardPanel() {
                       <div className="flex items-center gap-1.5 font-medium">
                         {r.entry.company}
                         {r.isUserOffer && (
-                          <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                          <span
+                            className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold text-primary"
+                            title="Your row uses the board's grant-marking formula (base x 4 + signing + equity marked to today) so it's directly comparable. It differs from the Calculator tab's full modeled total — which also adds bonus, raises, benefits, and perks — by design."
+                          >
                             You
                           </span>
                         )}
@@ -853,6 +859,15 @@ export default function LeaderboardPanel() {
             growth applied. It assumes the grant vests evenly over 4 years with no refreshers; it is a
             grant-marking comparison, not take-home pay. The 2025/2026 classes rank by offer TC at grant
             instead (growth not computed — see Years).
+          </p>
+          <p>
+            <strong className="text-foreground">&quot;You&quot; rows.</strong> Your own offers are ranked
+            with the identical grant-marking formula — base × 4 + signing + the 4-year equity grant
+            marked to today&apos;s price (or your active Equity-tab scenario for startup offers) — so the
+            comparison is apples to apples. That means a &quot;You&quot; row will differ from the same
+            offer&apos;s total on the Calculator tab, which additionally models expected bonus, raises,
+            benefits, and perks. The difference is by design, not a bug: this board compares grants,
+            the Calculator models your take-home.
           </p>
           <p>
 <strong className="text-foreground">Where the numbers come from.</strong> Eleven entries are
