@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import OfferForm from '@/components/OfferForm';
 import YearChart from '@/components/YearChart';
 import YearTable from '@/components/YearTable';
@@ -33,19 +34,31 @@ import ActiveOfferStrip, { isValidTabValue, type TabValue } from '@/components/A
 import { TAB_GROUPS } from '@/lib/tabs';
 
 export default function Home() {
-  const [tab, setTab] = useState<TabValue>('calc');
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<TabValue>(() => {
+    const param = searchParams.get('tab');
+    return isValidTabValue(param) ? param : 'calc';
+  });
   const { sidebarCollapsed, setSidebarCollapsed } = useStore();
+
+  // Sync tab changes to the URL so tabs are deep-linkable and shareable.
+  const handleTabChange = useCallback((v: TabValue) => {
+    setTab(v);
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', v);
+    window.history.replaceState(null, '', url.toString());
+  }, []);
 
   // Programmatic tab switching for cross-tab deep links, e.g.
   // window.dispatchEvent(new CustomEvent('compcalc:switch-tab', { detail: 'compare' }))
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      if (isValidTabValue(detail)) setTab(detail);
+      if (isValidTabValue(detail)) handleTabChange(detail);
     };
     window.addEventListener('compcalc:switch-tab', handler);
     return () => window.removeEventListener('compcalc:switch-tab', handler);
-  }, []);
+  }, [handleTabChange]);
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.10),_transparent_55%)] pb-20">
@@ -56,8 +69,8 @@ export default function Home() {
         open={!sidebarCollapsed}
         onOpenChange={(open) => setSidebarCollapsed(!open)}
       >
-      <Tabs value={tab} onValueChange={(v) => { if (isValidTabValue(v)) setTab(v); }} className="min-w-0 gap-0 md:flex-row">
-        <SidebarNav activeTab={tab} onTabChange={(v) => { if (isValidTabValue(v)) setTab(v); }} />
+      <Tabs value={tab} onValueChange={(v) => { if (isValidTabValue(v)) handleTabChange(v); }} className="min-w-0 gap-0 md:flex-row">
+        <SidebarNav activeTab={tab} onTabChange={(v) => { if (isValidTabValue(v)) handleTabChange(v); }} />
         <div className="min-w-0 flex-1">
           {/* Slim sticky top bar: live totals on desktop, section picker on mobile */}
           <div className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur-md">
@@ -76,7 +89,7 @@ export default function Home() {
                     <button
                       key={group.label}
                       type="button"
-                      onClick={() => setTab(group.tabs[0].value)}
+                      onClick={() => handleTabChange(group.tabs[0].value)}
                       aria-pressed={isActiveGroup}
                       className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold transition-colors ${
                         isActiveGroup

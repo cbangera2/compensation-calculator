@@ -259,6 +259,7 @@ export default function StartupPanel() {
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'option' | 'rsu'; index: number; label: string } | null>(null);
   const [confirmAction, setConfirmAction] = useState<{ kind: 'reload' } | { kind: 'disable' } | null>(null);
   const [scenarioName, setScenarioName] = useState('');
+  const [inputMode, setInputMode] = useState<'valuation' | 'sharePrice'>('valuation');
 
   const block: TStartupEquity | undefined = offer?.startupEquity;
 
@@ -389,13 +390,15 @@ export default function StartupPanel() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-                Scenario valuation
+                {inputMode === 'valuation' ? 'Scenario valuation' : 'Scenario share price'}
               </p>
               <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
                 <span className="text-3xl font-bold tabular-nums tracking-tight text-foreground sm:text-5xl">
                   {formatCurrency(sharePrice, { decimals: 2 })}
                 </span>
-                <span className="text-sm text-muted-foreground">implied per share</span>
+                <span className="text-sm text-muted-foreground">
+                  {inputMode === 'valuation' ? 'implied per share' : 'per share'}
+                </span>
               </div>
               <p className="mt-1 text-sm text-muted-foreground">
                 {formatCurrency(block.valuation)} valuation · {formatNumber(block.fullyDilutedShares)} fully diluted shares
@@ -412,6 +415,35 @@ export default function StartupPanel() {
           </div>
 
           <div className="mt-4 sm:mt-6">
+            {/* Input mode toggle: valuation vs share price */}
+            <div className="mb-3 flex gap-1 rounded-full bg-muted/60 p-1 w-fit" role="group" aria-label="Input mode">
+              <button
+                type="button"
+                onClick={() => setInputMode('valuation')}
+                aria-pressed={inputMode === 'valuation'}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  inputMode === 'valuation'
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'text-muted-foreground'
+                }`}
+              >
+                I know the valuation
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode('sharePrice')}
+                aria-pressed={inputMode === 'sharePrice'}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  inputMode === 'sharePrice'
+                    ? 'bg-foreground text-background shadow-sm'
+                    : 'text-muted-foreground'
+                }`}
+              >
+                I know the share price
+              </button>
+            </div>
+            {inputMode === 'valuation' ? (
+              <>
             <Slider
               value={[valToSliderT(block.valuation)]}
               min={0}
@@ -456,6 +488,34 @@ export default function StartupPanel() {
                 <span className="text-xs text-muted-foreground">$B</span>
               </div>
             </div>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    className="h-10 w-40 px-3 text-sm"
+                    min={0.01}
+                    step={0.01}
+                    aria-label="Share price in dollars"
+                    value={Math.round(sharePrice * 100) / 100}
+                    onChange={(e) =>
+                      patch((b) => ({
+                        ...b,
+                        valuation: Math.min(
+                          MAX_VALUATION,
+                          Math.max(MIN_VALUATION, toNumber(e.target.value, sharePrice) * (b.fullyDilutedShares || 1))
+                        ),
+                      }))
+                    }
+                  />
+                  <span className="text-xs text-muted-foreground">per share</span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Implied valuation: {formatCurrency(sharePrice * (block.fullyDilutedShares || 0))} · {formatNumber(block.fullyDilutedShares)} fully diluted shares
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Saved valuation scenarios */}
