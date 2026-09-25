@@ -31,6 +31,8 @@ export default function OfferModal({ open, onClose, editIndex }: OfferModalProps
     }
   }, [open, existing?.name, existing?.location]);
 
+  if (!open) return null;
+
   function handleSubmit() {
     const trimmedName = name.trim();
     if (isEdit && editIndex !== null) {
