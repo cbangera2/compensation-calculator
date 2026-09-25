@@ -4,34 +4,37 @@ import { useMemo } from 'react';
 import { GitCompareArrows } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useStore } from '@/state/store';
-import { MAX_COMPARE_OFFERS, resolveCompareIndices } from '@/lib/compare';
+import { resolveCompareIndices } from '@/lib/compare';
+import { useMaxCompareOffers } from '@/lib/useIsMobile';
 import { cn } from '@/lib/utils';
 
 /**
  * Offer picker for the Compare tab. Compare renders at most
- * MAX_COMPARE_OFFERS offers; when there are more, this picker lets the
- * user choose which ones, with a "showing 3 of N" hint. Hidden when there
- * are 3 or fewer offers (everything is compared anyway).
+ * `useMaxCompareOffers()` offers (viewport-scaled); when there are more,
+ * this picker lets the user choose which ones, with a "showing X of N"
+ * hint. Hidden when everything fits. The tab auto-fills up to the max, so
+ * unchecking down to one offer refills rather than stranding the charts.
  */
 export default function ComparePicker() {
   const offers = useStore((s) => s.offers);
   const activeIndex = useStore((s) => s.activeIndex);
   const compareSelection = useStore((s) => s.compareSelection);
   const setCompareSelection = useStore((s) => s.setCompareSelection);
+  const maxOffers = useMaxCompareOffers();
 
   const effective = useMemo(
-    () => resolveCompareIndices(offers.length, activeIndex, compareSelection),
-    [offers.length, activeIndex, compareSelection],
+    () => resolveCompareIndices(offers.length, activeIndex, compareSelection, maxOffers),
+    [offers.length, activeIndex, compareSelection, maxOffers],
   );
 
-  if (offers.length <= MAX_COMPARE_OFFERS) return null;
+  if (offers.length <= maxOffers) return null;
 
   const selected = new Set(effective);
   const toggle = (index: number) => {
     if (selected.has(index)) {
       const next = effective.filter((i) => i !== index);
       setCompareSelection(next);
-    } else if (selected.size < MAX_COMPARE_OFFERS) {
+    } else if (selected.size < maxOffers) {
       setCompareSelection([...effective, index]);
     }
   };
@@ -44,13 +47,13 @@ export default function ComparePicker() {
           <span>
             Showing <span className="font-semibold text-foreground">{effective.length}</span> of{' '}
             <span className="font-semibold text-foreground">{offers.length}</span> — pick up to{' '}
-            {MAX_COMPARE_OFFERS} to compare
+            {maxOffers} to compare
           </span>
         </p>
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Offers to compare">
           {offers.map((offer, index) => {
             const checked = selected.has(index);
-            const disabled = !checked && selected.size >= MAX_COMPARE_OFFERS;
+            const disabled = !checked && selected.size >= maxOffers;
             return (
               <label
                 key={index}

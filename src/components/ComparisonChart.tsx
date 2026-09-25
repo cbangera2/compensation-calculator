@@ -24,7 +24,7 @@ export default function ComparisonChart() {
   const chartH = useChartHeight(360, 260);
   const { activeIndex } = useStore();
   const compared = useComparedOffers();
-  // Compare tab renders at most MAX_COMPARE_OFFERS offers; `compared` pairs
+  // Compare tab renders at most useMaxCompareOffers() offers (viewport-scaled); `compared` pairs
   // each with its original store index for the active-offer highlight.
   const offers = useMemo(() => compared.map((p) => p.offer), [compared]);
   const [showPurchasingPower, setShowPurchasingPower] = useState(false);
@@ -70,11 +70,15 @@ export default function ComparisonChart() {
     });
   }, [offers, rowsPerOffer]);
 
-  // Sort by purchasing power for ranking
-  const ranked = useMemo(() => 
-    [...ppData].sort((a, b) => b.ppY1 - a.ppY1),
-    [ppData]
+  // Sort by the active mode's Year-1 value for ranking: nominal when the
+  // COL toggle is off, purchasing power when it's on. Sorting always by PP
+  // (the old behavior) ranked offers wrong in Nominal mode.
+  const ranked = useMemo(() =>
+    [...ppData].sort((a, b) => showPurchasingPower ? b.ppY1 - a.ppY1 : b.nominalY1 - a.nominalY1),
+    [ppData, showPurchasingPower]
   );
+
+  const rankValue = (d: (typeof ppData)[number]) => showPurchasingPower ? d.ppY1 : d.nominalY1;
 
   // Nudge toward purchasing power when offers span different cost-of-living areas.
   // One-time: never auto-switches, dismissed or once-enabled it stays gone.
@@ -108,7 +112,7 @@ export default function ComparisonChart() {
 
   const totals = byOffer.map(b => b.total.reduce((a, v) => a + v, 0));
 
-  const maxPP = Math.max(...ppData.map(o => o.ppY1), 1);
+  const maxRankValue = Math.max(...ppData.map(rankValue), 1);
 
 
   type LabelFormatterParam = { dataIndex: number };
@@ -210,7 +214,9 @@ export default function ComparisonChart() {
   // Only when both locations map to known COL presets — otherwise the "lower
   // cost of living" claim is fabricated from a default 1.0x factor (e.g. an
   // unmapped "San Francisco Bay Area" vs a mapped "San Francisco, CA").
+  // Only shown in purchasing-power mode, where the ranking is PP-sorted.
   const hasInsight =
+    showPurchasingPower &&
     ranked.length >= 2 &&
     ranked[0].nominalY1 < ranked[ranked.length - 1].nominalY1 &&
     (offers || []).every((o) => matchCityPresetKey(o.location) !== null);
@@ -286,15 +292,16 @@ export default function ComparisonChart() {
       <CardContent className="space-y-6">
         <ReactEChartsCore key={chartKey} option={option} notMerge style={{ height: chartH }} />
         
-        {/* Purchasing Power Ranking */}
+        {/* Ranking by the active mode's Year-1 value */}
         <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4">
           <h4 className="mb-3 text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-            Purchasing power ranking · Year 1
+            {showPurchasingPower ? 'Purchasing power ranking · Year 1' : 'Nominal ranking · Year 1'}
           </h4>
           <div className="space-y-2">
             {ranked.map((data, rank) => {
-              const pctOfMax = (data.ppY1 / maxPP) * 100;
-              const diff = data.ppY1 - ranked[0].ppY1;
+              const value = rankValue(data);
+              const pctOfMax = (value / maxRankValue) * 100;
+              const diff = value - rankValue(ranked[0]);
               
               return (
                 <div key={data.index} className="space-y-1">
@@ -308,11 +315,13 @@ export default function ComparisonChart() {
                     </span>
                     <div className="text-right">
                       <span className={`font-semibold tabular-nums ${rank === 0 ? 'text-emerald-600 dark:text-emerald-400' : ''}`}>
-                        {fmt(data.ppY1)}
+                        {fmt(value)}
                       </span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        (nominal {fmt(data.nominalY1)})
-                      </span>
+                      {showPurchasingPower && (
+                        <span className="text-xs text-muted-foreground ml-2">
+                          (nominal {fmt(data.nominalY1)})
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
