@@ -33,7 +33,7 @@ import { useStore } from '@/state/store';
 import ActiveOfferStrip, { isValidTabValue, type TabValue } from '@/components/ActiveOfferStrip';
 import { TAB_GROUPS } from '@/lib/tabs';
 
-export default function Home() {
+function HomeContent() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<TabValue>(() => {
     const param = searchParams.get('tab');
@@ -191,6 +191,14 @@ export default function Home() {
       </Tabs>
       </SidebarProvider>
     </main>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
   );
 }
 
