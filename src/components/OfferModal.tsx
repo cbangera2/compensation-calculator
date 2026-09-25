@@ -17,7 +17,7 @@ type OfferModalProps = {
 };
 
 export default function OfferModal({ open, onClose, editIndex }: OfferModalProps) {
-  const { offers, addOffer, updateOfferAt } = useStore();
+  const { offers, addBlankOffer, updateOfferAt } = useStore();
   const isEdit = editIndex !== null;
   const existing = isEdit ? offers[editIndex] : null;
 
@@ -59,12 +59,14 @@ export default function OfferModal({ open, onClose, editIndex }: OfferModalProps
         ...(preset ? { colFactor: preset.factor } : {}),
       }));
     } else {
+      // Blank offer: no sample grants/bonus/raises — the user fills in
+      // their own numbers on the Calculator tab.
       const newOffer: Partial<TOffer> = {
         name: trimmedName || `Offer ${offers.length + 1}`,
         location: finalLocation || undefined,
         ...(preset ? { colFactor: preset.factor } : {}),
       };
-      addOffer(newOffer as TOffer);
+      addBlankOffer(newOffer);
     }
     onClose();
   }

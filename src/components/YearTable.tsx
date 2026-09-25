@@ -47,11 +47,11 @@ export default function YearTable() {
           <table className="min-w-[560px] text-xs tabular-nums sm:min-w-[720px] sm:text-sm">
             <thead>
               <tr className="text-left">
-                <th className="py-2 pr-3 sm:pr-4">Year</th>
-                <th className="py-2 pr-3 sm:pr-4">Base</th>
-                <th className="py-2 pr-3 sm:pr-4">Stock</th>
-                <th className="py-2 pr-3 sm:pr-4">Bonus+Other</th>
-                <th className="py-2 pr-3 sm:pr-4">Total</th>
+                <th scope="col" className="py-2 pr-3 sm:pr-4">Year</th>
+                <th scope="col" className="py-2 pr-3 sm:pr-4">Base</th>
+                <th scope="col" className="py-2 pr-3 sm:pr-4">Stock</th>
+                <th scope="col" className="py-2 pr-3 sm:pr-4">Bonus+Other</th>
+                <th scope="col" className="py-2 pr-3 sm:pr-4">Total</th>
               </tr>
             </thead>
             <tbody>

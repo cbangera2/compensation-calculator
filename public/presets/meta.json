@@ -52,5 +52,6 @@
   },
   "signingBonuses": [],
   "startDate": "2025-01-01",
-  "relocationBonuses": []
+  "relocationBonuses": [],
+  "colFactor": 1.4
 }

@@ -76,6 +76,7 @@ export function offerSigningTotal(offer: TOffer): number {
  * happen — the schema inputs are all sanitized here).
  */
 export function offerToLeaderboardEntry(offer: TOffer, year: TLeaderboardYear): TUserLeaderboardEntry {
+  const hasStartup = !!offer.startupEquity?.enabled;
   const entry = LeaderboardEntry.parse({
     company: offer.name?.trim() || 'Your offer',
     group: 'user',
@@ -90,7 +91,10 @@ export function offerToLeaderboardEntry(offer: TOffer, year: TLeaderboardYear): 
     source: 'Your custom offer',
     accessDate: new Date().toISOString().slice(0, 10),
     method:
-      'User-entered offer from this app; figures taken as entered and the equity grant valued at grant prices with no growth. Not a collected offer.',
+      'User-entered offer from this app; figures taken as entered and the equity grant valued at grant prices with no growth. Not a collected offer.' +
+      (hasStartup
+        ? ' Startup options/RSUs are repriced to the offer\u2019s active Startup-lab scenario in the realized column, so the row moves with the scenario.'
+        : ''),
     confidence: 'estimate',
   } satisfies TLeaderboardEntry);
   return { ...entry, isUserOffer: true as const, offerId: offer.id ?? offer.name };

@@ -10,10 +10,12 @@ import { useStore } from '@/state/store';
 import { useComparedOffers } from '@/lib/useComparedOffers';
 import { computeOffer } from '@/core/compute';
 import { buildPricePath } from '@/core/growth';
-import { cn, formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency, formatValuation } from '@/lib/utils';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { ALL_CITY_PRESETS, matchCityPresetKey } from '@/lib/col';
 import { StockGrowthControl, type StockGrowthValue } from '@/components/ui/stock-growth-control';
+import { savedScenariosOf } from '@/lib/startup';
+import type { TOffer } from '@/models/types';
 
 type Range = { min: number; max: number };
 
@@ -52,6 +54,85 @@ function clampToRange(value: number, range: Range) {
   if (value < range.min) return range.min;
   if (value > range.max) return range.max;
   return value;
+}
+
+/**
+ * Startup valuation control for the Compare tab. The comparison numbers for
+ * a startup offer come from its Startup-lab valuation, so this surfaces the
+ * active valuation (or saved-scenario name) right where the comparison
+ * happens, with an in-place scenario switcher — no more silently comparing
+ * against whatever the Startup slider happened to sit at.
+ */
+function StartupScenarioControl({ offer, index }: { offer: TOffer; index: number }) {
+  const updateOfferAt = useStore((s) => s.updateOfferAt);
+  const setActiveIndex = useStore((s) => s.setActiveIndex);
+  const block = offer.startupEquity;
+  if (!block?.enabled) return null;
+  const scenarios = savedScenariosOf(block);
+  const activeName =
+    scenarios.find(
+      (s) => s.valuation === block.valuation && s.fullyDilutedShares === block.fullyDilutedShares
+    )?.name ?? '';
+
+  const applyScenario = (name: string) => {
+    const s = scenarios.find((x) => x.name === name);
+    if (!s) return;
+    updateOfferAt(index, (o) => ({
+      ...o,
+      startupEquity: {
+        // `block` is defined here (early return above); the updater's copy
+        // is only a fallback for the type checker.
+        ...(o.startupEquity ?? block),
+        valuation: s.valuation,
+        fullyDilutedShares: s.fullyDilutedShares,
+      },
+    }));
+  };
+
+  const tuneInLab = () => {
+    // The Startup lab always edits the active offer, so make this offer
+    // active first — otherwise the lab would open on a different offer.
+    setActiveIndex(index);
+    window.dispatchEvent(new CustomEvent('compcalc:switch-tab', { detail: 'startup' }));
+  };
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Startup value
+      </span>
+      <span
+        className="rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-bold tabular-nums text-primary"
+        title={`Valuation driving this offer's comparison numbers (${activeName || 'custom value'})`}
+      >
+        {formatValuation(block.valuation)}
+      </span>
+      {scenarios.length > 0 ? (
+        <select
+          aria-label={`Valuation scenario for ${offer.name || 'offer'}`}
+          className="h-7 rounded-md border border-input bg-background px-1.5 text-xs"
+          value={activeName}
+          onChange={(e) => applyScenario(e.target.value)}
+        >
+          {activeName === '' && <option value="">Custom value</option>}
+          {scenarios.map((s) => (
+            <option key={s.name} value={s.name}>
+              {s.name} · {formatValuation(s.valuation)}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span className="text-[11px] text-muted-foreground">No saved scenarios</span>
+      )}
+      <button
+        type="button"
+        onClick={tuneInLab}
+        className="ml-auto text-[11px] font-medium text-primary hover:underline"
+      >
+        Tune in Startup lab →
+      </button>
+    </div>
+  );
 }
 
 export default function ComparisonAdjustments() {
@@ -248,6 +329,11 @@ export default function ComparisonAdjustments() {
                 </div>
               </div>
 
+              <StartupScenarioControl offer={offer} index={index} />
+
+              {/* The public-growth summary is meaningless for a startup-only offer
+                  (no public grants to grow) — the valuation block above replaces it. */}
+              {(!offer.startupEquity?.enabled || (offer.equityGrants?.length ?? 0) > 0) && (
               <div className="mt-2 flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
                 <span className="rounded-full border border-muted bg-muted/40 px-2 py-0.5 font-medium text-foreground">Growth</span>
                 <span className="rounded-full border border-muted bg-muted/30 px-2 py-0.5">Start ${startingPrice.toFixed(2)}</span>
@@ -259,6 +345,7 @@ export default function ComparisonAdjustments() {
                   <span className="ml-1 text-[11px] text-muted-foreground/80">(Adjust in Growth details)</span>
                 )}
               </div>
+              )}
 
               <div className="mt-3 space-y-3">
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">

@@ -123,6 +123,11 @@ const AnonOfferSchema = z.object({
         vestYears: z.number().positive(),
       }).strict()
     ).default([]),
+    // Saved scenarios are always stripped to [] by anonymizeOffer (private
+    // what-if analysis is never shared). The key stays present so imports
+    // keep a valid shape, but the schema rejects any non-empty array so a
+    // scenario can never be smuggled through a share link.
+    savedScenarios: z.array(z.never()).default([]),
   }).strict().optional(),
   retirement: z.object({
     employeeContributionPercent: z.number().nonnegative().max(1).default(0.06),
@@ -344,7 +349,10 @@ export function anonymizeOffer(offer: TOffer, index: number): TOffer {
     se.companyName = alias;
     se.valuation = roundSig(se.valuation);
     // Saved valuation scenarios are private what-if analysis; never shared.
-    delete (se as Record<string, unknown>).savedScenarios;
+    // Reset to [] (rather than deleting the key) so the imported offer still
+    // conforms to the TStartupEquity shape and the Startup tab can't crash
+    // on a missing field.
+    se.savedScenarios = [];
     se.optionGrants = (se.optionGrants ?? []).map((grant) => {
       const g = { ...grant } as Record<string, unknown>;
       delete g.id;

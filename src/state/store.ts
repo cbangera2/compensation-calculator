@@ -16,6 +16,8 @@ type State = {
   setOffer: (o: TOffer) => void;
   setOffers: (offers: TOffer[]) => void;
   addOffer: (o?: TOffer) => void;
+  /** Add a genuinely blank offer (no sample grants/bonus/raises) — used by the New-offer dialog. */
+  addBlankOffer: (o?: Partial<TOffer>) => void;
   duplicateActiveOffer: () => void;
   removeOffer: (index: number) => void;
   setActiveIndex: (i: number) => void;
@@ -88,6 +90,25 @@ const initialOffer: TOffer = {
   assumptions: { horizonYears: 4, colAdjust: 1 },
 };
 
+/**
+ * Truly blank offer for the New-offer dialog: no sample grants, bonus,
+ * raises, signing/relocation, or benefits. The New button used to clone
+ * `initialOffer` (the DemoCo sample template), silently contaminating the
+ * new offer's totals until the user hunted down every default.
+ */
+const blankOffer: TOffer = {
+  name: '',
+  currency: 'USD',
+  startDate: new Date().toISOString().slice(0, 10),
+  colFactor: 1,
+  base: { startAnnual: 0 },
+  raises: [],
+  benefits: [],
+  miscRecurring: [],
+  equityGrants: [],
+  assumptions: { horizonYears: 4, colAdjust: 1 },
+};
+
 // Sample offers auto-loaded on first run (persist overwrites for existing users)
 const sampleOffers: TOffer[] = [
   JSON.parse(JSON.stringify(googlePreset)) as TOffer,
@@ -139,6 +160,16 @@ export const useStore = create<State>()(
         const offer = o
           ? { ...clone(initialOffer), ...clone(o) }
           : { ...clone(initialOffer), name: `Offer ${state.offers.length + 1}` };
+        const offers = [...state.offers, offer];
+        const activeIndex = offers.length - 1;
+        return { offers, activeIndex, offer: offers[activeIndex] };
+      }),
+      addBlankOffer: (o) => set((state) => {
+        const offer: TOffer = {
+          ...(JSON.parse(JSON.stringify(blankOffer)) as TOffer),
+          ...(JSON.parse(JSON.stringify(o ?? {})) as Partial<TOffer>),
+        };
+        offer.name = o?.name?.trim() || `Offer ${state.offers.length + 1}`;
         const offers = [...state.offers, offer];
         const activeIndex = offers.length - 1;
         return { offers, activeIndex, offer: offers[activeIndex] };

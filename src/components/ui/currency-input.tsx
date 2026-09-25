@@ -12,11 +12,20 @@ type Props = Omit<React.ComponentProps<typeof Input>, "type" | "value" | "onChan
 export function CurrencyInput({ value, onValueChange, className, decimals = 0, onBlur, onFocus, ...rest }: Props) {
   const [editing, setEditing] = React.useState(false);
   const [text, setText] = React.useState<string>("");
+  const inputRef = React.useRef<HTMLInputElement>(null);
 
   // Sync displayed text from value when not editing
   React.useEffect(() => {
     if (!editing) setText(formatCurrency(value ?? 0, { decimals }));
   }, [value, editing, decimals]);
+
+  // Select-all on focus so typing replaces the current value instead of
+  // appending to it. This must run after React commits the focus text
+  // update — selecting synchronously in the focus handler loses to the
+  // re-render, which collapses the selection to the end of the input.
+  React.useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
 
   const parse = (s: string) => {
     // remove $ and commas and spaces
@@ -46,6 +55,7 @@ export function CurrencyInput({ value, onValueChange, className, decimals = 0, o
   return (
     <Input
       {...rest}
+      ref={inputRef}
       type="text"
   className={cn("min-w-0", className)}
       value={text}

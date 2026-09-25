@@ -16,11 +16,16 @@ import { cn } from '@/lib/utils';
 import { Plus, Trash2, Sparkles, ChevronDown, FilePlus2 } from 'lucide-react';
 import EmptyState from '@/components/EmptyState';
 import { CurrencyInput } from '@/components/ui/currency-input';
+import { savedScenariosOf } from '@/lib/startup';
 
-const MIN_VALUATION = 1_000_000_000; // $1B
+// Log-scale valuation slider runs $10M → $150B so seed/Series A
+// companies ($50M–$500M) are modelable, not just unicorns.
+const MIN_VALUATION = 10_000_000; // $10M
 const MAX_VALUATION = 150_000_000_000; // $150B
 
 const VALUATION_PRESETS = [
+  { label: '$50M', value: 50_000_000 },
+  { label: '$250M', value: 250_000_000 },
   { label: '$1B', value: 1_000_000_000 },
   { label: '$5B', value: 5_000_000_000 },
   { label: '$15B', value: 15_000_000_000 },
@@ -28,13 +33,17 @@ const VALUATION_PRESETS = [
   { label: '$150B', value: 150_000_000_000 },
 ];
 
-function valToSliderT(valuation: number): number {
+/**
+ * Slider math, exported for regression tests: the log slider must cover
+ * $10M..$150B so seed/Series A valuations ($50M–$500M) are reachable.
+ */
+export function valToSliderT(valuation: number): number {
   const v = Math.min(MAX_VALUATION, Math.max(MIN_VALUATION, valuation || MIN_VALUATION));
   const t = (Math.log10(v) - Math.log10(MIN_VALUATION)) / (Math.log10(MAX_VALUATION) - Math.log10(MIN_VALUATION));
   return Math.round(t * 1000);
 }
 
-function sliderTToVal(t: number): number {
+export function sliderTToVal(t: number): number {
   const f = Math.min(1, Math.max(0, t / 1000));
   return Math.pow(10, Math.log10(MIN_VALUATION) + f * (Math.log10(MAX_VALUATION) - Math.log10(MIN_VALUATION)));
 }
@@ -266,6 +275,10 @@ export default function StartupPanel() {
   const [sharePriceDraft, setSharePriceDraft] = useState<string | null>(null);
 
   const block: TStartupEquity | undefined = offer?.startupEquity;
+  // savedScenarios can be missing on offers imported from anonymized share
+  // links (the field is stripped for privacy) or from older persisted state.
+  // Normalize to [] so the tab never crashes on the missing field.
+  const savedScenarios = savedScenariosOf(block);
 
   const patch = (fn: (b: TStartupEquity) => TStartupEquity) => {
     if (!offer) return;
@@ -334,7 +347,7 @@ export default function StartupPanel() {
               }))
             }
           >
-            Start from scratch
+            Reset to defaults
           </Button>
           <p className="text-xs text-muted-foreground">Sample data is fictional and for demonstration only.</p>
         </CardContent>
@@ -383,11 +396,11 @@ export default function StartupPanel() {
     const name = scenarioName.trim();
     if (!name) return;
     patch((b) => {
-      if (b.savedScenarios.some((s) => s.name === name)) return b;
+      if (savedScenariosOf(b).some((s) => s.name === name)) return b;
       return {
         ...b,
         savedScenarios: [
-          ...b.savedScenarios,
+          ...savedScenariosOf(b),
           {
             name,
             valuation: b.valuation,
@@ -404,7 +417,7 @@ export default function StartupPanel() {
     patch((b) => ({ ...b, valuation: s.valuation, fullyDilutedShares: s.fullyDilutedShares }));
 
   const deleteScenario = (name: string) =>
-    patch((b) => ({ ...b, savedScenarios: b.savedScenarios.filter((s) => s.name !== name) }));
+    patch((b) => ({ ...b, savedScenarios: savedScenariosOf(b).filter((s) => s.name !== name) }));
 
   return (
     <div className="space-y-6">
@@ -536,15 +549,15 @@ export default function StartupPanel() {
                 type="button"
                 size="sm"
                 className="h-8 shrink-0"
-                disabled={!scenarioName.trim() || block.savedScenarios.some((s) => s.name === scenarioName.trim())}
+                disabled={!scenarioName.trim() || savedScenarios.some((s) => s.name === scenarioName.trim())}
                 onClick={saveScenario}
               >
                 Save current
               </Button>
             </div>
-            {block.savedScenarios.length > 0 ? (
+            {savedScenarios.length > 0 ? (
               <ul className="mt-2 space-y-1.5">
-                {block.savedScenarios.map((s, idx) => (
+                {savedScenarios.map((s, idx) => (
                   <li
                     key={`${s.name}-${idx}`}
                     className="flex items-center justify-between gap-2 rounded-lg border border-border/50 px-2.5 py-1.5"

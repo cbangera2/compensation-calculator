@@ -418,6 +418,8 @@ export default function MultiOfferBar() {
                   variant="chip"
                   size="pill"
                   data-active={index === activeIndex}
+                  aria-pressed={index === activeIndex}
+                  aria-label={`Switch to ${displayNames[index] || `Offer ${index + 1}`}`}
                   className={cn('min-w-0 font-medium', 'max-w-[180px] truncate')}
                   onClick={() => setActiveIndex(index)}
                   onDoubleClick={() => { setEditOfferIndex(index); setOfferModalOpen(true); }}
@@ -470,6 +472,9 @@ export default function MultiOfferBar() {
             <Share2 className="size-4" />
             <span className="hidden sm:inline">Share link</span>
           </Button>
+          {/* Icon-only actions stay in a non-wrapping group so a single icon
+              never orphans onto its own row on narrow screens. */}
+          <span className="flex items-center gap-1.5">
           <span className="mx-1 h-5 w-px bg-border/70" aria-hidden="true" />
           <Button type="button" size="sm" variant="ghost" className="gap-1.5" onClick={duplicateActiveOffer} title="Duplicate active offer">
             <Copy className="size-4" />
@@ -502,6 +507,7 @@ export default function MultiOfferBar() {
           >
             <RotateCcw className="size-4" />
           </Button>
+          </span>
         </div>
       </div>
       <OfferModal
