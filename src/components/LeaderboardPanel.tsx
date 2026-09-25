@@ -127,16 +127,16 @@ export default function LeaderboardPanel() {
 
   /**
    * The user's own offers, converted to leaderboard rows so they can see
-   * where they stand. Conversion failures (shouldn't happen — inputs are
-   * sanitized) are skipped rather than crashing the tab.
+   * where they stand. A single bad offer is skipped (with a warning) rather
+   * than crashing the tab — the sourced table still renders.
    */
   const userEntries: TUserLeaderboardEntry[] = useMemo(() => {
     const out: TUserLeaderboardEntry[] = [];
     for (const offer of offers) {
       try {
         out.push(offerToLeaderboardEntry(offer, year));
-      } catch {
-        // skip — the sourced table still renders
+      } catch (err) {
+        console.warn('Skipping offer that failed leaderboard conversion:', offer?.id, err);
       }
     }
     return out;
