@@ -1,1 +1,59 @@
-{"assumptions":{"horizonYears":4},"base":{"startAnnual":175000},"benefits":[{"annualValue":3750,"enabled":true,"name":"Employee stock purchase discount"}],"currency":"USD","equityGrants":[{"fmv":230,"shares":0,"targetMode":"total","targetValue":150000,"type":"RSU","vesting":{"cliffMonths":12,"cliffPercent":0,"distribution":"even","frequency":"quarterly","model":"standard","years":4}}],"growth":{"startingPrice":230,"yoy":[0,0,0,0]},"location":"Cupertino, CA","name":"Apple","performanceBonus":{"expectedPayout":1,"kind":"percent","value":0.08},"raises":[],"retirement":{"employeeContributionCapDollar":23500,"employeeContributionPercent":1,"matchCapDollar":19500,"matchCapMode":"dollar","matchCapPercentOfSalary":0.06,"matchRate":1},"signingBonuses":[{"amount":15000,"payDate":"2025-01-01"}],"startDate":"2025-01-01"}
+{
+  "assumptions": {
+    "horizonYears": 4
+  },
+  "base": {
+    "startAnnual": 175000
+  },
+  "benefits": [],
+  "currency": "USD",
+  "equityGrants": [
+    {
+      "fmv": 230,
+      "shares": 0,
+      "targetMode": "total",
+      "targetValue": 150000,
+      "type": "RSU",
+      "vesting": {
+        "cliffMonths": 12,
+        "cliffPercent": 0,
+        "distribution": "even",
+        "frequency": "quarterly",
+        "model": "standard",
+        "years": 4
+      }
+    }
+  ],
+  "growth": {
+    "startingPrice": 230,
+    "yoy": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "location": "Cupertino, CA",
+  "name": "Apple",
+  "performanceBonus": {
+    "expectedPayout": 1,
+    "kind": "percent",
+    "value": 0.08
+  },
+  "raises": [],
+  "retirement": {
+    "employeeContributionPercent": 0,
+    "matchRate": 0,
+    "matchCapPercentOfSalary": 0,
+    "employeeContributionCapDollar": 0,
+    "matchCapMode": "dollar",
+    "matchCapDollar": 0
+  },
+  "signingBonuses": [
+    {
+      "amount": 15000,
+      "payDate": "2025-01-01"
+    }
+  ],
+  "startDate": "2025-01-01"
+}
