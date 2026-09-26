@@ -23,10 +23,13 @@ describe('toggleCompareIndex', () => {
     expect(toggleCompareIndex(5, 0, [0, 1, 2, 3], 2, 0)).toEqual([1, 2, 3]);
   });
 
-  // The first edit on an auto-filled tab seeds the wishlist from the
+  // The first edit on an auto-picked tab seeds the wishlist from the
   // effective selection so the toggle visibly sticks.
-  it('removing from an auto-filled selection seeds an explicit wishlist', () => {
-    expect(toggleCompareIndex(5, 0, [], 4, 1)).toEqual([0, 2, 3]);
+  it('removing from an auto-picked selection seeds an explicit wishlist', () => {
+    // 5 offers, desktop cap 4: the tab auto-picks [0,1,2]; removing offer 1
+    // leaves [0,2], which must stick as an explicit 2-pick rather than
+    // refilling to [0,1,2].
+    expect(toggleCompareIndex(5, 0, [], 4, 1)).toEqual([0, 2]);
   });
 
   // On a phone (cap 2) with 3 offers, checking the omitted offer swaps it
