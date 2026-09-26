@@ -88,13 +88,14 @@ export function remapCompareSelectionAfterRemove(selection: number[], removedInd
 }
 
 /**
- * Whether the compare picker should render. It hides only when every offer
- * is already compared — not merely when the offer count fits the viewport
- * cap, since an explicit selection may omit offers that still need a way
- * back in (e.g. two picks on a phone, then widening to a tablet).
+ * Whether the compare picker should render. The picker is the selection
+ * control, so it stays available whenever there is a real choice to make
+ * (3+ offers) — even when every offer is already compared, since hiding it
+ * then would leave no way to uncheck back down. With 1–2 offers there is
+ * nothing to choose (two offers are always both compared), so it hides.
  */
-export function shouldShowComparePicker(offerCount: number, effectiveCount: number): boolean {
-  return effectiveCount !== offerCount;
+export function shouldShowComparePicker(offerCount: number): boolean {
+  return offerCount >= 3;
 }
 
 /**
