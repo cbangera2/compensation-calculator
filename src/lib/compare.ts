@@ -11,6 +11,13 @@
 /** Default compare cap (used for SSR and non-component contexts). */
 export const MAX_COMPARE_OFFERS = 3;
 
+/**
+ * How many offers the Compare tab auto-picks when the user has no explicit
+ * selection. This is the *default*, separate from the viewport-scaled *cap*:
+ * desktop can hold 4 but still starts at 3; a phone cap of 2 binds first.
+ */
+export const DEFAULT_AUTO_COMPARE_COUNT = 3;
+
 /** Dedupe + drop invalid indices. No count cap — the render layer caps. */
 export function cleanCompareSelection(selection: number[], offerCount: number): number[] {
   const seen = new Set<number>();
@@ -45,8 +52,10 @@ export function isExplicitCompareSelection(selection: number[], offerCount: numb
  * Effective compare indices: the user's explicit selection when it names at
  * least two valid offers (the minimum for a meaningful comparison),
  * otherwise the active offer plus the next offers in order — i.e. the tab
- * always auto-fills up to `maxOffers` instead of stranding on a single
- * offer whose charts can't render. Always 0..maxOffers entries.
+ * auto-picks DEFAULT_AUTO_COMPARE_COUNT instead of stranding on a single
+ * offer whose charts can't render. The auto-pick count is separate from
+ * `maxOffers`: desktop can *hold* 4 but *starts* at 3, while a phone cap of
+ * 2 binds the auto-pick too. Always 0..maxOffers entries.
  */
 export function resolveCompareIndices(
   offerCount: number,
@@ -59,13 +68,13 @@ export function resolveCompareIndices(
   if (offerCount <= 0) return [];
   const safeActive = Math.max(0, Math.min(activeIndex, offerCount - 1));
   // Seed with the active offer plus any valid explicit picks, then fill up
-  // to maxOffers in index order — the tab auto-fills instead of stranding
-  // on a lone offer whose charts can't render.
+  // to the auto-pick default (bounded by the viewport cap).
+  const target = Math.max(0, Math.min(DEFAULT_AUTO_COMPARE_COUNT, maxOffers));
   const out: number[] = [];
   for (const i of [safeActive, ...clean]) {
     if (!out.includes(i)) out.push(i);
   }
-  for (let i = 0; i < offerCount && out.length < maxOffers; i++) {
+  for (let i = 0; i < offerCount && out.length < target; i++) {
     if (!out.includes(i)) out.push(i);
   }
   return out;

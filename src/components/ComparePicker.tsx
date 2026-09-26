@@ -13,8 +13,9 @@ import { cn } from '@/lib/utils';
  * `useMaxCompareOffers()` offers (viewport-scaled). The picker stays
  * visible until every offer is compared, so an explicit short selection
  * keeps a way to add omitted offers after the viewport cap changes. The
- * tab auto-fills up to the max, so unchecking down to one offer refills
- * rather than stranding the charts; checking a pill while full swaps the
+ * tab auto-picks 3 offers by default (independent of the viewport cap),
+ * so unchecking down to one offer refills rather than stranding the
+ * charts; checking a pill while full swaps the
  * new offer in for the last non-active compared offer.
  */
 export default function ComparePicker() {
