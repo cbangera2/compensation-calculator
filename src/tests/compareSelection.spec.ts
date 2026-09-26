@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   MAX_COMPARE_OFFERS,
+  cleanCompareSelection,
   remapCompareSelectionAfterRemove,
   resolveCompareIndices,
   sanitizeCompareSelection,
@@ -23,6 +24,31 @@ describe('compare selection helpers', () => {
   it('honors an explicit user selection', () => {
     expect(resolveCompareIndices(7, 0, [4, 5, 6])).toEqual([4, 5, 6]);
     expect(resolveCompareIndices(7, 0, [2, 6])).toEqual([2, 6]);
+  });
+
+  it('auto-fills when the selection has fewer than two valid offers', () => {
+    // A lone pick can't render the comparison charts (they need 2+), so the
+    // tab refills up to the auto-pick default instead of stranding on one offer.
+    expect(resolveCompareIndices(5, 0, [3])).toEqual([0, 3, 1]);
+    expect(resolveCompareIndices(5, 2, [2])).toEqual([2, 0, 1]);
+    expect(resolveCompareIndices(1, 0, [0])).toEqual([0]);
+  });
+
+  it('scales the cap with the maxOffers parameter', () => {
+    expect(resolveCompareIndices(6, 0, [4], 2)).toEqual([0, 4]);
+    expect(resolveCompareIndices(6, 0, [1, 2, 3, 4], 2)).toEqual([1, 2]);
+    expect(sanitizeCompareSelection([0, 1, 2, 3], 6, 2)).toEqual([0, 1]);
+    expect(cleanCompareSelection([0, 0, 9, 1, 2, 3], 6)).toEqual([0, 1, 2, 3]);
+  });
+
+  it('auto-picks 3 by default, independent of the viewport cap', () => {
+    // Desktop can hold 4 but still starts at 3; the user adds the 4th.
+    expect(resolveCompareIndices(6, 0, [], 4)).toEqual([0, 1, 2]);
+    expect(resolveCompareIndices(6, 0, [], 3)).toEqual([0, 1, 2]);
+    // A phone cap of 2 binds the auto-pick too.
+    expect(resolveCompareIndices(6, 0, [], 2)).toEqual([0, 1]);
+    // Explicit picks still fill the whole cap.
+    expect(resolveCompareIndices(6, 0, [0, 1, 2, 3], 4)).toEqual([0, 1, 2, 3]);
   });
 
   it('sanitizes selections: dedupes, drops invalid, caps at 3', () => {
@@ -105,7 +131,8 @@ describe('store compare selection', () => {
     useStore.getState().addOffer();
     useStore.getState().addOffer();
     useStore.getState().setCompareSelection([0, 0, 5, 1, 2]);
-    // 5 is out of range (3 offers), dupes dropped, capped at 3
+    // 5 is out of range (3 offers), dupes dropped; the store keeps the raw
+    // wishlist and the viewport-scaled cap applies at render time
     expect(useStore.getState().compareSelection).toEqual([0, 1, 2]);
   });
 

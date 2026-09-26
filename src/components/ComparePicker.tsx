@@ -4,36 +4,40 @@ import { useMemo } from 'react';
 import { GitCompareArrows } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useStore } from '@/state/store';
-import { MAX_COMPARE_OFFERS, resolveCompareIndices } from '@/lib/compare';
+import { resolveCompareIndices, shouldShowComparePicker, toggleCompareIndex } from '@/lib/compare';
+import { useMaxCompareOffers } from '@/lib/useIsMobile';
 import { cn } from '@/lib/utils';
 
 /**
  * Offer picker for the Compare tab. Compare renders at most
- * MAX_COMPARE_OFFERS offers; when there are more, this picker lets the
- * user choose which ones, with a "showing 3 of N" hint. Hidden when there
- * are 3 or fewer offers (everything is compared anyway).
+ * `useMaxCompareOffers()` offers (viewport-scaled). The picker stays
+ * visible until every offer is compared, so an explicit short selection
+ * keeps a way to add omitted offers after the viewport cap changes. The
+ * tab auto-picks 3 offers by default (independent of the viewport cap),
+ * so unchecking down to one offer refills rather than stranding the
+ * charts; checking a pill while full swaps the
+ * new offer in for the last non-active compared offer.
  */
 export default function ComparePicker() {
   const offers = useStore((s) => s.offers);
   const activeIndex = useStore((s) => s.activeIndex);
   const compareSelection = useStore((s) => s.compareSelection);
   const setCompareSelection = useStore((s) => s.setCompareSelection);
+  const maxOffers = useMaxCompareOffers();
 
   const effective = useMemo(
-    () => resolveCompareIndices(offers.length, activeIndex, compareSelection),
-    [offers.length, activeIndex, compareSelection],
+    () => resolveCompareIndices(offers.length, activeIndex, compareSelection, maxOffers),
+    [offers.length, activeIndex, compareSelection, maxOffers],
   );
 
-  if (offers.length <= MAX_COMPARE_OFFERS) return null;
+  // The picker is the selection control: visible whenever there is a real
+  // choice (3+ offers), even when all offers are compared, so the user can
+  // always uncheck back down.
+  if (!shouldShowComparePicker(offers.length)) return null;
 
   const selected = new Set(effective);
   const toggle = (index: number) => {
-    if (selected.has(index)) {
-      const next = effective.filter((i) => i !== index);
-      setCompareSelection(next);
-    } else if (selected.size < MAX_COMPARE_OFFERS) {
-      setCompareSelection([...effective, index]);
-    }
+    setCompareSelection(toggleCompareIndex(offers.length, activeIndex, compareSelection, maxOffers, index));
   };
 
   return (
@@ -43,14 +47,17 @@ export default function ComparePicker() {
           <GitCompareArrows className="size-4 shrink-0" />
           <span>
             Showing <span className="font-semibold text-foreground">{effective.length}</span> of{' '}
-            <span className="font-semibold text-foreground">{offers.length}</span> — pick up to{' '}
-            {MAX_COMPARE_OFFERS} to compare
+            <span className="font-semibold text-foreground">{offers.length}</span>
+            {effective.length < offers.length && (
+              <>
+                {' '}— pick up to {maxOffers} to compare
+              </>
+            )}
           </span>
         </p>
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Offers to compare">
           {offers.map((offer, index) => {
             const checked = selected.has(index);
-            const disabled = !checked && selected.size >= MAX_COMPARE_OFFERS;
             return (
               <label
                 key={index}
@@ -59,14 +66,12 @@ export default function ComparePicker() {
                   checked
                     ? 'border-primary/60 bg-primary/10 text-foreground'
                     : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground',
-                  disabled && 'cursor-not-allowed opacity-40 hover:border-border hover:text-muted-foreground',
                 )}
               >
                 <input
                   type="checkbox"
                   className="sr-only"
                   checked={checked}
-                  disabled={disabled}
                   onChange={() => toggle(index)}
                   aria-label={`Compare ${offer.name || `Offer ${index + 1}`}`}
                 />
