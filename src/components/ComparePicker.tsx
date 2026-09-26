@@ -4,16 +4,18 @@ import { useMemo } from 'react';
 import { GitCompareArrows } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useStore } from '@/state/store';
-import { resolveCompareIndices } from '@/lib/compare';
+import { resolveCompareIndices, shouldShowComparePicker, toggleCompareIndex } from '@/lib/compare';
 import { useMaxCompareOffers } from '@/lib/useIsMobile';
 import { cn } from '@/lib/utils';
 
 /**
  * Offer picker for the Compare tab. Compare renders at most
- * `useMaxCompareOffers()` offers (viewport-scaled); when there are more,
- * this picker lets the user choose which ones, with a "showing X of N"
- * hint. Hidden when everything fits. The tab auto-fills up to the max, so
- * unchecking down to one offer refills rather than stranding the charts.
+ * `useMaxCompareOffers()` offers (viewport-scaled). The picker stays
+ * visible until every offer is compared, so an explicit short selection
+ * keeps a way to add omitted offers after the viewport cap changes. The
+ * tab auto-fills up to the max, so unchecking down to one offer refills
+ * rather than stranding the charts; checking a pill while full swaps the
+ * new offer in for the last non-active compared offer.
  */
 export default function ComparePicker() {
   const offers = useStore((s) => s.offers);
@@ -27,16 +29,13 @@ export default function ComparePicker() {
     [offers.length, activeIndex, compareSelection, maxOffers],
   );
 
-  if (offers.length <= maxOffers) return null;
+  // Hide only when every offer is already compared — not merely when the
+  // offer count fits the cap, since an explicit selection may omit offers.
+  if (!shouldShowComparePicker(offers.length, effective.length)) return null;
 
   const selected = new Set(effective);
   const toggle = (index: number) => {
-    if (selected.has(index)) {
-      const next = effective.filter((i) => i !== index);
-      setCompareSelection(next);
-    } else if (selected.size < maxOffers) {
-      setCompareSelection([...effective, index]);
-    }
+    setCompareSelection(toggleCompareIndex(offers.length, activeIndex, compareSelection, maxOffers, index));
   };
 
   return (
@@ -53,7 +52,6 @@ export default function ComparePicker() {
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Offers to compare">
           {offers.map((offer, index) => {
             const checked = selected.has(index);
-            const disabled = !checked && selected.size >= maxOffers;
             return (
               <label
                 key={index}
@@ -62,14 +60,12 @@ export default function ComparePicker() {
                   checked
                     ? 'border-primary/60 bg-primary/10 text-foreground'
                     : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground',
-                  disabled && 'cursor-not-allowed opacity-40 hover:border-border hover:text-muted-foreground',
                 )}
               >
                 <input
                   type="checkbox"
                   className="sr-only"
                   checked={checked}
-                  disabled={disabled}
                   onChange={() => toggle(index)}
                   aria-label={`Compare ${offer.name || `Offer ${index + 1}`}`}
                 />

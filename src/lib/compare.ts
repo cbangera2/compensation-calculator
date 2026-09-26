@@ -70,6 +70,51 @@ export function remapCompareSelectionAfterRemove(selection: number[], removedInd
 }
 
 /**
+ * Whether the compare picker should render. It hides only when every offer
+ * is already compared — not merely when the offer count fits the viewport
+ * cap, since an explicit selection may omit offers that still need a way
+ * back in (e.g. two picks on a phone, then widening to a tablet).
+ */
+export function shouldShowComparePicker(offerCount: number, effectiveCount: number): boolean {
+  return effectiveCount !== offerCount;
+}
+
+/**
+ * Next compare wishlist after toggling one offer pill in the picker.
+ *
+ * Works from the user's explicit wishlist when it names at least two valid
+ * offers, otherwise seeds from the auto-filled effective selection so the
+ * first edit sticks instead of no-opping against the refill. Removing an
+ * offer keeps hidden (viewport-capped) selections in the wishlist so they
+ * return when the cap grows. Checking a pill while the viewport cap is full
+ * swaps the new offer in for the last compared offer that isn't the active
+ * one — the active offer is never the replacement victim when another
+ * candidate exists — so a phone user can always reach an omitted offer.
+ * A newly checked offer moves to the front so it is guaranteed visible.
+ */
+export function toggleCompareIndex(
+  offerCount: number,
+  activeIndex: number,
+  selection: number[],
+  maxOffers: number,
+  index: number,
+): number[] {
+  const clean = cleanCompareSelection(selection, offerCount);
+  const effective = resolveCompareIndices(offerCount, activeIndex, selection, maxOffers);
+  const base = clean.length >= 2 ? clean : effective;
+  if (effective.includes(index)) {
+    return base.filter((i) => i !== index);
+  }
+  const next = base.filter((i) => i !== index);
+  if (!base.includes(index) && next.length >= maxOffers) {
+    const candidates = effective.filter((i) => i !== activeIndex);
+    const drop = candidates.length > 0 ? candidates[candidates.length - 1] : effective[effective.length - 1];
+    return [index, ...next.filter((i) => i !== drop)];
+  }
+  return [index, ...next];
+}
+
+/**
  * Split offer-bar pills into visible + overflow. The first `maxVisible`
  * offers are shown as pills; when there are more, the active offer is
  * always kept visible (swapped into the last slot) and the rest go behind
