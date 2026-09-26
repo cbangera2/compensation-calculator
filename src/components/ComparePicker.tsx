@@ -30,9 +30,10 @@ export default function ComparePicker() {
     [offers.length, activeIndex, compareSelection, maxOffers],
   );
 
-  // Hide only when every offer is already compared — not merely when the
-  // offer count fits the cap, since an explicit selection may omit offers.
-  if (!shouldShowComparePicker(offers.length, effective.length)) return null;
+  // The picker is the selection control: visible whenever there is a real
+  // choice (3+ offers), even when all offers are compared, so the user can
+  // always uncheck back down.
+  if (!shouldShowComparePicker(offers.length)) return null;
 
   const selected = new Set(effective);
   const toggle = (index: number) => {
@@ -46,8 +47,12 @@ export default function ComparePicker() {
           <GitCompareArrows className="size-4 shrink-0" />
           <span>
             Showing <span className="font-semibold text-foreground">{effective.length}</span> of{' '}
-            <span className="font-semibold text-foreground">{offers.length}</span> — pick up to{' '}
-            {maxOffers} to compare
+            <span className="font-semibold text-foreground">{offers.length}</span>
+            {effective.length < offers.length && (
+              <>
+                {' '}— pick up to {maxOffers} to compare
+              </>
+            )}
           </span>
         </p>
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Offers to compare">

@@ -64,22 +64,23 @@ describe('toggleCompareIndex', () => {
 });
 
 describe('shouldShowComparePicker', () => {
-  // 3 offers, explicit 2-pick, cap 3: the old visibility check
-  // (offers.length <= maxOffers) hid the picker with no way to add the
-  // omitted offer. The picker hides only when everything is compared.
+  // The picker is the selection control: visible whenever there is a real
+  // choice (3+ offers), even when every offer is already compared — hiding
+  // it then would leave no way to uncheck back down.
   it('stays visible when an explicit selection omits an offer that fits the cap', () => {
     const effective = resolveCompareIndices(3, 0, [0, 1], 3);
     expect(effective).toEqual([0, 1]);
-    expect(shouldShowComparePicker(3, effective.length)).toBe(true);
+    expect(shouldShowComparePicker(3)).toBe(true);
   });
 
-  it('hides when every offer is already compared', () => {
-    const effective = resolveCompareIndices(3, 0, [], 3);
-    expect(shouldShowComparePicker(3, effective.length)).toBe(false);
+  it('stays visible when all offers are compared so the user can uncheck back down', () => {
+    expect(shouldShowComparePicker(4)).toBe(true);
+    expect(shouldShowComparePicker(3)).toBe(true);
   });
 
-  it('hides for a single offer that cannot be compared', () => {
-    const effective = resolveCompareIndices(1, 0, [], 3);
-    expect(shouldShowComparePicker(1, effective.length)).toBe(false);
+  it('hides when there is nothing to choose (1-2 offers)', () => {
+    expect(shouldShowComparePicker(2)).toBe(false);
+    expect(shouldShowComparePicker(1)).toBe(false);
+    expect(shouldShowComparePicker(0)).toBe(false);
   });
 });
