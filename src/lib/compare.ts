@@ -33,6 +33,15 @@ export function sanitizeCompareSelection(
 }
 
 /**
+ * A stored wishlist counts as an explicit user selection when it names at
+ * least two valid offers — the minimum for a meaningful comparison.
+ * Anything less and the tab auto-fills instead of honoring it.
+ */
+export function isExplicitCompareSelection(selection: number[], offerCount: number): boolean {
+  return cleanCompareSelection(selection, offerCount).length >= 2;
+}
+
+/**
  * Effective compare indices: the user's explicit selection when it names at
  * least two valid offers (the minimum for a meaningful comparison),
  * otherwise the active offer plus the next offers in order — i.e. the tab
@@ -46,7 +55,7 @@ export function resolveCompareIndices(
   maxOffers: number = MAX_COMPARE_OFFERS,
 ): number[] {
   const clean = sanitizeCompareSelection(selection, offerCount, maxOffers);
-  if (clean.length >= 2) return clean;
+  if (isExplicitCompareSelection(selection, offerCount)) return clean;
   if (offerCount <= 0) return [];
   const safeActive = Math.max(0, Math.min(activeIndex, offerCount - 1));
   // Seed with the active offer plus any valid explicit picks, then fill up
@@ -101,7 +110,7 @@ export function toggleCompareIndex(
 ): number[] {
   const clean = cleanCompareSelection(selection, offerCount);
   const effective = resolveCompareIndices(offerCount, activeIndex, selection, maxOffers);
-  const base = clean.length >= 2 ? clean : effective;
+  const base = isExplicitCompareSelection(selection, offerCount) ? clean : effective;
   if (effective.includes(index)) {
     return base.filter((i) => i !== index);
   }

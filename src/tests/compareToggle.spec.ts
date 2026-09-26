@@ -1,5 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { resolveCompareIndices, shouldShowComparePicker, toggleCompareIndex } from '@/lib/compare';
+import {
+  isExplicitCompareSelection,
+  resolveCompareIndices,
+  shouldShowComparePicker,
+  toggleCompareIndex,
+} from '@/lib/compare';
+
+describe('isExplicitCompareSelection', () => {
+  it('needs at least two valid offers', () => {
+    expect(isExplicitCompareSelection([0, 1], 5)).toBe(true);
+    expect(isExplicitCompareSelection([0], 5)).toBe(false);
+    expect(isExplicitCompareSelection([], 5)).toBe(false);
+    expect(isExplicitCompareSelection([0, 9, 1], 5)).toBe(true);
+    expect(isExplicitCompareSelection([0, 9], 5)).toBe(false);
+  });
+});
 
 describe('toggleCompareIndex', () => {
   // Removing a visible offer must not drop hidden (viewport-capped)
