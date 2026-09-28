@@ -66,6 +66,7 @@ function identifyingOffer(): TOffer {
       companyName: 'Acme Corp',
       valuation: 12_345_000_000,
       fullyDilutedShares: 80_000_000,
+      liquidityDiscount: 0.3,
       optionGrants: [
         { id: 'opt-1', label: 'Founder grant', quantity: 9_876, strike: 42.5, fmvAtGrant: 55.0, vestYears: 4, cliffMonths: 12 },
       ],

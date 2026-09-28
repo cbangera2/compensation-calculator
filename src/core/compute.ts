@@ -2,7 +2,7 @@ import { addYears, addMonths, differenceInCalendarDays, differenceInCalendarMont
 import { TOffer, TEquityGrant } from '@/models/types';
 import { expandVesting } from './vesting';
 import { priceAtVest } from './growth';
-import { impliedSharePrice } from './startup';
+import { impliedSharePrice, liquidityKeep } from './startup';
 
 export type YearRow = {
   year: number; // 1-based index
@@ -213,6 +213,10 @@ export function computeStartupVesting(offer: TOffer): StartupGrantYearly[] {
   if (!block?.enabled) return [];
   const sharePrice = impliedSharePrice(block.valuation, block.fullyDilutedShares);
   if (sharePrice <= 0) return [];
+  // Illiquidity discount: vested private shares are haircut at the scenario
+  // price, exactly like the Equity tab's scenario valuation. Cash flows and
+  // grant-date references are untouched.
+  const keep = liquidityKeep(block);
   const offerStart = new Date(offer.startDate);
   const inYear = (d: Date, yearIndex: number) => {
     const yStart = startOfYear(offerStart, yearIndex);
@@ -238,7 +242,7 @@ export function computeStartupVesting(offer: TOffer): StartupGrantYearly[] {
       });
       for (const e of schedule) {
         const y = yearOf(e.date);
-        if (y !== null) yearly[y] += e.shares * intrinsic;
+        if (y !== null) yearly[y] += e.shares * intrinsic * keep;
       }
     }
     out.push({ label: g.label, kind: 'option', yearly });
@@ -250,7 +254,7 @@ export function computeStartupVesting(offer: TOffer): StartupGrantYearly[] {
       const schedule = buildVestSchedule({ grantStart, totalShares: g.shares, vestYears: g.vestYears });
       for (const e of schedule) {
         const y = yearOf(e.date);
-        if (y !== null) yearly[y] += e.shares * sharePrice;
+        if (y !== null) yearly[y] += e.shares * sharePrice * keep;
       }
     }
     out.push({ label: g.label, kind: 'rsu', yearly });

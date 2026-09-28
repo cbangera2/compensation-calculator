@@ -23,6 +23,7 @@ function block(overrides: Partial<TStartupEquity> = {}): TStartupEquity {
     companyName: 'TestCo',
     valuation: 10_000_000_000,
     fullyDilutedShares: 100_000_000, // exactly $100/share
+    liquidityDiscount: 0.3,
     optionGrants: [],
     rsuGrants: [],
     savedScenarios: [],
@@ -55,8 +56,9 @@ describe('startup equity feeds computeOffer (regression: equity-over-4-years sho
     }));
     const rows = computeOffer(offer);
     const total = rows.reduce((a, r) => a + r.stock, 0);
-    expect(total).toBeGreaterThan(80_000);
-    expect(total).toBeLessThan(120_000);
+    // 1000 * $100 = 100k paper, less the 30% illiquidity discount -> 70k
+    expect(total).toBeGreaterThan(60_000);
+    expect(total).toBeLessThan(90_000);
   });
 
   it('returns 0 stock when the block is disabled or absent', () => {
@@ -111,5 +113,25 @@ describe('startup equity feeds computeOffer (regression: equity-over-4-years sho
     const rsuRows = computeOffer(rsuOffer).map((r) => r.stock);
     expect(optionRows).toHaveLength(rsuRows.length);
     optionRows.forEach((v, i) => expect(v).toBeCloseTo(rsuRows[i], 6));
+  });
+
+  it('applies the illiquidity discount to computeOffer stock rows, not to cash', () => {
+    const discounted = startupOffer(block({
+      rsuGrants: [{ label: 'rsus', shares: 1000, fmvAtGrant: 100, doubleTrigger: true, vestYears: 4 }],
+    }));
+    const raw = startupOffer(block({
+      liquidityDiscount: 0,
+      rsuGrants: [{ label: 'rsus', shares: 1000, fmvAtGrant: 100, doubleTrigger: true, vestYears: 4 }],
+    }));
+    const dRows = computeOffer(discounted);
+    const rRows = computeOffer(raw);
+    const dStock = dRows.reduce((a, r) => a + r.stock, 0);
+    const rStock = rRows.reduce((a, r) => a + r.stock, 0);
+    // 1000 shares @ $100/share = 100k paper; 30% discount -> 70k
+    expect(rStock).toBeCloseTo(100_000, 0);
+    expect(dStock).toBeCloseTo(70_000, 0);
+    expect(dStock).toBeCloseTo(rStock * 0.7, 6);
+    // Cash rows are untouched by the equity discount
+    dRows.forEach((r, i) => expect(r.base).toBe(rRows[i].base));
   });
 });

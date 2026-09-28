@@ -20,6 +20,7 @@ import {
 import {
   annualizeGrantValue,
   impliedSharePrice,
+  liquidityKeep,
   optionNetValue,
   rsuValue,
 } from '@/core/startup';
@@ -102,11 +103,13 @@ export function annualizeOffer(offer: TOffer): AnnualizedComponents {
   const se = offer.startupEquity;
   if (se?.enabled) {
     const price = impliedSharePrice(se.valuation ?? 0, se.fullyDilutedShares ?? 0);
+    // Startup equity is haircut by the illiquidity discount; cash is untouched.
+    const keep = liquidityKeep(se);
     for (const og of se.optionGrants ?? []) {
-      equity += annualizeGrantValue(optionNetValue(og.quantity, og.strike, price), Math.max(1, og.vestYears || 4));
+      equity += annualizeGrantValue(optionNetValue(og.quantity, og.strike, price), Math.max(1, og.vestYears || 4)) * keep;
     }
     for (const rg of se.rsuGrants ?? []) {
-      equity += annualizeGrantValue(rsuValue(rg.shares, price), Math.max(1, rg.vestYears || 4));
+      equity += annualizeGrantValue(rsuValue(rg.shares, price), Math.max(1, rg.vestYears || 4)) * keep;
     }
   }
 

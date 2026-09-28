@@ -86,6 +86,11 @@ export const StartupEquity = z.object({
   // Scenario valuation in dollars; implied share price = valuation / fullyDilutedShares
   valuation: z.number().nonnegative().default(1_000_000_000),
   fullyDilutedShares: z.number().positive().default(100_000_000),
+  // Illiquidity discount (discount for lack of marketability) applied to the
+  // scenario-priced equity value only — never to cash. 0.3 default reflects
+  // the standard 20-30% DLOM range for private shares; the paper mark stays
+  // visible so the haircut is never silent.
+  liquidityDiscount: z.number().min(0).max(1).default(0.3),
   optionGrants: z.array(StartupOptionGrant).default([]),
   rsuGrants: z.array(StartupRsuGrant).default([]),
   // Named, restorable valuation snapshots (user-saved; not auto-managed).

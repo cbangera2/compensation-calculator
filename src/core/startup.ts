@@ -6,7 +6,16 @@ import type { TStartupEquity, TStartupOptionGrant, TStartupRsuGrant } from '@/mo
  * All functions are pure and operate on plain numbers so they can be reused
  * by the UI, tests, and any future compute integration. Valuations are in
  * dollars; share counts are fully-diluted share counts.
+ *
+ * The illiquidity discount (DLOM) is applied to the scenario-priced equity
+ * value only — never to cash, and never to the grant-date FMV reference.
  */
+
+/** Keep factor after the block's illiquidity discount: 1 - clamp(discount, 0, 1). */
+export function liquidityKeep(block: { liquidityDiscount?: number | null }): number {
+  const d = block.liquidityDiscount ?? 0.3;
+  return 1 - Math.min(1, Math.max(0, d));
+}
 
 /** Implied price per share from a scenario valuation. */
 export function impliedSharePrice(valuation: number, fullyDilutedShares: number): number {
@@ -55,8 +64,13 @@ export type StartupGrantValuation = {
 
 export type StartupEquityValuation = {
   sharePrice: number;
+  /** Illiquidity discount applied to scenario-priced values (0..1). */
+  liquidityDiscount: number;
   grants: StartupGrantValuation[];
   totalGrantValue: number;
+  /** Sum of scenario-priced grant values BEFORE the discount (the paper mark). */
+  totalPaperNetValue: number;
+  /** Sum of scenario-priced grant values AFTER the discount. */
   totalNetValue: number;
   totalExerciseCost: number;
   /** Total grant value annualized across each grant's own vest schedule. */
@@ -101,14 +115,28 @@ export function valuateStartupEquity(
 ): StartupEquityValuation {
   const valuation = valuationOverride ?? block.valuation;
   const sharePrice = impliedSharePrice(valuation, block.fullyDilutedShares);
-  const grants: StartupGrantValuation[] = [
+  const keep = liquidityKeep(block);
+  const raw: StartupGrantValuation[] = [
     ...(block.optionGrants ?? []).map((g) => valuateOptionGrant(g, sharePrice)),
     ...(block.rsuGrants ?? []).map((g) => valuateRsuGrant(g, sharePrice)),
   ];
+  // The illiquidity discount applies to scenario-priced values only: net
+  // value and its annualized spread. Grant-date FMV (grantValue) and exercise
+  // cost are reference figures and stay undiscounted. annualizeGrantValue is
+  // linear in netValue, so scaling the annualized figure by `keep` matches
+  // annualizing the discounted net value exactly.
+  const grants = raw.map((g) => ({
+    ...g,
+    netValue: g.netValue * keep,
+    annualizedGrantValue: g.annualizedGrantValue * keep,
+  }));
   return {
     sharePrice,
+    // Rounded so the exposed figure is clean (1 - 0.7 is 0.30000000000000004 in IEEE).
+    liquidityDiscount: Math.round((1 - keep) * 1e6) / 1e6,
     grants,
     totalGrantValue: grants.reduce((a, g) => a + g.grantValue, 0),
+    totalPaperNetValue: raw.reduce((a, g) => a + g.netValue, 0),
     totalNetValue: grants.reduce((a, g) => a + g.netValue, 0),
     totalExerciseCost: grants.reduce((a, g) => a + g.exerciseCost, 0),
     totalAnnualizedGrantValue: grants.reduce((a, g) => a + g.annualizedGrantValue, 0),
@@ -122,6 +150,7 @@ export function sampleStartupEquity(): TStartupEquity {
     companyName: 'Example Startup',
     valuation: 6_000_000_000,
     fullyDilutedShares: 100_000_000,
+    liquidityDiscount: 0.3,
     optionGrants: [
       {
         label: 'New hire option grant',

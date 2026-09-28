@@ -47,6 +47,7 @@ function startupBlock(partial: Partial<TStartupEquity> = {}): TStartupEquity {
     companyName: 'DemoLabs',
     valuation: 5_000_000_000,
     fullyDilutedShares: 100_000_000,
+    liquidityDiscount: 0.3,
     optionGrants: [
       {
         label: 'Options',
@@ -99,11 +100,11 @@ describe('startup valuation slider range', () => {
 describe('startupBreakevenLine', () => {
   it('finds the valuation where the startup ties the public offer', () => {
     // DemoTech: $165k x 4 = $660k. DemoLabs: $140k x 4 + 12k options @ $2
-    // strike on 100M FD shares. Breakeven: 560k + 12k*(v/1e8 - 2) = 660k
-    // -> v ~= $1.03B.
+    // strike on 100M FD shares, with the 30% illiquidity discount. Breakeven:
+    // 560k + 12k*(v/1e8 - 2)*0.7 = 660k -> v ~= $1.39B.
     const line = startupBreakevenLine(startupOffer(), 'DemoLabs', normalOffer(), 'DemoTech');
     expect(line).toContain('DemoLabs wins if it exits above');
-    expect(line).toContain('$1B');
+    expect(line).toContain('$1.4B');
     expect(line).toContain('DemoTech pays more');
   });
 

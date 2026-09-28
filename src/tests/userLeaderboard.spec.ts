@@ -89,6 +89,7 @@ describe('offerStockGrantTotal4yr', () => {
         companyName: 'Example Startup',
         valuation: 1_000_000_000,
         fullyDilutedShares: 100_000_000,
+        liquidityDiscount: 0.3,
         optionGrants: [
           {
             label: 'Option grant',
@@ -114,6 +115,7 @@ describe('offerStockGrantTotal4yr', () => {
         companyName: 'Example Startup',
         valuation: 1_000_000_000,
         fullyDilutedShares: 100_000_000,
+        liquidityDiscount: 0.3,
         optionGrants: [
           {
             label: 'Option grant',
