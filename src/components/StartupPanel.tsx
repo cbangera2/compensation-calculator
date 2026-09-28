@@ -532,6 +532,33 @@ export default function StartupPanel() {
                 <span className="text-xs text-muted-foreground">/ share</span>
               </div>
             </div>
+
+            {/* Illiquidity discount: haircut on the paper mark, equity only */}
+            <div className="mt-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <label htmlFor="discount-slider" className="text-xs font-medium text-foreground">
+                  Illiquidity discount
+                </label>
+                <span className="text-sm font-bold tabular-nums text-foreground">
+                  {Math.round((block.liquidityDiscount ?? 0.3) * 100)}%
+                </span>
+              </div>
+              <Slider
+                id="discount-slider"
+                value={[Math.round((block.liquidityDiscount ?? 0.3) * 100)]}
+                min={0}
+                max={50}
+                step={1}
+                onValueChange={(v) => patch((b) => ({ ...b, liquidityDiscount: (v[0] ?? 30) / 100 }))}
+                className="py-2"
+                aria-label="Illiquidity discount percent"
+              />
+              <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+                Private shares can&apos;t be sold at the paper mark, so the scenario value is haircut by
+                this much. Applies to equity only — cash is untouched. 20-30% is the standard range;
+                set 0% for the raw paper value.
+              </p>
+            </div>
           </div>
 
           {/* Saved valuation scenarios */}
@@ -609,14 +636,17 @@ export default function StartupPanel() {
         {valuation && (
           <CardContent className="grid grid-cols-2 gap-2 border-t border-border/60 pt-4 sm:gap-3 sm:pt-5 lg:grid-cols-4">
             {[
-              { label: 'Total net value', value: formatCurrency(valuation.totalNetValue), big: true },
-              { label: 'Annualized grant value', value: `${formatCurrency(valuation.totalAnnualizedGrantValue)}/yr` },
-              { label: 'Total exercise cost', value: formatCurrency(valuation.totalExerciseCost) },
-              { label: 'Grants', value: formatNumber(valuation.grants.length) },
+              { label: 'Total net value', value: formatCurrency(valuation.totalNetValue), big: true, hint: valuation.liquidityDiscount > 0 ? `Paper value ${formatCurrency(valuation.totalPaperNetValue)} · less ${Math.round(valuation.liquidityDiscount * 100)}% illiquidity discount` : undefined },
+              { label: 'Annualized grant value', value: `${formatCurrency(valuation.totalAnnualizedGrantValue)}/yr`, hint: undefined },
+              { label: 'Total exercise cost', value: formatCurrency(valuation.totalExerciseCost), hint: undefined },
+              { label: 'Grants', value: formatNumber(valuation.grants.length), hint: undefined },
             ].map((s) => (
               <div key={s.label} className="rounded-xl border border-border/60 bg-muted/20 px-3 py-2.5 sm:px-4 sm:py-3">
                 <div className={cn('font-bold tabular-nums text-foreground', s.big ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg')}>{s.value}</div>
                 <div className="mt-0.5 text-xs text-muted-foreground">{s.label}</div>
+                {s.hint && (
+                  <div className="mt-1 text-[11px] leading-snug text-muted-foreground">{s.hint}</div>
+                )}
                 {s.label === 'Annualized grant value' && (
                   <div className="mt-1 text-[11px] leading-snug text-muted-foreground">
                     Net value at the current scenario share price, spread across vest years — moves with the valuation slider. Grant-date FMV values are shown per grant for reference. Double-trigger status and cliff timing aren&apos;t modeled; value is spread evenly.

@@ -104,6 +104,7 @@ const AnonOfferSchema = z.object({
     companyName: z.string().default('Example Startup'),
     valuation: z.number().nonnegative().default(1_000_000_000),
     fullyDilutedShares: z.number().positive().default(100_000_000),
+    liquidityDiscount: z.number().min(0).max(1).default(0.3),
     optionGrants: z.array(
       z.object({
         label: z.string().default('Option grant'),
